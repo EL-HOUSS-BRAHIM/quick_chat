@@ -26,12 +26,17 @@ self.addEventListener('install', (event) => {
 
 // Fetch resources from cache when offline
 self.addEventListener('fetch', (event) => {
-    // Don't cache API requests
-    if (event.request.url.includes('/api/') || event.request.method !== 'GET') {
-        event.respondWith(fetch(event.request));
+    // Don't cache API requests, authentication, logout actions, or form submissions
+    if (event.request.url.includes('/api/') || 
+        event.request.url.includes('logout') ||
+        event.request.url.includes('login') ||
+        event.request.url.includes('auth.php') ||
+        event.request.method !== 'GET') {
+        // Always fetch from network for these requests - don't cache or interfere
         return;
     }
     
+    // For static assets only, use cache-first strategy
     event.respondWith(
         caches.match(event.request)
             .then((response) => {
