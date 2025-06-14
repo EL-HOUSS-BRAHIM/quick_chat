@@ -1,6 +1,9 @@
 # Quick Chat Application
 
-A secure, feature-rich chat application built with HTML, CSS, and JavaScript.
+A secure, feature-rich chat application built with HTML, CSS, JavaScript, and PHP.
+
+**Author:** BRAHIM EL HOUSS  
+**Repository:** [https://github.com/EL-HOUSS-BRAHIM/quick_chat](https://github.com/EL-HOUSS-BRAHIM/quick_chat)
 
 ## Features
 
@@ -31,27 +34,34 @@ A secure, feature-rich chat application built with HTML, CSS, and JavaScript.
 
 ## Setup Instructions
 
-1. **Clone or download the project files**
-   ```
-   - index.html
-   - styles.css
-   - script.js
-   - sw.js
-   - README.md
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/EL-HOUSS-BRAHIM/quick_chat.git
+   cd quick_chat
    ```
 
-2. **Open the application**
+2. **Server Setup (PHP Backend)**
+   - Ensure you have PHP 7.4+ installed
+   - Set up a web server (Apache/Nginx) or use PHP's built-in server:
+     ```bash
+     php -S localhost:8000
+     ```
+   - Configure your database settings in the `.env` file
+   - Run the setup script to initialize the database:
+     ```bash
+     php setup.php
+     ```
+
+3. **Alternative Setup (Client-side only)**
+   - For basic functionality without the PHP backend:
    - Simply open `index.html` in a modern web browser
-   - Or serve it using a local server (recommended):
+   - Or serve it using a local server:
      ```bash
      # Using Python 3
      python -m http.server 8000
      
      # Using Node.js (if you have http-server installed)
      npx http-server
-     
-     # Using PHP
-     php -S localhost:8000
      ```
 
 3. **Access the application**
@@ -111,10 +121,31 @@ For production use, consider implementing:
 ```
 quick_chat/
 ├── index.html          # Main HTML structure
+├── index.php           # PHP entry point
 ├── styles.css          # Styling and responsive design
 ├── script.js           # Application logic and functionality
 ├── sw.js              # Service worker for offline support
-└── README.md          # This documentation
+├── setup.php           # Database setup script
+├── test_config.php     # Configuration testing
+├── .env               # Environment configuration
+├── .gitignore         # Git ignore rules
+├── LICENSE            # MIT License
+├── README.md          # This documentation
+├── api/               # API endpoints
+│   ├── auth.php       # Authentication API
+│   ├── avatar.php     # Avatar management
+│   └── messages.php   # Message handling
+├── assets/            # Frontend assets
+│   ├── css/
+│   └── js/
+├── classes/           # PHP classes
+│   ├── Database.php   # Database connection
+│   ├── Env.php        # Environment loader
+│   ├── Message.php    # Message model
+│   ├── Security.php   # Security utilities
+│   └── User.php       # User model
+└── config/            # Configuration files
+    └── config.php     # Main configuration
 ```
 
 ## Technical Details
@@ -166,8 +197,52 @@ quick_chat/
 
 ## License
 
-This project is provided as-is for educational and demonstration purposes. Feel free to modify and use according to your needs.
+
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
+Copyright (c) 2025 BRAHIM EL HOUSS
+
+## Contributing
+
+**Please fork this repository before making contributions!** This helps maintain the project's integrity and gives you credit for your work.
+
+### Preferred Workflow:
+1. **Fork** the repository to your GitHub account
+2. **Clone** your fork locally:
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/quick_chat.git
+   ```
+3. **Create** your feature branch:
+   ```bash
+   git checkout -b feature/AmazingFeature
+   ```
+4. **Make** your changes and commit:
+   ```bash
+   git commit -m 'Add some AmazingFeature'
+   ```
+5. **Push** to your fork:
+   ```bash
+   git push origin feature/AmazingFeature
+   ```
+6. **Open** a Pull Request from your fork to the main repository
+
+### Why Fork First?
+- ✅ You get credit for your contributions
+- ✅ Keeps the main repository clean
+- ✅ Allows for proper code review
+- ✅ Maintains project history and attribution
+- ✅ Enables collaborative development
+
+### Direct Downloads
+While the MIT License allows direct downloads and modifications, we encourage:
+- ⭐ **Star** the repository if you find it useful
+- 🍴 **Fork** it if you plan to modify or contribute
+- 📝 **Open issues** for bugs or feature requests
+- 💬 **Join discussions** for questions or ideas
 
 ## Support
 
-For issues or questions, please check the browser console for error messages and ensure your browser supports all required web APIs.
+For issues or questions:
+- Open an issue on [GitHub](https://github.com/EL-HOUSS-BRAHIM/quick_chat/issues)
+- Check the browser console for error messages
+- Ensure your browser supports all required web APIs
