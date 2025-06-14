@@ -1,52 +1,111 @@
-// Enhanced Quick Chat Application
-// Version: Updated 2025-06-14 - Fixed initializeServiceWorker issue
+/**
+ * Enhanced Quick Chat Application
+ * Version: 2025-06-15 - Complete refactor with improved architecture
+ * Features: Real-time messaging, offline support, file uploads, notifications
+ */
 class QuickChatApp {
     constructor() {
-        console.log('QuickChatApp constructor called - Version 2025-06-14');
-        console.log('Available methods:', Object.getOwnPropertyNames(QuickChatApp.prototype));
-        this.config = window.ChatConfig || {};
-        this.user = null;
-        this.isLoggingIn = false; // Flag to prevent cleanup during login
-        this.messages = [];
-        this.isOnline = navigator.onLine;
-        this.lastMessageId = null;
-        this.typingTimeout = null;
-        this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
-        this.isVisible = true;
-        this.soundEnabled = true;
-        this.pollInterval = null; // For periodic message updates
+        console.log('QuickChatApp v2025-06-15 initializing...');
         
-        // Initialize CSRF token from meta tag
-        this.csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-        console.log('Initial CSRF token:', this.csrfToken ? 'present' : 'missing');
+        // Configuration
+        this.config = {
+            pollInterval: 3000,
+            maxFileSize: 10 * 1024 * 1024, // 10MB
+            maxMessageLength: 2000,
+            maxReconnectAttempts: 5,
+            storagePrefix: 'quick_chat_',
+            apiRetryDelay: 1000,
+            ...window.ChatConfig
+        };
+        
+        // Application state
+        this.state = {
+            user: null,
+            messages: new Map(),
+            isOnline: navigator.onLine,
+            isVisible: !document.hidden,
+            isLoggingIn: false,
+            lastMessageId: null,
+            reconnectAttempts: 0,
+            soundEnabled: this.getStoredPreference('soundEnabled', true),
+            theme: this.getStoredPreference('theme', 'light')
+        };
+        
+        // Timers and intervals
+        this.timers = {
+            pollInterval: null,
+            typingTimeout: null,
+            reconnectTimeout: null
+        };
+        
+        // Event handlers (bound to maintain context)
+        this.boundHandlers = {
+            visibilityChange: this.handleVisibilityChange.bind(this),
+            onlineStatusChange: this.handleOnlineStatusChange.bind(this),
+            beforeUnload: this.handleBeforeUnload.bind(this),
+            messageInput: this.handleMessageInput.bind(this),
+            keyboardShortcuts: this.handleKeyboardShortcuts.bind(this)
+        };
+        
+        // CSRF token management
+        this.csrfToken = this.getCSRFToken();
+        
+        // Initialize notifications permission
+        this.initializeNotifications();
     }
 
+    /**
+     * Initialize the application
+     */
     async init() {
-        console.log('QuickChatApp init called');
         try {
-            await this.initializeApp();
+            console.log('Initializing QuickChat application...');
+            
+            // Setup event listeners
+            this.setupEventListeners();
+            
+            // Initialize theme
+            this.applyTheme(this.state.theme);
+            
+            // Clean up old storage data
+            this.cleanupOldStorageData();
+            
+            // Initialize service worker
+            await this.initializeServiceWorker();
+            
+            // Check authentication status
+            await this.checkAuthenticationStatus();
+            
+            console.log('QuickChat application initialized successfully');
         } catch (error) {
-            console.error('Failed to initialize app:', error);
-        }
-    }
-    
-    initializeServiceWorker() {
-        console.log('initializeServiceWorker method called');
-        // Service worker registration - stub for now
-        if ('serviceWorker' in navigator) {
-            // Can register SW here if sw.js exists
-            console.log('Service Worker support detected');
+            console.error('Failed to initialize application:', error);
+            this.showToast('Failed to initialize application', 'error');
         }
     }
 
-    setupNotifications() {
-        console.log('setupNotifications method called');
-        // Request notification permission
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
+    /**
+     * Initialize Service Worker for offline support
+     */
+    async initializeServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            try {
+                const registration = await navigator.serviceWorker.register('/sw.js');
+                console.log('Service Worker registered:', registration);
+            } catch (error) {
+                console.log('Service Worker registration failed:', error);
+            }
         }
-        console.log('Notifications setup complete');
+    }
+
+    /**
+     * Initialize notifications
+     */
+    initializeNotifications() {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().then(permission => {
+                console.log('Notification permission:', permission);
+            });
+        }
     }
 
     async initializeApp() {
@@ -67,12 +126,44 @@ class QuickChatApp {
             
             if (sessionCheck.authenticated) {
                 this.user = sessionCheck.user;
+                console.log('User authenticated:', this.user.username);
+                
                 this.showChatInterface();
+                
+                // Now that user is set, load their cached messages first
+                console.log('Loading cached messages for user...');
+                const hasCachedMessages = this.loadMessagesFromStorage();
+                if (hasCachedMessages && this.messages.length > 0) {
+                    console.log(`Rendering ${this.messages.length} cached messages...`);
+                    this.renderMessages();
+                    this.scrollToBottom();
+                }
+                
+                // Then load fresh messages from API (this will merge with cached)
                 await this.loadMessages();
-                this.startPeriodicUpdates();
+                
+                // Ensure the method exists before calling it
+                console.log('Checking startPeriodicUpdates method...');
+                console.log('Method exists:', typeof this.startPeriodicUpdates === 'function');
+                console.log('Method bound:', this.startPeriodicUpdates.name);
+                
+                if (typeof this.startPeriodicUpdates === 'function') {
+                    console.log('Starting periodic updates...');
+                    this.startPeriodicUpdates();
+                } else {
+                    console.error('startPeriodicUpdates method not found or not a function');
+                    // Try to find the method manually
+                    if (QuickChatApp.prototype.startPeriodicUpdates) {
+                        console.log('Found method on prototype, calling manually...');
+                        QuickChatApp.prototype.startPeriodicUpdates.call(this);
+                    }
+                }
             } else {
+                console.log('User not authenticated, showing login interface');
                 this.showLoginInterface();
             }
+            
+            this.bindEvents();
             
             this.bindEvents();
             
@@ -465,17 +556,30 @@ class QuickChatApp {
     
     async loadMessages() {
         try {
-            // First, try to load messages from localStorage
-            const hasStoredMessages = this.loadMessagesFromStorage();
+            console.log('Loading messages...');
             
-            if (hasStoredMessages) {
-                console.log('Found cached messages, rendering...');
-                this.renderMessages();
-                this.scrollToBottom();
+            // Check if we already have messages loaded from cache
+            const hadCachedMessages = this.messages.length > 0;
+            const cachedMessageIds = hadCachedMessages ? new Set(this.messages.map(msg => msg.id)) : new Set();
+            
+            // If we don't have cached messages, try to load from localStorage for current user
+            if (!hadCachedMessages) {
+                const hasStoredMessages = this.loadMessagesFromStorage();
+                
+                if (hasStoredMessages && this.messages.length > 0) {
+                    console.log('Found stored messages, rendering...');
+                    this.renderMessages();
+                    this.scrollToBottom();
+                    
+                    // Update lastMessageId from stored messages
+                    if (this.messages.length > 0) {
+                        this.lastMessageId = this.messages[this.messages.length - 1].id;
+                    }
+                }
             }
             
-            // Then load fresh messages from API
-            console.log('Loading messages from API...');
+            // Then try to load fresh messages from API
+            console.log('Loading fresh messages from API...');
             const response = await fetch(`api/messages.php?action=list&limit=50`);
             
             if (!response.ok) {
@@ -483,38 +587,61 @@ class QuickChatApp {
             }
             
             const result = await response.json();
-            console.log('Messages response:', result);
+            console.log('Messages API response:', result);
             
             if (result.success) {
-                this.messages = result.data || [];
-                console.log('Loaded', this.messages.length, 'messages from API');
+                const freshMessages = result.data || [];
+                console.log(`Loaded ${freshMessages.length} messages from API`);
                 
-                // Save fresh messages to localStorage
+                // Merge with existing messages (avoid duplicates)
+                if (this.messages.length > 0) {
+                    const existingIds = new Set(this.messages.map(msg => msg.id));
+                    const newMessages = freshMessages.filter(msg => !existingIds.has(msg.id));
+                    
+                    if (newMessages.length > 0) {
+                        // Add new messages and sort by timestamp/id
+                        this.messages = [...this.messages, ...newMessages];
+                        this.messages.sort((a, b) => {
+                            // Sort by id if available, otherwise by created_at
+                            if (a.id && b.id) return a.id - b.id;
+                            return new Date(a.created_at) - new Date(b.created_at);
+                        });
+                        console.log(`Added ${newMessages.length} new messages`);
+                    }
+                } else {
+                    this.messages = freshMessages;
+                }
+                
+                // Save updated messages to localStorage
                 this.saveMessagesToStorage();
                 
-                this.renderMessages();
-                this.scrollToBottom();
+                // Re-render if we got new messages or had no stored messages
+                if (!hadCachedMessages || freshMessages.some(msg => !cachedMessageIds.has(msg.id))) {
+                    this.renderMessages();
+                    this.scrollToBottom();
+                }
                 
                 if (this.messages.length > 0) {
-                    this.lastMessageId = this.messages[this.messages.length - 1].id;
+                    this.lastMessageId = Math.max(...this.messages.map(msg => msg.id || 0));
                 }
             } else {
                 console.warn('Load messages failed:', result.error);
                 // If API failed but we have cached messages, use those
-                if (!hasStoredMessages) {
+                if (this.messages.length === 0) {
                     this.showWelcomeMessage();
                 }
             }
             
         } catch (error) {
             console.error('Load messages error:', error);
-            console.log('API failed, using cached messages if available');
             
-            // If API failed but we have cached messages, use those
-            const hasStoredMessages = this.loadMessagesFromStorage();
-            if (hasStoredMessages) {
-                this.renderMessages();
-                this.scrollToBottom();
+            // If we have cached messages, show them even if API failed
+            if (this.messages.length > 0) {
+                console.log('Using cached messages due to API error');
+                if (!hadCachedMessages) {
+                    this.renderMessages();
+                    this.scrollToBottom();
+                }
             } else {
                 this.showWelcomeMessage();
             }
@@ -826,146 +953,171 @@ class QuickChatApp {
         if (!container) return;
         
         const toast = document.createElement('div');
+        } catch (error) { `toast toast-${type}`;
+            console.error('Failed to refresh CSRF token:', error);
+        }   <i class="fas fa-${type === 'error' ? 'exclamation-circle' : type === 'success' ? 'check-circle' : 'info-circle'}"></i>
+        return null;this.escapeHtml(message)}</span>
+    }       <button class="toast-close" onclick="this.parentElement.remove()">
+                <i class="fas fa-times"></i>
+    showError(message) {
+        this.showToast(message, 'error');
+    }   
+        container.appendChild(toast);
+    showSuccess(message) {
+        this.showToast(message, 'success');
+    }   setTimeout(() => {
+            if (toast.parentElement) {
+    showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+        
+        const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
         toast.innerHTML = `
             <i class="fas fa-${type === 'error' ? 'exclamation-circle' : type === 'success' ? 'check-circle' : 'info-circle'}"></i>
-            <span>${this.escapeHtml(message)}</span>
-            <button class="toast-close" onclick="this.parentElement.remove()">
+            <span>${this.escapeHtml(message)}</span>erHTML;
+            <button class="toast-close" onclick="this.parentElement.remove()">...';
                 <i class="fas fa-times"></i>
-            </button>
-        `;
-        
+            </button>sabled = false;
+        `;  button.innerHTML = button.dataset.originalText || button.innerHTML;
+        }
         container.appendChild(toast);
         
         // Auto remove after 5 seconds
-        setTimeout(() => {
+        setTimeout(() => {document.getElementById('messagesContainer');
             if (toast.parentElement) {
-                toast.remove();
+                toast.remove(); = container.scrollHeight;
             }
         }, 5000);
     }
-    
-    setButtonLoading(button, loading) {
-        if (loading) {
+    updateCharacterCount() {
+    setButtonLoading(button, loading) {etElementById('messageInput');
+        if (loading) {t = document.getElementById('charCount');
             button.disabled = true;
             button.dataset.originalText = button.innerHTML;
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-        } else {
+        } else {Count.textContent = length;
             button.disabled = false;
             button.innerHTML = button.dataset.originalText || button.innerHTML;
-        }
-    }
-    
-    scrollToBottom() {
+        }   if (length > 1800) {
+    }           charCount.style.color = '#dc3545'; // Red
+            } else if (length > 1500) {
+    scrollToBottom() {unt.style.color = '#ffc107'; // Yellow
         const container = document.getElementById('messagesContainer');
-        if (container) {
+        if (container) {t.style.color = ''; // Default
             container.scrollTop = container.scrollHeight;
         }
     }
     
-    updateCharacterCount() {
+    updateCharacterCount() {en DOM is loaded
         const messageInput = document.getElementById('messageInput');
         const charCount = document.getElementById('charCount');
-        
-        if (messageInput && charCount) {
+            console.log('Checking session...');
+        if (messageInput && charCount) {('api/auth-simple.php?action=check_session', {
             const length = messageInput.value.length;
             charCount.textContent = length;
-            
-            // Update color based on limit
+                headers: {
+            // Update color based on limitache'
             if (length > 1800) {
                 charCount.style.color = '#dc3545'; // Red
             } else if (length > 1500) {
-                charCount.style.color = '#ffc107'; // Yellow
-            } else {
+                charCount.style.color = '#ffc107'; // Yellow;
+            } else {log('Response headers:', Array.from(response.headers.entries()));
                 charCount.style.color = ''; // Default
-            }
-        }
-    }
-
+            }/ Log the raw response for debugging
+        }   const responseText = await response.text();
+    }       console.log('Raw response from check_session:', responseText);
+            console.log('Response length:', responseText.length);
     // Initialize the app when DOM is loaded
-    async checkSession() {
-        try {
-            console.log('Checking session...');
+    async checkSession() {sponse is empty or not JSON
+        try {f (!responseText || responseText.trim() === '') {
+            console.log('Checking session...');rom server');
             const response = await fetch('api/auth-simple.php?action=check_session', {
                 method: 'GET',
                 credentials: 'same-origin',
-                headers: {
+                headers: {e as JSON
                     'Cache-Control': 'no-cache'
-                }
-            });
-            
+                }onst parsed = JSON.parse(responseText);
+            }); console.log('Parsed response:', parsed);
+                return parsed;
             console.log('Response status:', response.status);
             console.log('Response headers:', Array.from(response.headers.entries()));
-            
-            // Log the raw response for debugging
-            const responseText = await response.text();
+                console.error('Response text:', responseText);
+            // Log the raw response for debugging responseText.substring(0, 500));
+            const responseText = await response.text();Invalid server response' };
             console.log('Raw response from check_session:', responseText);
             console.log('Response length:', responseText.length);
-            
+            console.error('Session check failed:', error);
             // Check if response is empty or not JSON
             if (!responseText || responseText.trim() === '') {
                 console.error('Empty response from server');
                 return { authenticated: false, error: 'Empty server response' };
-            }
-            
-            // Try to parse as JSON
+            }Interface() {
+            ment.getElementById('loginScreen')?.classList.add('active');
+            // Try to parse as JSONatScreen')?.classList.remove('active');
             try {
                 const parsed = JSON.parse(responseText);
                 console.log('Parsed response:', parsed);
-                return parsed;
-            } catch (jsonError) {
+                return parsed;cument.getElementById('loginScreen');
+            } catch (jsonError) {.getElementById('chatScreen');
                 console.error('Failed to parse JSON response:', jsonError);
                 console.error('Response text:', responseText);
                 console.error('First 500 chars:', responseText.substring(0, 500));
                 return { authenticated: false, error: 'Invalid server response' };
-            }
-        } catch (error) {
+            }hatScreen = this.createChatInterface();
+        } catch (error) {.appendChild(chatScreen);
             console.error('Session check failed:', error);
             return { authenticated: false };
-        }
-    }
-    
-    showLoginInterface() {
+        }/ Hide login screen and show chat screen
+    }   if (loginScreen) {
+            loginScreen.classList.remove('active');
+    showLoginInterface() {yle.display = 'none';
         document.getElementById('loginScreen')?.classList.add('active');
         document.getElementById('chatScreen')?.classList.remove('active');
-    }
-    
+    }   chatScreen.classList.add('active');
+        chatScreen.style.display = 'block';
     showChatInterface() {
         const loginScreen = document.getElementById('loginScreen');
-        let chatScreen = document.getElementById('chatScreen');
-        
-        // If chat screen doesn't exist, create it dynamically
+        let chatScreen = document.getElementById('chatScreen');r');
+        if (userElement && this.user) {
+        // If chat screen doesn't exist, create it dynamically| this.user.username;
         if (!chatScreen) {
             console.log('Creating chat interface dynamically...');
-            chatScreen = this.createChatInterface();
+            chatScreen = this.createChatInterface();;
             document.body.appendChild(chatScreen);
         }
-        
-        // Hide login screen and show chat screen
-        if (loginScreen) {
-            loginScreen.classList.remove('active');
+        WelcomeMessage() {
+        // Hide login screen and show chat screen no messages at all
+        if (loginScreen) {&& this.messages.length > 0) {
+            loginScreen.classList.remove('active'); messages exist');
             loginScreen.style.display = 'none';
         }
         
-        chatScreen.classList.add('active');
+        chatScreen.classList.add('active');ntById('messagesContainer');
         chatScreen.style.display = 'block';
-        
-        // Update user info
+            container.innerHTML = `
+        // Update user info"welcome-message">
         const userElement = document.getElementById('currentUser');
-        if (userElement && this.user) {
+        if (userElement && this.user) {k Chat!</h3>
             userElement.textContent = this.user.display_name || this.user.username;
-        }
-        
+        }           <div class="online-users">
+                        <h4>Online Users</h4>
         console.log('Chat interface is now visible');
-    }
-    
-    showWelcomeMessage() {
+    }                       <div class="user-item">
+                                <span class="user-avatar"><i class="fas fa-user"></i></span>
+    showWelcomeMessage() {      <span class="user-name">${this.user ? this.user.display_name || this.user.username : 'You'}</span>
+        // Only show welcome message if there are no messages at alline</span>
+        if (this.messages && this.messages.length > 0) {
+            console.log('Skipping welcome message - messages exist');
+            return; </div>
+        }       </div>
+            `;
         const container = document.getElementById('messagesContainer');
         if (container) {
             container.innerHTML = `
                 <div class="welcome-message">
                     <i class="fas fa-comments"></i>
-                    <h3>Welcome to Quick Chat!</h3>
+                    <h3>Welcome to Quick Chat!</h3>div');
                     <p>Start a conversation by typing a message below.</p>
                     <div class="online-users">
                         <h4>Online Users</h4>
@@ -974,382 +1126,433 @@ class QuickChatApp {
                                 <span class="user-avatar"><i class="fas fa-user"></i></span>
                                 <span class="user-name">${this.user ? this.user.display_name || this.user.username : 'You'}</span>
                                 <span class="user-status online">Online</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-    }
-
-    createChatInterface() {
-        const chatScreen = document.createElement('div');
-        chatScreen.id = 'chatScreen';
+                            </div>="user-avatar">
+                        </div> class="fas fa-user"></i>
+                    </div>div>
+                </div>  <div class="user-details">
+            `;              <h3 id="currentUser">${this.user ? (this.user.display_name || this.user.username) : 'User'}</h3>
+            console.log('Welcome message displayed');e" id="userStatus">Online</span>
+        }               </div>
+    }               </div>
+                    
+    createChatInterface() {ass="chat-actions">
+        const chatScreen = document.createElement('div');ction-btn" title="Toggle Theme">
+        chatScreen.id = 'chatScreen';"fas fa-moon"></i>
         chatScreen.className = 'screen';
-        
-        chatScreen.innerHTML = `
+                        <button id="settingsBtn" class="action-btn" title="Settings">
+        chatScreen.innerHTML = `lass="fas fa-cog"></i>
             <div class="chat-container">
-                <!-- Chat Header -->
-                <div class="chat-header">
+                <!-- Chat Header -->clearChatBtn" class="action-btn" title="Clear Chat">
+                <div class="chat-header"> fa-trash"></i>
                     <div class="user-info">
-                        <div class="user-avatar">
-                            <i class="fas fa-user"></i>
-                        </div>
+                        <div class="user-avatar">ass="action-btn" title="Logout" onclick="confirmLogout()">
+                            <i class="fas fa-user"></i>lt"></i>
+                        </div>on>
                         <div class="user-details">
                             <h3 id="currentUser">${this.user ? (this.user.display_name || this.user.username) : 'User'}</h3>
                             <span class="status online" id="userStatus">Online</span>
-                        </div>
-                    </div>
-                    
+                        </div>Container -->
+                    </div>="messages-container" id="messagesContainer">
+                    <!-- Messages will be loaded here -->
                     <div class="chat-actions">
                         <button id="themeToggle" class="action-btn" title="Toggle Theme">
                             <i class="fas fa-moon"></i>
-                        </button>
+                        </button>ge-input-container">
                         <button id="settingsBtn" class="action-btn" title="Settings">
-                            <i class="fas fa-cog"></i>
-                        </button>
+                            <i class="fas fa-cog"></i>nput-btn" title="Emoji">
+                        </button>ass="fas fa-smile"></i>
                         <button id="clearChatBtn" class="action-btn" title="Clear Chat">
                             <i class="fas fa-trash"></i>
-                        </button>
-                        <button id="logoutBtn" class="action-btn" title="Logout" onclick="confirmLogout()">
+                        </button>s="message-input-area">
+                        <button id="logoutBtn" class="action-btn" title="Logout" onclick="confirmLogout()">"2000"></textarea>
                             <i class="fas fa-sign-out-alt"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Messages Container -->
-                <div class="messages-container" id="messagesContainer">
-                    <!-- Messages will be loaded here -->
-                </div>
-
-                <!-- Message Input -->
-                <div class="message-input-container">
+                        </button>span id="charCount">0</span>/2000
+                    </div>  </div>
+                </div>  </div>
+                        
+                <!-- Messages Container -->id="fileInput" accept="image/*,video/*,audio/*,.pdf,.txt,.doc,.docx" multiple style="display: none;">
+                <div class="messages-container" id="messagesContainer">ttach File">
+                    <!-- Messages will be loaded here -->/i>
+                </div>  </button>
+                        
+                <!-- Message Input -->dioBtn" class="input-btn" title="Voice Message">
+                <div class="message-input-container">ne"></i>
                     <div class="message-input-wrapper">
                         <button id="emojiBtn" class="input-btn" title="Emoji">
-                            <i class="fas fa-smile"></i>
+                            <i class="fas fa-smile"></i>-btn" title="Send Message">
+                        </button>ass="fas fa-paper-plane"></i>
                         </button>
-                        
                         <div class="message-input-area">
                             <textarea id="messageInput" placeholder="Type a message..." rows="1" maxlength="2000"></textarea>
-                            <div class="char-count">
+                            <div class="char-count">" id="fileUploadProgress" style="display: none;">
                                 <span id="charCount">0</span>/2000
-                            </div>
+                            </div>lass="progress-fill" id="progressFill"></div>
                         </div>
-                        
+                        <span class="progress-text" id="progressText"></span>
                         <input type="file" id="fileInput" accept="image/*,video/*,audio/*,.pdf,.txt,.doc,.docx" multiple style="display: none;">
                         <button id="fileBtn" class="input-btn" title="Attach File">
                             <i class="fas fa-paperclip"></i>
                         </button>
-                        
+                        ontainer -->
                         <button id="audioBtn" class="input-btn" title="Voice Message">
                             <i class="fas fa-microphone"></i>
                         </button>
-                        
+                        n;
                         <button id="sendBtn" class="send-btn" title="Send Message">
                             <i class="fas fa-paper-plane"></i>
                         </button>
-                    </div>
+                    </div>ng chat events...');
                     
                     <div class="file-upload-progress" id="fileUploadProgress" style="display: none;">
-                        <div class="progress-bar">
+                        <div class="progress-bar">Id('messageInput');
                             <div class="progress-fill" id="progressFill"></div>
-                        </div>
+                        </div>ment.getElementById('fileInput');
                         <span class="progress-text" id="progressText"></span>
-                    </div>
-                </div>
+                    </div> = document.getElementById('clearChatBtn');
+                </div>gle = document.getElementById('themeToggle');
             </div>
-            
-            <!-- Toast Container -->
-            <div id="toastContainer" class="toast-container"></div>
-        `;
-        
+            messageInput) {
+            <!-- Toast Container -->tener('keydown', (e) => this.handleMessageInput(e));
+            <div id="toastContainer" class="toast-container"></div>eTyping());
+        `;  messageInput.addEventListener('paste', (e) => this.handlePaste(e));
+        }
         return chatScreen;
-    }
-
+    }   if (sendBtn) {
+            sendBtn.addEventListener('click', () => this.sendMessage());
     bindChatEvents() {
         console.log('Binding chat events...');
-        
-        // Chat events
+        if (fileInput) {
+        // Chat eventsaddEventListener('change', (e) => this.handleFileUpload(e));
         const messageInput = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
         const fileInput = document.getElementById('fileInput');
-        const fileBtn = document.getElementById('fileBtn');
+        const fileBtn = document.getElementById('fileBtn');ut?.click());
         const clearChatBtn = document.getElementById('clearChatBtn');
         const themeToggle = document.getElementById('themeToggle');
-        
-        if (messageInput) {
+        if (clearChatBtn) {
+        if (messageInput) {dEventListener('click', () => this.clearChat());
             messageInput.addEventListener('keydown', (e) => this.handleMessageInput(e));
             messageInput.addEventListener('input', () => this.handleTyping());
             messageInput.addEventListener('paste', (e) => this.handlePaste(e));
+        }   themeToggle.addEventListener('click', () => this.toggleTheme());
         }
-        
         if (sendBtn) {
             sendBtn.addEventListener('click', () => this.sendMessage());
         }
         
-        if (fileInput) {
+        if (fileInput) {) {
             fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
-        }
-        
+        }   e.preventDefault();
+            this.sendMessage();
         if (fileBtn) {
             fileBtn.addEventListener('click', () => fileInput?.click());
         }
-        
-        if (clearChatBtn) {
+        leTyping() {
+        if (clearChatBtn) {rCount();
             clearChatBtn.addEventListener('click', () => this.clearChat());
         }
         
         if (themeToggle) {
             themeToggle.addEventListener('click', () => this.toggleTheme());
-        }
+        }etTimeout(() => this.updateCharacterCount(), 10);
         
         console.log('Chat events bound successfully');
-    }
-
-    handleMessageInput(e) {
+    }learChat() {
+        if (confirm('Are you sure you want to clear all messages?\n\nThis will permanently delete your chat history and cannot be undone.\n\nNote: Messages are normally saved even after closing/refreshing the page until you clear them.')) {
+    handleMessageInput(e) { = document.getElementById('messagesContainer');
         if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            this.sendMessage();
-        }
-    }
-
-    handleTyping() {
+            e.preventDefault();HTML = '';
+            this.sendMessage(); [];
+        }       this.lastMessageId = null;
+    }           
+                // Clear from localStorage for current user
+    handleTyping() {.clearMessagesFromStorage();
         this.updateCharacterCount();
         // Could add typing indicators here later
-    }
-
-    handlePaste(e) {
-        // Could add paste handling for images here later
-        setTimeout(() => this.updateCharacterCount(), 10);
-    }
-
-    clearChat() {
-        if (confirm('Are you sure you want to clear all messages? This cannot be undone.')) {
-            const container = document.getElementById('messagesContainer');
-            if (container) {
-                container.innerHTML = '';
-                this.messages = [];
-                this.lastMessageId = null;
+    }           this.showWelcomeMessage();
                 
-                // Clear from localStorage
+    handlePaste(e) {ole.log(`Chat cleared from UI and localStorage for user ${this.user?.username || 'unknown'}`);
+        // Could add paste handling for images here laterrmanently');
+        setTimeout(() => this.updateCharacterCount(), 10);
+    }   }
+    }
+    clearChat() {
+        if (confirm('Are you sure you want to clear all messages?\n\nThis will permanently delete your chat history and cannot be undone.\n\nNote: Messages are normally saved even after closing/refreshing the page until you clear them.')) {
+            const container = document.getElementById('messagesContainer');
+            if (container) {e('data-theme') === 'dark') {
+                container.innerHTML = '';eme');
+                this.messages = [];hat_theme', 'light');
+                this.lastMessageId = null;
+                .setAttribute('data-theme', 'dark');
+                // Clear from localStorage for current user
                 this.clearMessagesFromStorage();
                 
                 // Show welcome message
                 this.showWelcomeMessage();
-                
-                console.log('Chat cleared from UI and localStorage');
-                this.showSuccess('Chat history cleared');
-            }
-        }
-    }
-
-    toggleTheme() {
+                log('Starting periodic updates...');
+                console.log(`Chat cleared from UI and localStorage for user ${this.user?.username || 'unknown'}`);
+                this.showSuccess('Chat history cleared permanently');
+            }his.pollInterval) {
+        }   clearInterval(this.pollInterval);
+    }   }
+        
+    toggleTheme() {terval = setInterval(async () => {
         const html = document.documentElement;
         if (html.getAttribute('data-theme') === 'dark') {
-            html.removeAttribute('data-theme');
+            html.removeAttribute('data-theme');ges();
             localStorage.setItem('chat_theme', 'light');
-        } else {
+        } else {    console.error('Error checking for new messages:', error);
             html.setAttribute('data-theme', 'dark');
             localStorage.setItem('chat_theme', 'dark');
-        }
-    }
-
-    startPeriodicUpdates() {
-        console.log('Starting periodic updates...');
-        
-        // Poll for new messages every 5 seconds
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-        }
-        
-        this.pollInterval = setInterval(async () => {
-            if (this.user && this.isVisible) {
-                try {
-                    await this.checkForNewMessages();
-                } catch (error) {
-                    console.error('Error checking for new messages:', error);
-                }
-            }
         }, this.config.pollInterval || 5000);
-    }
-    
-    stopPeriodicUpdates() {
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-            this.pollInterval = null;
-        }
-    }
-    
-    async checkForNewMessages() {
-        try {
-            const response = await fetch(`api/messages.php?action=list&limit=50&after_id=${this.lastMessageId || 0}`);
-            const result = await response.json();
-            
-            if (result.success && result.data && result.data.length > 0) {
-                result.data.forEach(message => {
-                    // Check if message is not already in our array
-                    if (!this.messages.find(m => m.id === message.id)) {
-                        this.messages.push(message);
-                        this.addMessageToUI(message, true);
-                        this.lastMessageId = Math.max(this.lastMessageId || 0, message.id);
-                    }
-                });
-                
-                // Save updated messages to localStorage
-                this.saveMessagesToStorage();
-                this.scrollToBottom();
-            }
-        } catch (error) {
-            console.error('Error checking for new messages:', error);
-        }
-    }
-    
-    // Save messages to localStorage for persistence
-    saveMessagesToStorage() {
-        try {
-            const messagesData = {
-                messages: this.messages,
-                lastMessageId: this.lastMessageId,
-                timestamp: Date.now()
-            };
-            localStorage.setItem('quick_chat_messages', JSON.stringify(messagesData));
-        } catch (error) {
-            console.error('Error saving messages to localStorage:', error);
-        }
-    }
-    
-    // Load messages from localStorage
-    loadMessagesFromStorage() {
-        try {
-            const stored = localStorage.getItem('quick_chat_messages');
-            if (stored) {
-                const messagesData = JSON.parse(stored);
-                this.messages = messagesData.messages || [];
-                this.lastMessageId = messagesData.lastMessageId || null;
-                console.log('Loaded', this.messages.length, 'messages from localStorage');
-                return true;
-            }
-        } catch (error) {
-            console.error('Error loading messages from localStorage:', error);
-        }
-        return false;
-    }
-    
-    // Clear messages from localStorage
-    clearMessagesFromStorage() {
-        try {
-            localStorage.removeItem('quick_chat_messages');
-        } catch (error) {
-            console.error('Error clearing messages from localStorage:', error);
-        }
     }
     
     handleVisibilityChange() {
         this.isVisible = !document.hidden;
+            clearInterval(this.pollInterval);
+        if (this.isVisible) { = null;
+            // User is back - resume updates
+            this.startPeriodicUpdates();
+        } else {
+            // User is away - reduce update frequency or pause
+            this.stopPeriodicUpdates();
+        }   const response = await fetch(`api/messages.php?action=list&limit=50&after_id=${this.lastMessageId || 0}`);
+            const result = await response.json();
         console.log('Visibility changed:', this.isVisible ? 'visible' : 'hidden');
-        
-        if (this.isVisible && this.user) {
-            // Resume checking for new messages when page becomes visible
-            console.log('Page visible, resuming updates...');
-            this.checkForNewMessages();
-        }
-    }
-    
-    handleOnlineStatus(isOnline) {
-        this.isOnline = isOnline;
-        console.log('Online status changed:', isOnline ? 'online' : 'offline');
-        
-        const statusElement = document.getElementById('userStatus');
+    }       if (result.success && result.data && result.data.length > 0) {
+                result.data.forEach(message => {
+    handleOnlineStatus(isOnline) {ssage is not already in our array
+        this.isOnline = isOnline;sages.find(m => m.id === message.id)) {
+                        this.messages.push(message);
+        // Update UI to show online/offline statuse, true);
+        const statusElement = document.getElementById('userStatus');geId || 0, message.id);
         if (statusElement) {
             statusElement.textContent = isOnline ? 'Online' : 'Offline';
             statusElement.className = `status ${isOnline ? 'online' : 'offline'}`;
+        }       // Save updated messages to localStorage
+                this.saveMessagesToStorage();
+        if (isOnline) {rollToBottom();
+            // Reconnected - resume updates and sync messages
+            this.startPeriodicUpdates();
+            this.checkForNewMessages();ng for new messages:', error);
+            this.showSuccess('Connection restored');
+        } else {
+            // Offline - stop updates
+            this.stopPeriodicUpdates();r persistence (per user)
+            this.showError('Connection lost - working offline');
+        }ry {
+            if (!this.user) return;
+        console.log('Online status changed:', isOnline);
+    }       const messagesData = {
+                messages: this.messages,
+    async logout() {MessageId: this.lastMessageId,
+        try {   timestamp: Date.now(),
+            console.log('Logging out...');
+                username: this.user.username
+            // Stop all background processes
+            this.stopPeriodicUpdates();hat_messages_${this.user.id}`;
+            localStorage.setItem(storageKey, JSON.stringify(messagesData));
+            // Send logout request to serverocalStorage for user ${this.user.username}`);
+            const formData = new FormData();
+            formData.append('action', 'logout'); to localStorage:', error);
+            formData.append('csrf_token', this.getCSRFToken());
+            
+            const response = await fetch('api/auth-simple.php', {
+                method: 'POST',Storage (per user or general)
+                body: formData,rId = null) {
+                credentials: 'same-origin'
+            });Use provided userId or current user id
+            const userIdToUse = userId || (this.user ? this.user.id : null);
+            const result = await response.json();
+            if (!userIdToUse) {
+            if (result.success) {available, try to find any recent chat data
+                console.log('Server logout successful');ng for recent chat data...');
+            } else {t allKeys = Object.keys(localStorage);
+                console.warn('Server logout failed:', result.error);h('quick_chat_messages_'));
+            }   
+                if (chatKeys.length > 0) {
+        } catch (error) {nd the most recent chat data
+            console.error('Logout request failed:', error);
+        } finally { let mostRecentKey = null;
+            // Always clean up locally regardless of server response
+            this.cleanup();
+                    chatKeys.forEach(key => {
+            // Redirect to login page
+            if (window.location.pathname !== '/index.php') {rage.getItem(key));
+                window.location.href = '/index.php';ta.timestamp > mostRecentTime) {
+            } else {            mostRecentTime = data.timestamp;
+                window.location.reload();tData = data;
+            }                   mostRecentKey = key;
+        }                   }
+    }                   } catch (e) {
+                            console.error(`Error parsing stored data for key ${key}:`, e);
+    // Save messages to localStorage for persistence (per user)
+    saveMessagesToStorage() {
+        try {       
+            if (!this.user) return;ata) {
+                        this.messages = mostRecentData.messages || [];
+            const messagesData = {essageId = mostRecentData.lastMessageId || null;
+                messages: this.messages,ded ${this.messages.length} messages from most recent localStorage (${mostRecentKey})`);
+                lastMessageId: this.lastMessageId,
+                timestamp: Date.now(),
+                userId: this.user.id,
+                username: this.user.username
+            };
+            const storageKey = `quick_chat_messages_${this.user.id}`;
+            localStorage.setItem(storageKey, JSON.stringify(messagesData));
+            console.log(`Messages saved to localStorage for user ${this.user.username}`);
+        } catch (error) {
+            console.error('Error saving messages to localStorage:', error);
+        }       // Verify data belongs to the specified user (if we have user context)
+    }           if (!this.user || messagesData.userId === userIdToUse) {
+                    this.messages = messagesData.messages || [];
+    // Load messages from localStorage (per user or general)ssageId || null;
+    loadMessagesFromStorage(userId = null) {is.messages.length} messages from localStorage for user ${messagesData.username || userIdToUse}`);
+        try {       return true;
+            // Use provided userId or current user id
+            const userIdToUse = userId || (this.user ? this.user.id : null);
+            tch (error) {
+            if (!userIdToUse) {r loading messages from localStorage:', error);
+                // If no user ID available, try to find any recent chat data
+                console.log('No user ID available, looking for recent chat data...');
+                const allKeys = Object.keys(localStorage);
+                const chatKeys = allKeys.filter(key => key.startsWith('quick_chat_messages_'));
+                sages from localStorage (per user)
+                if (chatKeys.length > 0) {
+                    // Find the most recent chat data
+                    let mostRecentData = null;
+                    let mostRecentKey = null;
+                    let mostRecentTime = 0;messages_${this.user.id}`;
+                    rage.removeItem(storageKey);
+                    chatKeys.forEach(key => {m localStorage for user ${this.user.username}`);
+                        try {
+                            const data = JSON.parse(localStorage.getItem(key));
+                            if (data.timestamp && data.timestamp > mostRecentTime) {
+                                mostRecentTime = data.timestamp;
+                                mostRecentData = data;
+                                mostRecentKey = key;versions or other users
+                            }
+                        } catch (e) {
+                            console.error(`Error parsing stored data for key ${key}:`, e);
+                        }age.getItem('quick_chat_messages')) {
+                    });.log('Removing old single-user storage data');
+                    lStorage.removeItem('quick_chat_messages');
+                    if (mostRecentData) {
+                        this.messages = mostRecentData.messages || [];
+                        this.lastMessageId = mostRecentData.lastMessageId || null;agement
+                        console.log(`Loaded ${this.messages.length} messages from most recent localStorage (${mostRecentKey})`);
+                        return true;.filter(key => key.startsWith('quick_chat_messages_'));
+                    }
+                }eys.forEach(key => {
+                return false;
+            }       const data = JSON.parse(localStorage.getItem(key));
+                    if (data.timestamp && Date.now() - data.timestamp > 30 * 24 * 60 * 60 * 1000) {
+            const storageKey = `quick_chat_messages_${userIdToUse}`;);
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+                const messagesData = JSON.parse(stored);
+                // Verify data belongs to the specified user (if we have user context)
+                if (!this.user || messagesData.userId === userIdToUse) {
+                    this.messages = messagesData.messages || [];
+                    this.lastMessageId = messagesData.lastMessageId || null;
+                    console.log(`Loaded ${this.messages.length} messages from localStorage for user ${messagesData.username || userIdToUse}`);
+                    return true;
+                }le.error('Error cleaning up old storage data:', error);
+            }
+        } catch (error) {
+            console.error('Error loading messages from localStorage:', error);
+        }up() {
+        return false;anup logic if needed
+    }   console.log('Cleaning up resources...');
+        
+    // Clear messages from localStorage (per user)
+    clearMessagesFromStorage() {();
+        try {
+            if (!this.user) return;data
+            .messages = [];
+            const storageKey = `quick_chat_messages_${this.user.id}`;
+            localStorage.removeItem(storageKey);
+            console.log(`Messages cleared from localStorage for user ${this.user.username}`);
+        } catch (error) {rage data
+            console.error('Error clearing messages from localStorage:', error);
         }
-        
-        if (isOnline && this.user) {
-            // Reconnect and check for new messages when coming back online
-            this.checkForNewMessages();
-        }
+    }   console.log('Cleanup completed');
     }
-    
-    cleanup() {
-        console.log('Cleaning up QuickChatApp...');
-        this.stopPeriodicUpdates();
-        
-        // Clear user session
-        this.user = null;
-        
-        // Don't clear messages from localStorage here, as user might want to keep them
-        // Only clear on explicit "Clear Chat" action
+    // Clean up old localStorage data from previous versions or other users
+    cleanupOldStorageData() {
+        try { app when DOM is loaded
+            // Remove old single-user storage key if it exists
+            if (localStorage.getItem('quick_chat_messages')) {
+                console.log('Removing old single-user storage data');
+                localStorage.removeItem('quick_chat_messages');
+            }
+            toggle
+            // Optional: Clean up very old data (older than 30 days) for space management
+            const allKeys = Object.keys(localStorage);
+            const chatKeys = allKeys.filter(key => key.startsWith('quick_chat_messages_'));
+            t.type === 'password') {
+            chatKeys.forEach(key => {
+                try {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    if (data.timestamp && Date.now() - data.timestamp > 30 * 24 * 60 * 60 * 1000) {
+                        console.log(`Removing old chat data: ${key}`);
+                        localStorage.removeItem(key);
+                    }/login/reset forms
+                } catch (e) {
+                    // If we can't parse the data, it's probably corrupted, remove it
+                    console.log(`Removing corrupted chat data: ${key}`);
+                    localStorage.removeItem(key);le.display = 'none';
+                }
+            });gin() {
+        } catch (error) {Id('registerContainer').style.display = 'none';
+            console.error('Error cleaning up old storage data:', error);
+        }ent.getElementById('resetContainer').style.display = 'none';
     }
-}
-
+function showReset() {
+    cleanup() {tElementById('registerContainer').style.display = 'none';
+        // Custom cleanup logic if neededstyle.display = 'none';
+        console.log('Cleaning up resources...');yle.display = 'block';
+        
+        // Stop periodic updates
+        this.stopPeriodicUpdates();f Service: Example terms here.', 'info', 5000);
+        
+        // Clear messages and user data
+        this.messages = [];
+        this.lastMessageId = null;
+        this.user = null;sure you want to logout?')) {
+        // Call the app's logout method if available
+        // Clear localStorage dataindow.app.logout === 'function') {
+        this.clearMessagesFromStorage();
+        } else {
+        console.log('Cleanup completed');
+    }       window.location.href = '?action=logout';
+}       }
+    }
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
     window.app = new QuickChatApp();
     await window.app.init();
-});
-
-// Password toggle
-function togglePassword(id) {
+}); document.getElementById('settingsModal').style.display = 'none';
+}
+// Password togglengs() {
+function togglePassword(id) {ettings saved!', 'success');
     const input = document.getElementById(id);
     if (!input) return;
     if (input.type === 'password') {
-        input.type = 'text';
+        input.type = 'text';Change password feature coming soon.', 'info');
     } else {
         input.type = 'password';
+    }f (confirm('Are you sure you want to delete your account? This cannot be undone.')) {
+}       window.utils.showToast('Account deletion feature coming soon.', 'warning');
     }
-}
-
 // Show/hide register/login/reset forms
 function showRegister() {
     document.getElementById('registerContainer').style.display = 'block';
     document.getElementById('loginForm').style.display = 'none';
     document.getElementById('resetContainer').style.display = 'none';
-}
-function showLogin() {
+}   const showLoginLink = document.getElementById('showLogin');
+function showLogin() {rdLink = document.getElementById('forgotPassword');
     document.getElementById('registerContainer').style.display = 'none';
-    document.getElementById('loginForm').style.display = 'block';
-    document.getElementById('resetContainer').style.display = 'none';
-}
-function showReset() {
-    document.getElementById('registerContainer').style.display = 'none';
-    document.getElementById('loginForm').style.display = 'none';
-    document.getElementById('resetContainer').style.display = 'block';
-}
-function showTerms() {
-    window.utils.showToast('Terms of Service: Example terms here.', 'info', 5000);
-}
-
-// Confirm logout
-function confirmLogout() {
-    if (confirm('Are you sure you want to logout?')) {
-        window.location.href = '?action=logout';
-    }
-}
-
-// Settings modal
-function closeSettings() {
-    document.getElementById('settingsModal').style.display = 'none';
-}
-function saveSettings() {
-    window.utils.showToast('Settings saved!', 'success');
-    closeSettings();
-}
-function changePassword() {
-    window.utils.showToast('Change password feature coming soon.', 'info');
-}
-function deleteAccount() {
-    if (confirm('Are you sure you want to delete your account? This cannot be undone.')) {
-        window.utils.showToast('Account deletion feature coming soon.', 'warning');
-    }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Register/login/reset links
-    const showRegisterLink = document.getElementById('showRegister');
-    const showLoginLink = document.getElementById('showLogin');
-    const forgotPasswordLink = document.getElementById('forgotPassword');
-    const backToLoginLink = document.getElementById('backToLogin');
     if (showRegisterLink) showRegisterLink.onclick = showRegister;
     if (showLoginLink) showLoginLink.onclick = showLogin;
     if (forgotPasswordLink) forgotPasswordLink.onclick = showReset;
