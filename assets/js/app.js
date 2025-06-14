@@ -1,6 +1,9 @@
 // Enhanced Quick Chat Application
+// Version: Updated 2025-06-14 - Fixed initializeServiceWorker issue
 class QuickChatApp {
     constructor() {
+        console.log('QuickChatApp constructor called - Version 2025-06-14');
+        console.log('Available methods:', Object.getOwnPropertyNames(QuickChatApp.prototype));
         this.config = window.ChatConfig || {};
         this.user = null;
         this.messages = [];
@@ -12,11 +15,51 @@ class QuickChatApp {
         this.isVisible = true;
         this.soundEnabled = true;
         
-        this.initializeApp();
+        // Initialize CSRF token from meta tag
+        this.csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        console.log('Initial CSRF token:', this.csrfToken ? 'present' : 'missing');
+    }
+
+    async init() {
+        console.log('QuickChatApp init called');
+        try {
+            await this.initializeApp();
+        } catch (error) {
+            console.error('Failed to initialize app:', error);
+        }
     }
     
+    initializeServiceWorker() {
+        console.log('initializeServiceWorker method called');
+        // Service worker registration - stub for now
+        if ('serviceWorker' in navigator) {
+            // Can register SW here if sw.js exists
+            console.log('Service Worker support detected');
+        }
+    }
+
+    setupNotifications() {
+        console.log('setupNotifications method called');
+        // Request notification permission
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+        console.log('Notifications setup complete');
+    }
+
     async initializeApp() {
         try {
+            console.log('initializeApp started');
+            
+            // Test API connection first
+            try {
+                const testResponse = await fetch('api/auth.php?action=test');
+                const testText = await testResponse.text();
+                console.log('API test response:', testText);
+            } catch (testError) {
+                console.error('API test failed:', testError);
+            }
+            
             // Check if user is already logged in
             const sessionCheck = await this.checkSession();
             
@@ -28,9 +71,23 @@ class QuickChatApp {
             } else {
                 this.showLoginInterface();
             }
-                 this.bindEvents();
-        this.initializeServiceWorker();
-        this.setupNotifications();
+            
+            this.bindEvents();
+            
+            // Initialize Service Worker inline
+            console.log('Initializing Service Worker...');
+            if ('serviceWorker' in navigator) {
+                console.log('Service Worker support detected');
+            }
+            
+            // Setup Notifications inline
+            console.log('Setting up Notifications...');
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+            console.log('Notifications setup complete');
+            
+            console.log('initializeApp completed successfully');
             
         } catch (error) {
             console.error('Failed to initialize app:', error);
@@ -128,9 +185,17 @@ class QuickChatApp {
             });
             
             const result = await response.json();
+            console.log('Login response:', result);
             
             if (result.success) {
                 this.user = result.user;
+                
+                // Update CSRF token if provided in response
+                if (result.csrf_token) {
+                    console.log('Updating CSRF token from login response');
+                    this.updateCSRFToken(result.csrf_token);
+                }
+                
                 this.showSuccess(result.message);
                 
                 setTimeout(() => {
@@ -259,6 +324,29 @@ class QuickChatApp {
                 this.scrollToBottom();
                 this.playNotificationSound();
             } else {
+                // If CSRF token error, try to refresh token and retry once
+                if (result.error && result.error.includes('CSRF')) {
+                    console.log('CSRF token invalid, attempting to refresh...');
+                    const newToken = await this.refreshCSRFToken();
+                    if (newToken) {
+                        // Retry the request with new token
+                        formData.set('csrf_token', newToken);
+                        const retryResponse = await fetch('api/messages.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const retryResult = await retryResponse.json();
+                        
+                        if (retryResult.success) {
+                            messageInput.value = '';
+                            this.updateCharacterCount();
+                            this.addMessageToUI(retryResult.data);
+                            this.scrollToBottom();
+                            this.playNotificationSound();
+                            return;
+                        }
+                    }
+                }
                 this.showError(result.error);
             }
             
@@ -544,7 +632,44 @@ class QuickChatApp {
     }
     
     getCSRFToken() {
-        return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        // Try to get from meta tag first
+        const metaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        if (metaToken) {
+            console.log('Using CSRF token from meta tag');
+            return metaToken;
+        }
+        
+        // If not found in meta tag, try to get from stored token
+        console.log('Using stored CSRF token');
+        return this.csrfToken || '';
+    }
+
+    updateCSRFToken(newToken) {
+        if (newToken) {
+            console.log('Updating CSRF token');
+            this.csrfToken = newToken;
+            // Update meta tag as well
+            const metaTag = document.querySelector('meta[name="csrf-token"]');
+            if (metaTag) {
+                metaTag.setAttribute('content', newToken);
+            }
+        }
+    }
+
+    async refreshCSRFToken() {
+        try {
+            console.log('Attempting to refresh CSRF token...');
+            const response = await fetch('api/auth.php?action=get_csrf_token');
+            const result = await response.json();
+            if (result.success && result.csrf_token) {
+                console.log('CSRF token refreshed successfully');
+                this.updateCSRFToken(result.csrf_token);
+                return result.csrf_token;
+            }
+        } catch (error) {
+            console.error('Failed to refresh CSRF token:', error);
+        }
+        return null;
     }
     
     showError(message) {
@@ -601,7 +726,19 @@ class QuickChatApp {
     async checkSession() {
         try {
             const response = await fetch('api/auth.php?action=check_session');
-            return await response.json();
+            
+            // Log the raw response for debugging
+            const responseText = await response.text();
+            console.log('Raw response from check_session:', responseText);
+            
+            // Try to parse as JSON
+            try {
+                return JSON.parse(responseText);
+            } catch (jsonError) {
+                console.error('Failed to parse JSON response:', jsonError);
+                console.error('Response text:', responseText);
+                return { authenticated: false, error: 'Invalid server response' };
+            }
         } catch (error) {
             console.error('Session check failed:', error);
             return { authenticated: false };
@@ -693,20 +830,15 @@ class QuickChatApp {
         }
     }
     
-    initializeServiceWorker() {
-        // Service worker registration - stub for now
-        if ('serviceWorker' in navigator) {
-            // Can register SW here if sw.js exists
-            console.log('Service Worker support detected');
+    toggleTheme() {
+        const html = document.documentElement;
+        if (html.getAttribute('data-theme') === 'dark') {
+            html.removeAttribute('data-theme');
+            localStorage.setItem('theme', 'light');
+        } else {
+            html.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
         }
-    }
-
-    setupNotifications() {
-        // Request notification permission
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
-        console.log('Notifications setup complete');
     }
 
     playNotificationSound() {
@@ -892,11 +1024,28 @@ class QuickChatApp {
         // Toggle reaction on message
         console.log('Toggle reaction:', messageId, reaction);
     }
+
+    // Fallback methods in case the original methods aren't available
+    initServiceWorker() {
+        console.log('Fallback: initServiceWorker called');
+        if ('serviceWorker' in navigator) {
+            console.log('Service Worker support detected (fallback)');
+        }
+    }
+
+    initNotifications() {
+        console.log('Fallback: initNotifications called');
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+        console.log('Notifications setup complete (fallback)');
+    }
 }
 
 // Initialize app when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     window.app = new QuickChatApp();
+    await window.app.init();
 });
 
 // Password toggle
