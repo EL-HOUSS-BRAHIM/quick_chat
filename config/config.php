@@ -78,6 +78,12 @@ class Config {
     public static function getCacheLifetime() { return Env::int('CACHE_LIFETIME', 3600); }
     public static function getCacheDriver() { return Env::get('CACHE_DRIVER', 'file'); }
     
+    // Security settings
+    public static function isCsrfEnabled() { return Env::bool('CSRF_ENABLED', true); }
+    public static function isRateLimitingEnabled() { return Env::bool('RATE_LIMITING_ENABLED', true); }
+    public static function isSecurityHeadersEnabled() { return Env::bool('SECURITY_HEADERS_ENABLED', true); }
+    public static function isAuditLoggingEnabled() { return Env::bool('AUDIT_LOGGING_ENABLED', true); }
+    
     // Logging
     public static function getLogLevel() { return Env::get('LOG_LEVEL', 'INFO'); }
     public static function getLogFile() { return Env::get('LOG_FILE', __DIR__ . '/../logs/app.log'); }
@@ -144,14 +150,14 @@ if (Config::isDebugMode()) {
 // Set timezone
 date_default_timezone_set(Config::getTimezone());
 
-// Start session with secure settings
-ini_set('session.cookie_httponly', Config::isSessionCookieHttpOnly() ? 1 : 0);
-ini_set('session.cookie_secure', Config::isSessionCookieSecure() ? 1 : 0);
-ini_set('session.use_strict_mode', 1);
-ini_set('session.cookie_samesite', Config::getSessionCookieSameSite());
-
-// Set session lifetime
-ini_set('session.gc_maxlifetime', Config::getSessionLifetime());
+// Configure session settings BEFORE any session_start() calls
+if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.cookie_httponly', Config::isSessionCookieHttpOnly() ? 1 : 0);
+    ini_set('session.cookie_secure', Config::isSessionCookieSecure() ? 1 : 0);
+    ini_set('session.use_strict_mode', 1);
+    ini_set('session.cookie_samesite', Config::getSessionCookieSameSite());
+    ini_set('session.gc_maxlifetime', Config::getSessionLifetime());
+}
 
 // Set upload limits
 ini_set('upload_max_filesize', Config::getMaxFileSize());
@@ -171,14 +177,5 @@ if (!is_dir($avatarPath)) {
 $logDir = dirname(Config::getLogFile());
 if (!is_dir($logDir)) {
     mkdir($logDir, 0755, true);
-}
-
-// Generate CSRF token if not exists
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-if (!isset($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 ?>
