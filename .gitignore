@@ -1,0 +1,86 @@
+# Environment Configuration
+.env
+.env.local
+.env.production
+.env.staging
+
+# Database Files
+*.sqlite
+*.sqlite3
+*.db
+
+# Log Files
+*.log
+logs/
+error.log
+access.log
+
+# Temporary Files
+tmp/
+temp/
+cache/
+
+# File Uploads
+uploads/
+avatars/
+files/
+
+# PHP Dependencies
+vendor/
+composer.lock
+
+# Node.js Dependencies (if using npm/yarn)
+node_modules/
+package-lock.json
+yarn.lock
+
+# IDE/Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.sublime-project
+.sublime-workspace
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup Files
+*.bak
+*.backup
+*.old
+*~
+
+# PHP Specific
+*.tmp
+*.temp
+
+# Session Files
+sessions/
+
+# Compiled Assets
+dist/
+build/
+
+# Coverage Reports
+coverage/
+*.coverage
+
+# Local Development
+local/
+dev/
+
+# Configuration Overrides
+config.local.php
+database.local.php
+
+# Error Logs
+php_errors.log
+error_log
