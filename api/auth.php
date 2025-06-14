@@ -27,7 +27,8 @@ class AuthAPI {
         try {
             $method = $_SERVER['REQUEST_METHOD'];
             
-            if ($method !== 'POST') {
+            // Allow GET requests for session checking
+            if (!in_array($method, ['POST', 'GET'])) {
                 throw new Exception('Method not allowed', 405);
             }
             
