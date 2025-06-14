@@ -14,6 +14,14 @@ AddType application/javascript .js
 AddType text/css .css
 AddType image/svg+xml .svg
 AddType application/font-woff2 .woff2
+AddType audio/mpeg .mp3
+AddType audio/ogg .ogg
+
+# Explicitly allow access to assets and required files
+<FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|mp3|ogg|ico|php)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
 
 # Enable CORS for API endpoints
 <IfModule mod_headers.c>
