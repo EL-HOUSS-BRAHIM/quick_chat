@@ -53,15 +53,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Theme toggle
+    // Theme toggle - updated to use data-theme attribute
     if (themeToggle) {
         themeToggle.addEventListener('click', function() {
-            body.classList.toggle('dark-theme');
-            localStorage.setItem('theme', body.classList.contains('dark-theme') ? 'dark' : 'light');
+            const html = document.documentElement;
+            if (html.getAttribute('data-theme') === 'dark') {
+                html.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+            }
         });
         // Load theme
         if (localStorage.getItem('theme') === 'dark') {
-            body.classList.add('dark-theme');
+            document.documentElement.setAttribute('data-theme', 'dark');
         }
     }
 });
