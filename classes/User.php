@@ -337,32 +337,63 @@ class User {
             ? date('Y-m-d H:i:s', time() + Config::getRememberMeLifetime())
             : date('Y-m-d H:i:s', time() + Config::getSessionLifetime());
         
+        error_log('=== Create Session Debug ===');
+        error_log('Creating session for user ID: ' . $userId);
+        error_log('Session ID: ' . $sessionId);
+        error_log('Expires at: ' . $expiresAt);
+        error_log('Remember me: ' . ($rememberMe ? 'YES' : 'NO'));
+        
         $sql = "INSERT INTO sessions (id, user_id, ip_address, user_agent, expires_at, is_remember_token) 
                 VALUES (?, ?, ?, ?, ?, ?)";
         
-        $this->db->query($sql, [
-            $sessionId,
-            $userId,
-            $_SERVER['REMOTE_ADDR'] ?? '',
-            $_SERVER['HTTP_USER_AGENT'] ?? '',
-            $expiresAt,
-            $rememberMe
-        ]);
-        
-        // Set session cookie
-        setcookie('session_id', $sessionId, $rememberMe ? time() + Config::getRememberMeLifetime() : 0, '/', '', isset($_SERVER['HTTPS']), true);
-        $_SESSION['session_id'] = $sessionId;
-        $_SESSION['user_id'] = $userId;
-        
-        return $sessionId;
+        try {
+            $this->db->query($sql, [
+                $sessionId,
+                $userId,
+                $_SERVER['REMOTE_ADDR'] ?? '',
+                $_SERVER['HTTP_USER_AGENT'] ?? '',
+                $expiresAt,
+                $rememberMe
+            ]);
+            
+            error_log('Session inserted into database successfully');
+            
+            // Set session cookie
+            setcookie('session_id', $sessionId, $rememberMe ? time() + Config::getRememberMeLifetime() : 0, '/', '', isset($_SERVER['HTTPS']), true);
+            $_SESSION['session_id'] = $sessionId;
+            $_SESSION['user_id'] = $userId;
+            
+            error_log('Session cookie and PHP session set');
+            
+            return $sessionId;
+        } catch (Exception $e) {
+            error_log('Error creating session: ' . $e->getMessage());
+            throw $e;
+        }
     }
     
-    private function getSession($sessionId) {
+    public function getSession($sessionId) {
         $sql = "SELECT * FROM sessions WHERE id = ? AND expires_at > NOW()";
         return $this->db->fetch($sql, [$sessionId]);
     }
     
-    private function deleteSession($sessionId) {
+    public function validateSession($sessionId) {
+        $session = $this->getSession($sessionId);
+        if (!$session) {
+            return false;
+        }
+        
+        // Update last activity
+        $this->db->query("UPDATE sessions SET last_activity = NOW() WHERE id = ?", [$sessionId]);
+        
+        return $session;
+    }
+    
+    public function cleanupExpiredSessions() {
+        $this->db->query("DELETE FROM sessions WHERE expires_at < NOW()");
+    }
+    
+    public function deleteSession($sessionId) {
         $this->db->query("DELETE FROM sessions WHERE id = ?", [$sessionId]);
     }
     
