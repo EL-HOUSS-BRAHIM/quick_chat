@@ -689,32 +689,74 @@ document.addEventListener('DOMContentLoaded', () => {
     window.app = new QuickChatApp();
 });
 
-// Helper functions for global access
-function togglePassword(inputId) {
-    const input = document.getElementById(inputId);
-    const button = input.nextElementSibling.querySelector('i');
-    
+// Password toggle
+function togglePassword(id) {
+    const input = document.getElementById(id);
+    if (!input) return;
     if (input.type === 'password') {
         input.type = 'text';
-        button.className = 'fas fa-eye-slash';
     } else {
         input.type = 'password';
-        button.className = 'fas fa-eye';
     }
 }
 
+// Show/hide register/login/reset forms
+function showRegister() {
+    document.getElementById('registerContainer').style.display = 'block';
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('resetContainer').style.display = 'none';
+}
+function showLogin() {
+    document.getElementById('registerContainer').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('resetContainer').style.display = 'none';
+}
+function showReset() {
+    document.getElementById('registerContainer').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('resetContainer').style.display = 'block';
+}
+function showTerms() {
+    window.utils.showToast('Terms of Service: Example terms here.', 'info', 5000);
+}
+
+// Confirm logout
 function confirmLogout() {
     if (confirm('Are you sure you want to logout?')) {
-        fetch('api/auth.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'action=logout'
-        }).then(() => {
-            window.location.reload();
-        });
+        window.location.href = '?action=logout';
     }
 }
 
-function showTerms() {
-    alert('Terms of Service\n\nBy using this chat application, you agree to:\n1. Be respectful to other users\n2. Not share inappropriate content\n3. Protect your account credentials\n4. Report any security issues\n\nFor full terms, contact the administrator.');
+// Settings modal
+function closeSettings() {
+    document.getElementById('settingsModal').style.display = 'none';
 }
+function saveSettings() {
+    window.utils.showToast('Settings saved!', 'success');
+    closeSettings();
+}
+function changePassword() {
+    window.utils.showToast('Change password feature coming soon.', 'info');
+}
+function deleteAccount() {
+    if (confirm('Are you sure you want to delete your account? This cannot be undone.')) {
+        window.utils.showToast('Account deletion feature coming soon.', 'warning');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Register/login/reset links
+    const showRegisterLink = document.getElementById('showRegister');
+    const showLoginLink = document.getElementById('showLogin');
+    const forgotPasswordLink = document.getElementById('forgotPassword');
+    const backToLoginLink = document.getElementById('backToLogin');
+    if (showRegisterLink) showRegisterLink.onclick = showRegister;
+    if (showLoginLink) showLoginLink.onclick = showLogin;
+    if (forgotPasswordLink) forgotPasswordLink.onclick = showReset;
+    if (backToLoginLink) backToLoginLink.onclick = showLogin;
+    // Settings button
+    const settingsBtn = document.getElementById('settingsBtn');
+    if (settingsBtn) settingsBtn.onclick = function() {
+        document.getElementById('settingsModal').style.display = 'flex';
+    };
+});
