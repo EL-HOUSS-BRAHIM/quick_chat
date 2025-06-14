@@ -1,7 +1,7 @@
 // Enhanced Quick Chat Application
 class QuickChatApp {
     constructor() {
-        this.config = window.ChatConfig;
+        this.config = window.ChatConfig || {};
         this.user = null;
         this.messages = [];
         this.isOnline = navigator.onLine;
@@ -9,6 +9,8 @@ class QuickChatApp {
         this.typingTimeout = null;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
+        this.isVisible = true;
+        this.soundEnabled = true;
         
         this.initializeApp();
     }
@@ -701,18 +703,22 @@ class QuickChatApp {
 
     setupNotifications() {
         // Request notification permission
-        if ('Notification' in window) {
-            if (Notification.permission === 'default') {
-                Notification.requestPermission();
-            }
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
         }
+        console.log('Notifications setup complete');
     }
 
     playNotificationSound() {
-        // Play notification sound
-        const audio = document.getElementById('notificationSound');
-        if (audio) {
-            audio.play().catch(e => console.log('Could not play notification sound:', e));
+        // Play notification sound if enabled
+        try {
+            const audio = document.getElementById('notificationSound');
+            if (audio && this.soundEnabled) {
+                audio.currentTime = 0;
+                audio.play().catch(e => console.log('Could not play notification sound:', e));
+            }
+        } catch (error) {
+            console.log('Notification sound error:', error);
         }
     }
 
@@ -759,8 +765,8 @@ class QuickChatApp {
     }
 
     toggleRecording() {
-        // Audio recording functionality
-        console.log('Recording toggle - implement audio recording');
+        // Toggle audio recording
+        console.log('Toggle recording');
     }
 
     showSettings() {
@@ -771,7 +777,7 @@ class QuickChatApp {
     }
 
     clearChat() {
-        if (confirm('Are you sure you want to clear the chat?')) {
+        if (confirm('Are you sure you want to clear all messages?')) {
             const container = document.getElementById('messagesContainer');
             if (container) {
                 container.innerHTML = '';
@@ -782,21 +788,23 @@ class QuickChatApp {
 
     handleOnlineStatus(online) {
         this.isOnline = online;
-        // Update UI based on online status
-        const statusElement = document.getElementById('userStatus');
-        if (statusElement) {
-            statusElement.textContent = online ? 'Online' : 'Offline';
-            statusElement.className = `status ${online ? 'online' : 'offline'}`;
+        const status = document.getElementById('userStatus');
+        if (status) {
+            status.textContent = online ? 'Online' : 'Offline';
+            status.className = `status ${online ? 'online' : 'offline'}`;
         }
     }
 
     handleVisibilityChange() {
-        // Handle page visibility changes
+        // Handle page visibility change (e.g., when user switches tabs)
         if (document.hidden) {
             // Page is hidden
+            this.isVisible = false;
         } else {
-            // Page is visible - check for new messages
-            if (this.isOnline) {
+            // Page is visible
+            this.isVisible = true;
+            // Check for new messages when user returns
+            if (this.user) {
                 this.checkForNewMessages();
             }
         }
