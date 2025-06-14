@@ -1,5 +1,18 @@
 <?php
-session_start();
+// Load configuration first (which sets session settings)
+require_once __DIR__ . '/config/config.php';
+
+// Start session after configuration is loaded
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Include required classes for CSRF token generation
+require_once __DIR__ . '/classes/Security.php';
+
+// Initialize Security class and generate CSRF token
+$security = new Security();
+$csrfToken = $security->generateCSRF();
 
 // Check if user is logged in
 $isLoggedIn = isset($_SESSION['user_id']);
@@ -21,7 +34,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     <link rel="stylesheet" href="assets/css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <meta name="csrf-token" content="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+    <meta name="csrf-token" content="<?php echo htmlspecialchars($csrfToken); ?>">
 </head>
 <body>
     <?php if (!$isLoggedIn): ?>
@@ -36,7 +49,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
             
             <form id="loginForm" class="login-form" action="api/auth.php" method="POST">
                 <input type="hidden" name="action" value="login">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                 
                 <div class="form-group">
                     <label for="username">Username</label>
@@ -83,7 +96,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
             
             <form id="registerForm" class="login-form" action="api/auth.php" method="POST">
                 <input type="hidden" name="action" value="register">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                 
                 <div class="form-group">
                     <label for="regUsername">Username</label>
@@ -147,7 +160,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
             
             <form id="resetForm" class="login-form" action="api/auth.php" method="POST">
                 <input type="hidden" name="action" value="reset_password">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
                 
                 <div class="form-group">
                     <label for="resetEmail">Email</label>
