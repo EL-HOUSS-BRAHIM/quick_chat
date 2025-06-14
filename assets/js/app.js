@@ -26,10 +26,9 @@ class QuickChatApp {
             } else {
                 this.showLoginInterface();
             }
-            
-            this.bindEvents();
-            this.initializeServiceWorker();
-            this.setupNotifications();
+                 this.bindEvents();
+        this.initializeServiceWorker();
+        this.setupNotifications();
             
         } catch (error) {
             console.error('Failed to initialize app:', error);
@@ -87,6 +86,15 @@ class QuickChatApp {
         document.getElementById('themeToggle')?.addEventListener('click', () => this.toggleTheme());
         document.getElementById('settingsBtn')?.addEventListener('click', () => this.showSettings());
         document.getElementById('clearChatBtn')?.addEventListener('click', () => this.clearChat());
+
+        // Theme: set initial theme from localStorage
+        const html = document.documentElement;
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            html.setAttribute('data-theme', 'dark');
+        } else {
+            html.removeAttribute('data-theme');
+        }
         
         // Window events
         window.addEventListener('online', () => this.handleOnlineStatus(true));
@@ -681,6 +689,200 @@ class QuickChatApp {
         if (this.user) {
             navigator.sendBeacon('api/auth.php?action=logout');
         }
+    }
+    
+    initializeServiceWorker() {
+        // Service worker registration - stub for now
+        if ('serviceWorker' in navigator) {
+            // Can register SW here if sw.js exists
+            console.log('Service Worker support detected');
+        }
+    }
+
+    setupNotifications() {
+        // Request notification permission
+        if ('Notification' in window) {
+            if (Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        }
+    }
+
+    playNotificationSound() {
+        // Play notification sound
+        const audio = document.getElementById('notificationSound');
+        if (audio) {
+            audio.play().catch(e => console.log('Could not play notification sound:', e));
+        }
+    }
+
+    showDesktopNotification(message) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Quick Chat', {
+                body: message,
+                icon: '/favicon.ico'
+            });
+        }
+    }
+
+    handleMessageInput(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            this.sendMessage();
+        }
+    }
+
+    handleTyping() {
+        // Handle typing indicator
+        clearTimeout(this.typingTimeout);
+        this.typingTimeout = setTimeout(() => {
+            // Stop typing indicator
+        }, 1000);
+    }
+
+    handlePaste(e) {
+        // Handle paste events (images, etc)
+        const items = e.clipboardData.items;
+        for (let item of items) {
+            if (item.type.indexOf('image') !== -1) {
+                const file = item.getAsFile();
+                this.uploadFile(file);
+            }
+        }
+    }
+
+    toggleEmojiPicker() {
+        const picker = document.getElementById('emojiPicker');
+        if (picker) {
+            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
+    toggleRecording() {
+        // Audio recording functionality
+        console.log('Recording toggle - implement audio recording');
+    }
+
+    showSettings() {
+        const modal = document.getElementById('settingsModal');
+        if (modal) {
+            modal.style.display = 'flex';
+        }
+    }
+
+    clearChat() {
+        if (confirm('Are you sure you want to clear the chat?')) {
+            const container = document.getElementById('messagesContainer');
+            if (container) {
+                container.innerHTML = '';
+                this.showWelcomeMessage();
+            }
+        }
+    }
+
+    handleOnlineStatus(online) {
+        this.isOnline = online;
+        // Update UI based on online status
+        const statusElement = document.getElementById('userStatus');
+        if (statusElement) {
+            statusElement.textContent = online ? 'Online' : 'Offline';
+            statusElement.className = `status ${online ? 'online' : 'offline'}`;
+        }
+    }
+
+    handleVisibilityChange() {
+        // Handle page visibility changes
+        if (document.hidden) {
+            // Page is hidden
+        } else {
+            // Page is visible - check for new messages
+            if (this.isOnline) {
+                this.checkForNewMessages();
+            }
+        }
+    }
+
+    checkPasswordStrength(input) {
+        const password = input.value;
+        const strengthElement = document.getElementById('passwordStrength');
+        
+        if (!strengthElement) return;
+
+        let strength = 0;
+        if (password.length >= 8) strength++;
+        if (/[a-z]/.test(password)) strength++;
+        if (/[A-Z]/.test(password)) strength++;
+        if (/[0-9]/.test(password)) strength++;
+        if (/[^A-Za-z0-9]/.test(password)) strength++;
+
+        const levels = ['', 'weak', 'medium', 'strong', 'strong'];
+        const texts = ['', 'Weak', 'Medium', 'Strong', 'Very Strong'];
+        
+        strengthElement.className = `password-strength ${levels[strength]}`;
+        strengthElement.textContent = texts[strength];
+    }
+
+    isPasswordStrong(password) {
+        return password.length >= 8 && 
+               /[a-z]/.test(password) && 
+               /[A-Z]/.test(password) && 
+               /[0-9]/.test(password) && 
+               /[^A-Za-z0-9]/.test(password);
+    }
+
+    showRegisterForm(e) {
+        e.preventDefault();
+        document.querySelector('.login-container').style.display = 'none';
+        document.querySelector('.register-container').style.display = 'block';
+        document.querySelector('.reset-container').style.display = 'none';
+    }
+
+    showLoginForm(e) {
+        e.preventDefault();
+        document.querySelector('.login-container').style.display = 'block';
+        document.querySelector('.register-container').style.display = 'none';
+        document.querySelector('.reset-container').style.display = 'none';
+    }
+
+    showResetForm(e) {
+        e.preventDefault();
+        document.querySelector('.login-container').style.display = 'none';
+        document.querySelector('.register-container').style.display = 'none';
+        document.querySelector('.reset-container').style.display = 'block';
+    }
+
+    updateCharacterCount() {
+        const input = document.getElementById('messageInput');
+        const counter = document.getElementById('charCount');
+        if (input && counter) {
+            counter.textContent = input.value.length;
+        }
+    }
+
+    showFileUploadProgress(filename, progress) {
+        // Show file upload progress
+        console.log(`Uploading ${filename}: ${progress}%`);
+    }
+
+    hideFileUploadProgress() {
+        // Hide file upload progress
+        console.log('Upload complete');
+    }
+
+    showMessageContextMenu(e, message) {
+        e.preventDefault();
+        // Show context menu for message actions
+        console.log('Context menu for message:', message.id);
+    }
+
+    showImageModal(imageUrl) {
+        // Show image in modal
+        console.log('Show image modal:', imageUrl);
+    }
+
+    toggleReaction(messageId, reaction) {
+        // Toggle reaction on message
+        console.log('Toggle reaction:', messageId, reaction);
     }
 }
 
