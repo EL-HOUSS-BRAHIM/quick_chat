@@ -2,7 +2,10 @@
 // Suppress output and start clean buffer
 ob_start();
 
-// Start session first
+// Load configuration first (which sets session settings)
+require_once __DIR__ . '/../config/config.php';
+
+// Start session after configuration is loaded
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -18,7 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../classes/User.php';
 require_once __DIR__ . '/../classes/Security.php';
 
@@ -125,11 +127,18 @@ class AuthAPI {
             throw new Exception('Invalid request');
         }
         
+        error_log('=== Login Debug ===');
+        error_log('Attempting login for username: ' . $username);
+        
         $result = $this->user->login($username, $password, $rememberMe);
+        
+        error_log('Login result: ' . json_encode($result));
         
         $_SESSION['user_id'] = $result['user_id'];
         $_SESSION['username'] = $result['username'];
         $_SESSION['session_id'] = $result['session_id'];
+        
+        error_log('Session set - User ID: ' . $_SESSION['user_id'] . ', Session ID: ' . $_SESSION['session_id']);
         
         // Generate a new CSRF token for the logged in session
         $newCSRFToken = $this->security->generateCSRF();
@@ -142,8 +151,7 @@ class AuthAPI {
                 'username' => $result['username'],
                 'display_name' => $result['display_name']
             ],
-            'csrf_token' => $newCSRFToken,
-            'redirect' => 'index.php'
+            'csrf_token' => $newCSRFToken
         ]);
     }
     
@@ -280,41 +288,79 @@ class AuthAPI {
     
     private function checkSession() {
         try {
-            $isLoggedIn = isset($_SESSION['user_id']);
+            // Add debug logging
+            error_log('=== Session Check Debug ===');
+            error_log('Session ID set: ' . (isset($_SESSION['session_id']) ? 'YES' : 'NO'));
+            error_log('User ID set: ' . (isset($_SESSION['user_id']) ? 'YES' : 'NO'));
+            if (isset($_SESSION['session_id'])) {
+                error_log('Session ID: ' . $_SESSION['session_id']);
+            }
+            if (isset($_SESSION['user_id'])) {
+                error_log('User ID: ' . $_SESSION['user_id']);
+            }
+            
+            // First, clean up expired sessions
+            $this->user->cleanupExpiredSessions();
+            
+            $isLoggedIn = isset($_SESSION['user_id']) && isset($_SESSION['session_id']);
             
             if ($isLoggedIn) {
-                // Try to get user info, but handle errors gracefully
-                try {
-                    $user = $this->user->getUserById($_SESSION['user_id']);
-                    if ($user) {
+                // Validate session against database
+                $session = $this->user->validateSession($_SESSION['session_id']);
+                error_log('Database session found: ' . ($session ? 'YES' : 'NO'));
+                
+                if ($session && $session['user_id'] == $_SESSION['user_id']) {
+                    // Session is valid, get user info
+                    try {
+                        $user = $this->user->getUserById($_SESSION['user_id']);
+                        if ($user) {
+                            // Update user activity
+                            $this->user->updateLastSeen($_SESSION['user_id']);
+                            $this->user->setOnlineStatus($_SESSION['user_id'], true);
+                            
+                            error_log('Session validation successful for user: ' . $user['username']);
+                            
+                            $this->sendResponse([
+                                'success' => true,
+                                'authenticated' => true,
+                                'user' => [
+                                    'id' => $user['id'],
+                                    'username' => $user['username'],
+                                    'display_name' => $user['display_name'] ?? $user['username'],
+                                    'avatar' => $user['avatar'] ?? null
+                                ]
+                            ]);
+                        } else {
+                            // User not found in database, clear session
+                            error_log('User not found in database, clearing session');
+                            $this->clearInvalidSession();
+                            $this->sendResponse([
+                                'success' => true,
+                                'authenticated' => false,
+                                'message' => 'User not found'
+                            ]);
+                        }
+                    } catch (Exception $userError) {
+                        // Database error, but don't expose details
+                        error_log('User lookup error: ' . $userError->getMessage());
                         $this->sendResponse([
                             'success' => true,
-                            'authenticated' => true,
-                            'user' => [
-                                'id' => $user['id'],
-                                'username' => $user['username'],
-                                'display_name' => $user['display_name'] ?? $user['username'],
-                                'avatar' => $user['avatar'] ?? null
-                            ]
-                        ]);
-                    } else {
-                        // User not found in database, clear session
-                        session_destroy();
-                        $this->sendResponse([
-                            'success' => true,
-                            'authenticated' => false
+                            'authenticated' => false,
+                            'error' => 'Database error'
                         ]);
                     }
-                } catch (Exception $userError) {
-                    // Database error, but don't expose details
-                    error_log('User lookup error: ' . $userError->getMessage());
+                } else {
+                    // Invalid session, clear it
+                    error_log('Invalid session, clearing. Session user_id: ' . ($session ? $session['user_id'] : 'null') . ', PHP session user_id: ' . $_SESSION['user_id']);
+                    $this->clearInvalidSession();
                     $this->sendResponse([
                         'success' => true,
                         'authenticated' => false,
-                        'error' => 'Database error'
+                        'message' => 'Session expired or invalid'
                     ]);
                 }
             } else {
+                error_log('No valid session found in PHP session');
                 $this->sendResponse([
                     'success' => true,
                     'authenticated' => false
@@ -368,6 +414,26 @@ class AuthAPI {
             'timestamp' => date('c')
         ]);
         exit;
+    }
+    
+    private function clearInvalidSession() {
+        // Delete session from database if it exists
+        if (isset($_SESSION['session_id'])) {
+            try {
+                $this->user->deleteSession($_SESSION['session_id']);
+            } catch (Exception $e) {
+                error_log('Error deleting session: ' . $e->getMessage());
+            }
+        }
+        
+        // Clear PHP session
+        session_unset();
+        session_destroy();
+        
+        // Start a new session for CSRF token
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
     }
 }
 
