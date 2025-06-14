@@ -1,0 +1,223 @@
+<?php
+require_once __DIR__ . '/../config/config.php';
+
+class Database {
+    private static $instance = null;
+    private $connection;
+    
+    private function __construct() {
+        try {
+            $this->connection = new PDO(
+                Config::getDSN(),
+                Config::getDbUser(),
+                Config::getDbPass(),
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false,
+                    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . Config::getDbCharset()
+                ]
+            );
+        } catch (PDOException $e) {
+            error_log("Database connection failed: " . $e->getMessage());
+            throw new Exception("Database connection failed");
+        }
+    }
+    
+    public static function getInstance() {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+    
+    public function getConnection() {
+        return $this->connection;
+    }
+    
+    public function query($sql, $params = []) {
+        try {
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute($params);
+            return $stmt;
+        } catch (PDOException $e) {
+            error_log("Query failed: " . $e->getMessage() . " SQL: " . $sql);
+            throw new Exception("Query execution failed");
+        }
+    }
+    
+    public function fetch($sql, $params = []) {
+        return $this->query($sql, $params)->fetch();
+    }
+    
+    public function fetchAll($sql, $params = []) {
+        return $this->query($sql, $params)->fetchAll();
+    }
+    
+    public function lastInsertId() {
+        return $this->connection->lastInsertId();
+    }
+    
+    public function beginTransaction() {
+        return $this->connection->beginTransaction();
+    }
+    
+    public function commit() {
+        return $this->connection->commit();
+    }
+    
+    public function rollback() {
+        return $this->connection->rollback();
+    }
+    
+    public function createTables() {
+        $tables = [
+            'users' => "
+                CREATE TABLE IF NOT EXISTS users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    email VARCHAR(100) UNIQUE NOT NULL,
+                    password_hash VARCHAR(255) NOT NULL,
+                    avatar VARCHAR(255) DEFAULT NULL,
+                    display_name VARCHAR(100) NOT NULL,
+                    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    is_online BOOLEAN DEFAULT FALSE,
+                    email_verified BOOLEAN DEFAULT FALSE,
+                    verification_token VARCHAR(255) DEFAULT NULL,
+                    reset_token VARCHAR(255) DEFAULT NULL,
+                    reset_token_expires TIMESTAMP NULL,
+                    failed_login_attempts INT DEFAULT 0,
+                    locked_until TIMESTAMP NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_username (username),
+                    INDEX idx_email (email),
+                    INDEX idx_last_seen (last_seen)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ",
+            
+            'messages' => "
+                CREATE TABLE IF NOT EXISTS messages (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    content TEXT,
+                    message_type ENUM('text', 'image', 'video', 'audio', 'file') DEFAULT 'text',
+                    file_path VARCHAR(500) DEFAULT NULL,
+                    file_size INT DEFAULT NULL,
+                    file_type VARCHAR(100) DEFAULT NULL,
+                    is_encrypted BOOLEAN DEFAULT FALSE,
+                    reply_to_id INT DEFAULT NULL,
+                    edited_at TIMESTAMP NULL,
+                    deleted_at TIMESTAMP NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (reply_to_id) REFERENCES messages(id) ON DELETE SET NULL,
+                    INDEX idx_user_id (user_id),
+                    INDEX idx_created_at (created_at),
+                    INDEX idx_reply_to (reply_to_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ",
+            
+            'sessions' => "
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id VARCHAR(128) PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    ip_address VARCHAR(45) NOT NULL,
+                    user_agent TEXT,
+                    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP NOT NULL,
+                    is_remember_token BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    INDEX idx_user_id (user_id),
+                    INDEX idx_expires_at (expires_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ",
+            
+            'user_settings' => "
+                CREATE TABLE IF NOT EXISTS user_settings (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    setting_key VARCHAR(100) NOT NULL,
+                    setting_value TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    UNIQUE KEY unique_user_setting (user_id, setting_key),
+                    INDEX idx_user_id (user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ",
+            
+            'rate_limits' => "
+                CREATE TABLE IF NOT EXISTS rate_limits (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    identifier VARCHAR(100) NOT NULL,
+                    action_type VARCHAR(50) NOT NULL,
+                    attempts INT DEFAULT 1,
+                    window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY unique_limit (identifier, action_type),
+                    INDEX idx_window_start (window_start)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ",
+            
+            'message_reactions' => "
+                CREATE TABLE IF NOT EXISTS message_reactions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    message_id INT NOT NULL,
+                    user_id INT NOT NULL,
+                    reaction VARCHAR(10) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    UNIQUE KEY unique_reaction (message_id, user_id, reaction),
+                    INDEX idx_message_id (message_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ",
+            
+            'audit_logs' => "
+                CREATE TABLE IF NOT EXISTS audit_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT DEFAULT NULL,
+                    action VARCHAR(100) NOT NULL,
+                    details JSON DEFAULT NULL,
+                    ip_address VARCHAR(45) NOT NULL,
+                    user_agent TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                    INDEX idx_user_id (user_id),
+                    INDEX idx_action (action),
+                    INDEX idx_created_at (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            "
+        ];
+        
+        foreach ($tables as $tableName => $sql) {
+            try {
+                $this->connection->exec($sql);
+                error_log("Table '$tableName' created successfully");
+            } catch (PDOException $e) {
+                error_log("Failed to create table '$tableName': " . $e->getMessage());
+                throw new Exception("Failed to create database tables");
+            }
+        }
+        
+        return true;
+    }
+    
+    public function cleanup() {
+        // Clean expired sessions
+        $this->query("DELETE FROM sessions WHERE expires_at < NOW()");
+        
+        // Clean old rate limit records (older than 1 hour)
+        $this->query("DELETE FROM rate_limits WHERE window_start < DATE_SUB(NOW(), INTERVAL 1 HOUR)");
+        
+        // Clean old audit logs (older than 90 days)
+        $this->query("DELETE FROM audit_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)");
+        
+        // Update offline status for users who haven't been seen in 5 minutes
+        $this->query("UPDATE users SET is_online = FALSE WHERE last_seen < DATE_SUB(NOW(), INTERVAL 5 MINUTE) AND is_online = TRUE");
+    }
+}
+?>
