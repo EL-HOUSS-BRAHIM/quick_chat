@@ -340,10 +340,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     <audio id="audioPlayer" controls style="display: none;"></audio>
     
     <!-- Notification sound -->
-    <audio id="notificationSound" preload="auto">
+    <!-- <audio id="notificationSound" preload="auto">
         <source src="assets/sounds/notification.mp3" type="audio/mpeg">
         <source src="assets/sounds/notification.ogg" type="audio/ogg">
-    </audio>
+    </audio> -->
 
     <script src="assets/js/config.js"></script>
     <script src="assets/js/utils.js"></script>
