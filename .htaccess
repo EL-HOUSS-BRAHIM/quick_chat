@@ -1,0 +1,34 @@
+# Quick Chat .htaccess
+
+# Security: Prevent directory listing
+Options -Indexes
+
+# Security: Protect sensitive files
+<FilesMatch "\.(htaccess|htpasswd|env|ini|phps|fla|psd|log|sh|bak|swp|sql)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Set proper MIME types for assets
+AddType application/javascript .js
+AddType text/css .css
+AddType image/svg+xml .svg
+AddType application/font-woff2 .woff2
+
+# Enable CORS for API endpoints
+<IfModule mod_headers.c>
+    <FilesMatch "^api/.*$">
+        Header set Access-Control-Allow-Origin "*"
+        Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+    </FilesMatch>
+</IfModule>
+
+# Rewrite URLs for clean routing (optional, adjust as needed)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Example: Redirect all requests to index.php except for existing files/folders
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
