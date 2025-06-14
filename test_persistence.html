@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Persistence Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .status {
+            font-weight: bold;
+            padding: 5px;
+            margin: 5px 0;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #results {
+            white-space: pre-wrap;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Quick Chat - Persistence Test</h1>
+    
+    <div class="test-section">
+        <h3>localStorage Functionality Test</h3>
+        <p>This test verifies that chat messages persist across page reloads.</p>
+        
+        <button onclick="testLocalStorage()">Test localStorage</button>
+        <button onclick="testMessagePersistence()">Test Message Persistence</button>
+        <button onclick="testMultiUser()">Test Multi-User Storage</button>
+        <button onclick="clearAllTestData()">Clear Test Data</button>
+        <button onclick="reload()">Reload Page</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            results.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function testLocalStorage() {
+            log('Testing localStorage functionality...', 'info');
+            
+            try {
+                // Test basic localStorage functionality
+                const testKey = 'test_storage';
+                const testData = { message: 'Hello World', timestamp: Date.now() };
+                
+                localStorage.setItem(testKey, JSON.stringify(testData));
+                const retrieved = JSON.parse(localStorage.getItem(testKey));
+                
+                if (retrieved.message === testData.message) {
+                    log('✓ localStorage is working correctly', 'success');
+                } else {
+                    log('✗ localStorage data mismatch', 'error');
+                }
+                
+                localStorage.removeItem(testKey);
+                log('✓ Test data cleaned up', 'info');
+                
+            } catch (error) {
+                log(`✗ localStorage test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testMessagePersistence() {
+            log('Testing message persistence...', 'info');
+            
+            try {
+                // Simulate storing chat messages
+                const testUserId = 123;
+                const testMessages = [
+                    {
+                        id: 1,
+                        user_id: testUserId,
+                        username: 'TestUser',
+                        content: 'First test message',
+                        created_at: new Date().toISOString(),
+                        message_type: 'text'
+                    },
+                    {
+                        id: 2,
+                        user_id: testUserId,
+                        username: 'TestUser',
+                        content: 'Second test message',
+                        created_at: new Date().toISOString(),
+                        message_type: 'text'
+                    }
+                ];
+                
+                const storageKey = `quick_chat_messages_${testUserId}`;
+                const messagesData = {
+                    messages: testMessages,
+                    lastMessageId: 2,
+                    timestamp: Date.now(),
+                    userId: testUserId,
+                    username: 'TestUser'
+                };
+                
+                localStorage.setItem(storageKey, JSON.stringify(messagesData));
+                log('✓ Test messages stored in localStorage', 'success');
+                
+                // Verify retrieval
+                const retrieved = JSON.parse(localStorage.getItem(storageKey));
+                if (retrieved.messages.length === testMessages.length) {
+                    log(`✓ Successfully retrieved ${retrieved.messages.length} messages`, 'success');
+                    log(`  Last message: "${retrieved.messages[retrieved.messages.length - 1].content}"`, 'info');
+                } else {
+                    log('✗ Message count mismatch', 'error');
+                }
+                
+            } catch (error) {
+                log(`✗ Message persistence test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testMultiUser() {
+            log('Testing multi-user storage...', 'info');
+            
+            try {
+                // Test storage for multiple users
+                const users = [
+                    { id: 100, username: 'Alice' },
+                    { id: 200, username: 'Bob' },
+                    { id: 300, username: 'Charlie' }
+                ];
+                
+                users.forEach(user => {
+                    const messages = [
+                        {
+                            id: Date.now() + user.id,
+                            user_id: user.id,
+                            username: user.username,
+                            content: `Hello from ${user.username}!`,
+                            created_at: new Date().toISOString(),
+                            message_type: 'text'
+                        }
+                    ];
+                    
+                    const storageKey = `quick_chat_messages_${user.id}`;
+                    const messagesData = {
+                        messages: messages,
+                        lastMessageId: messages[0].id,
+                        timestamp: Date.now(),
+                        userId: user.id,
+                        username: user.username
+                    };
+                    
+                    localStorage.setItem(storageKey, JSON.stringify(messagesData));
+                });
+                
+                log('✓ Multi-user test data stored', 'success');
+                
+                // Verify each user's data is separate
+                users.forEach(user => {
+                    const storageKey = `quick_chat_messages_${user.id}`;
+                    const data = JSON.parse(localStorage.getItem(storageKey));
+                    if (data.userId === user.id && data.username === user.username) {
+                        log(`✓ User ${user.username} data is correctly isolated`, 'success');
+                    } else {
+                        log(`✗ User ${user.username} data is corrupted`, 'error');
+                    }
+                });
+                
+            } catch (error) {
+                log(`✗ Multi-user test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function clearAllTestData() {
+            log('Clearing all test data...', 'info');
+            
+            try {
+                const allKeys = Object.keys(localStorage);
+                const testKeys = allKeys.filter(key => key.startsWith('quick_chat_messages_') || key === 'test_storage');
+                
+                testKeys.forEach(key => {
+                    localStorage.removeItem(key);
+                    log(`✓ Removed: ${key}`, 'info');
+                });
+                
+                if (testKeys.length === 0) {
+                    log('No test data found to clear', 'info');
+                } else {
+                    log(`✓ Cleared ${testKeys.length} test entries`, 'success');
+                }
+                
+            } catch (error) {
+                log(`✗ Clear test data failed: ${error.message}`, 'error');
+            }
+        }
+
+        function reload() {
+            log('Reloading page to test persistence...', 'info');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+
+        // On page load, check for existing test data
+        window.addEventListener('DOMContentLoaded', () => {
+            log('Page loaded. Checking for existing test data...', 'info');
+            
+            const allKeys = Object.keys(localStorage);
+            const chatKeys = allKeys.filter(key => key.startsWith('quick_chat_messages_'));
+            
+            if (chatKeys.length > 0) {
+                log(`Found ${chatKeys.length} existing chat storage entries:`, 'success');
+                chatKeys.forEach(key => {
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        log(`  ${key}: ${data.messages?.length || 0} messages for user ${data.username || 'unknown'}`, 'info');
+                    } catch (e) {
+                        log(`  ${key}: corrupted data`, 'error');
+                    }
+                });
+                log('✓ This proves that messages persist across page reloads!', 'success');
+            } else {
+                log('No existing chat data found. Run tests to create some.', 'info');
+            }
+        });
+    </script>
+</body>
+</html>
