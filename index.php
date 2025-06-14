@@ -345,11 +345,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
         <source src="assets/sounds/notification.ogg" type="audio/ogg">
     </audio> -->
 
-    <script src="assets/js/config.js"></script>
-    <script src="assets/js/utils.js"></script>
-    <script src="assets/js/security.js"></script>
-    <script src="assets/js/emoji.js"></script>
-    <script src="assets/js/chat.js"></script>
-    <script src="assets/js/app.js"></script>
+    <script src="assets/js/config.js?v=<?php echo time(); ?>"></script>
+    <script src="assets/js/utils.js?v=<?php echo time(); ?>"></script>
+    <script src="assets/js/security.js?v=<?php echo time(); ?>"></script>
+    <script src="assets/js/emoji.js?v=<?php echo time(); ?>"></script>
+    <script src="assets/js/chat.js?v=<?php echo time(); ?>"></script>
+    <script src="assets/js/app.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
