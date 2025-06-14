@@ -11,6 +11,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../config/config.php';
+
+// Start session after configuration is loaded
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/../classes/Message.php';
 require_once __DIR__ . '/../classes/User.php';
 require_once __DIR__ . '/../classes/Security.php';
