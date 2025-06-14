@@ -27,8 +27,11 @@ AddType application/font-woff2 .woff2
 # Rewrite URLs for clean routing (optional, adjust as needed)
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    # Example: Redirect all requests to index.php except for existing files/folders
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
+    # Allow direct access to assets and API files
+    RewriteCond %{REQUEST_URI} ^/(assets|api)/ [OR]
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+    # Redirect everything else to index.php
     RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>
