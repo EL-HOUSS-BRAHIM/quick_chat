@@ -1,4 +1,12 @@
 <?php
+// Suppress output and start clean buffer
+ob_start();
+
+// Start session first
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
@@ -25,6 +33,11 @@ class AuthAPI {
     
     public function handleRequest() {
         try {
+            // Clear any output that might have been generated
+            if (ob_get_level()) {
+                ob_clean();
+            }
+            
             $method = $_SERVER['REQUEST_METHOD'];
             
             // Allow GET requests for session checking
@@ -53,6 +66,14 @@ class AuthAPI {
             }
             
             switch ($action) {
+                case 'test':
+                    $this->sendResponse([
+                        'success' => true,
+                        'message' => 'API is working',
+                        'timestamp' => date('c')
+                    ]);
+                    break;
+                    
                 case 'login':
                     return $this->login();
                     
@@ -76,6 +97,9 @@ class AuthAPI {
                     
                 case 'check_session':
                     return $this->checkSession();
+                    
+                case 'get_csrf_token':
+                    return $this->getCSRFToken();
                     
                 default:
                     throw new Exception('Invalid action', 400);
@@ -107,6 +131,9 @@ class AuthAPI {
         $_SESSION['username'] = $result['username'];
         $_SESSION['session_id'] = $result['session_id'];
         
+        // Generate a new CSRF token for the logged in session
+        $newCSRFToken = $this->security->generateCSRF();
+        
         $this->sendResponse([
             'success' => true,
             'message' => 'Login successful',
@@ -115,6 +142,7 @@ class AuthAPI {
                 'username' => $result['username'],
                 'display_name' => $result['display_name']
             ],
+            'csrf_token' => $newCSRFToken,
             'redirect' => 'index.php'
         ]);
     }
@@ -251,36 +279,88 @@ class AuthAPI {
     }
     
     private function checkSession() {
-        $isLoggedIn = isset($_SESSION['user_id']);
-        
-        if ($isLoggedIn) {
-            $user = $this->user->getUserById($_SESSION['user_id']);
+        try {
+            $isLoggedIn = isset($_SESSION['user_id']);
             
+            if ($isLoggedIn) {
+                // Try to get user info, but handle errors gracefully
+                try {
+                    $user = $this->user->getUserById($_SESSION['user_id']);
+                    if ($user) {
+                        $this->sendResponse([
+                            'success' => true,
+                            'authenticated' => true,
+                            'user' => [
+                                'id' => $user['id'],
+                                'username' => $user['username'],
+                                'display_name' => $user['display_name'] ?? $user['username'],
+                                'avatar' => $user['avatar'] ?? null
+                            ]
+                        ]);
+                    } else {
+                        // User not found in database, clear session
+                        session_destroy();
+                        $this->sendResponse([
+                            'success' => true,
+                            'authenticated' => false
+                        ]);
+                    }
+                } catch (Exception $userError) {
+                    // Database error, but don't expose details
+                    error_log('User lookup error: ' . $userError->getMessage());
+                    $this->sendResponse([
+                        'success' => true,
+                        'authenticated' => false,
+                        'error' => 'Database error'
+                    ]);
+                }
+            } else {
+                $this->sendResponse([
+                    'success' => true,
+                    'authenticated' => false
+                ]);
+            }
+        } catch (Exception $e) {
+            error_log('Session check error: ' . $e->getMessage());
             $this->sendResponse([
                 'success' => true,
-                'authenticated' => true,
-                'user' => [
-                    'id' => $user['id'],
-                    'username' => $user['username'],
-                    'display_name' => $user['display_name'],
-                    'avatar' => $user['avatar']
-                ]
-            ]);
-        } else {
-            $this->sendResponse([
-                'success' => true,
-                'authenticated' => false
+                'authenticated' => false,
+                'error' => 'Session check failed'
             ]);
         }
     }
     
+    private function getCSRFToken() {
+        // Generate a new CSRF token
+        $newToken = $this->security->generateCSRF();
+        
+        $this->sendResponse([
+            'success' => true,
+            'csrf_token' => $newToken
+        ]);
+    }
+    
     private function sendResponse($data, $statusCode = 200) {
+        // Clear any output buffer
+        if (ob_get_level()) {
+            ob_clean();
+        }
+        
+        // Ensure clean JSON output
+        header('Content-Type: application/json');
         http_response_code($statusCode);
         echo json_encode($data);
         exit;
     }
     
     private function sendError($message, $statusCode = 400) {
+        // Clear any output buffer
+        if (ob_get_level()) {
+            ob_clean();
+        }
+        
+        // Ensure clean JSON output
+        header('Content-Type: application/json');
         http_response_code($statusCode);
         echo json_encode([
             'success' => false,
@@ -291,7 +371,39 @@ class AuthAPI {
     }
 }
 
+// Global error handler for uncaught exceptions
+set_exception_handler(function($exception) {
+    // Clear any output buffer
+    if (ob_get_level()) {
+        ob_clean();
+    }
+    
+    header('Content-Type: application/json');
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Internal server error: ' . $exception->getMessage(),
+        'timestamp' => date('c')
+    ]);
+    exit;
+});
+
 // Initialize and handle request
-$api = new AuthAPI();
-$api->handleRequest();
+try {
+    $api = new AuthAPI();
+    $api->handleRequest();
+} catch (Exception $e) {
+    // Clear any output buffer
+    if (ob_get_level()) {
+        ob_clean();
+    }
+    
+    header('Content-Type: application/json');
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'API initialization failed: ' . $e->getMessage(),
+        'timestamp' => date('c')
+    ]);
+}
 ?>
