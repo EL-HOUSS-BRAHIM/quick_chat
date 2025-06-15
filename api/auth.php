@@ -129,10 +129,16 @@ class AuthAPI {
         
         error_log('=== Login Debug ===');
         error_log('Attempting login for username: ' . $username);
+        error_log('POST data: ' . json_encode($_POST));
+        error_log('Session data before login: ' . json_encode($_SESSION));
         
-        $result = $this->user->login($username, $password, $rememberMe);
-        
-        error_log('Login result: ' . json_encode($result));
+        try {
+            $result = $this->user->login($username, $password, $rememberMe);
+            error_log('Login result: ' . json_encode($result));
+        } catch (Exception $e) {
+            error_log('User login failed: ' . $e->getMessage());
+            throw $e;
+        }
         
         $_SESSION['user_id'] = $result['user_id'];
         $_SESSION['username'] = $result['username'];
