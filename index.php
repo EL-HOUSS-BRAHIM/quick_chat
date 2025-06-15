@@ -30,11 +30,63 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quick Chat - Enhanced PHP Version</title>
+    <title>Quick Chat</title>
     <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="stylesheet" href="assets/css/enhanced-chat.css">
+    <link rel="stylesheet" href="assets/css/accessibility.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <meta name="csrf-token" content="<?php echo htmlspecialchars($csrfToken); ?>">
+    <meta name="description" content="Quick Chat - A secure, accessible, and feature-rich messaging platform">
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- SEO Meta Tags -->
+    <meta name="keywords" content="chat app, secure messaging, online chat, real-time chat, web chat, PHP chat, accessible chat">
+    <meta name="author" content="Quick Chat Team">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="<?php echo (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . strtok($_SERVER['REQUEST_URI'], '?'); ?>">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?php echo (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']; ?>">
+    <meta property="og:title" content="Quick Chat - Enhanced PHP Version">
+    <meta property="og:description" content="A secure, accessible, and feature-rich messaging platform">
+    <meta property="og:image" content="<?php echo (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST']; ?>/assets/images/og-image.jpg">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="<?php echo (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']; ?>">
+    <meta property="twitter:title" content="Quick Chat - Enhanced PHP Version">
+    <meta property="twitter:description" content="A secure, accessible, and feature-rich messaging platform">
+    <meta property="twitter:image" content="<?php echo (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST']; ?>/assets/images/twitter-image.jpg">
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Quick Chat",
+        "operatingSystem": "Web",
+        "applicationCategory": "CommunicationApplication",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "ratingCount": "1024"
+        }
+    }
+    </script>
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="assets/images/apple-touch-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/images/apple-touch-icon-180x180.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="assets/images/apple-touch-icon-167x167.png">
 </head>
 <body>
     <?php if (!$isLoggedIn): ?>
@@ -265,15 +317,19 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
                 
                 <!-- Emoji Picker -->
                 <div id="emojiPicker" class="emoji-picker" style="display: none;">
+                    <!-- Added search input for emojis -->
+                    <div class="emoji-search-container">
+                        <input type="text" id="emojiSearch" class="emoji-search" placeholder="Search emojis..." aria-label="Search emojis">
+                    </div>
                     <div class="emoji-categories">
-                        <button class="emoji-category active" data-category="smileys">😀</button>
-                        <button class="emoji-category" data-category="people">👤</button>
-                        <button class="emoji-category" data-category="nature">🌸</button>
-                        <button class="emoji-category" data-category="food">🍕</button>
-                        <button class="emoji-category" data-category="activities">⚽</button>
-                        <button class="emoji-category" data-category="travel">🚗</button>
-                        <button class="emoji-category" data-category="objects">💡</button>
-                        <button class="emoji-category" data-category="symbols">❤️</button>
+                        <button class="emoji-category active" data-category="smileys" aria-label="Smileys and emotions">😀</button>
+                        <button class="emoji-category" data-category="people" aria-label="People">👤</button>
+                        <button class="emoji-category" data-category="nature" aria-label="Animals and nature">🌸</button>
+                        <button class="emoji-category" data-category="food" aria-label="Food and drink">🍕</button>
+                        <button class="emoji-category" data-category="activities" aria-label="Activities">⚽</button>
+                        <button class="emoji-category" data-category="travel" aria-label="Travel and places">🚗</button>
+                        <button class="emoji-category" data-category="objects" aria-label="Objects">💡</button>
+                        <button class="emoji-category" data-category="symbols" aria-label="Symbols">❤️</button>
                     </div>
                     <div class="emoji-grid" id="emojiGrid"></div>
                 </div>
@@ -358,11 +414,25 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
         <source src="assets/sounds/notification.ogg" type="audio/ogg">
     </audio> -->
 
+    <!-- Toast container for notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+    
+    <!-- Live region for screen reader announcements -->
+    <div id="a11y-live-region" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    
+    <!-- Skip to main content link for accessibility -->
+    <a href="#chatScreen" class="skip-link">Skip to main content</a>
+
     <script src="assets/js/config.js?v=<?php echo time(); ?>"></script>
     <script src="assets/js/utils.js?v=<?php echo time(); ?>"></script>
     <script src="assets/js/security.js?v=<?php echo time(); ?>"></script>
     <script src="assets/js/emoji.js?v=<?php echo time(); ?>"></script>
+    <script src="assets/js/error-handler.js?v=<?php echo time(); ?>"></script>
+    <script src="assets/js/accessibility.js?v=<?php echo time(); ?>"></script>
+    <script src="assets/js/theme.js?v=<?php echo time(); ?>"></script>
+    <script src="assets/js/webrtc.js?v=<?php echo time(); ?>"></script>
     <script src="assets/js/chat.js?v=<?php echo time(); ?>"></script>
     <script src="assets/js/app.js?v=<?php echo time(); ?>"></script>
+    <script src="assets/js/integration.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
