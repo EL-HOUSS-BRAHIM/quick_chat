@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+Allow: /index.php
+Disallow: /api/
+Disallow: /config/
+Disallow: /classes/
+Disallow: /logs/
+Disallow: /test_*.php
+Disallow: /debug.html
+Disallow: /*-test.php
+Disallow: /*-test.html
+
+# Allow important files
+Allow: /sitemap.xml
+Allow: /manifest.json
+Allow: /robots.txt
+Allow: /offline.html
+
+# Sitemap location
+Sitemap: https://yourdomain.com/sitemap.xml
