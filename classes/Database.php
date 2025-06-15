@@ -7,16 +7,31 @@ class Database {
     
     private function __construct() {
         try {
+            $options = [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . Config::getDbCharset()
+            ];
+            
+            // Add SSL options if SSL is enabled
+            if (Config::isDbSslEnabled()) {
+                $caPath = __DIR__ . '/../' . Config::getDbSslCaPath();
+                if (file_exists($caPath)) {
+                    $options[PDO::MYSQL_ATTR_SSL_CA] = $caPath;
+                    // For cloud database providers like Aiven, sometimes we need to set this to false
+                    $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
+                } else {
+                    error_log("SSL CA certificate not found at: " . $caPath);
+                    throw new Exception("SSL CA certificate not found");
+                }
+            }
+            
             $this->connection = new PDO(
                 Config::getDSN(),
                 Config::getDbUser(),
                 Config::getDbPass(),
-                [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES => false,
-                    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . Config::getDbCharset()
-                ]
+                $options
             );
         } catch (PDOException $e) {
             error_log("Database connection failed: " . $e->getMessage());
