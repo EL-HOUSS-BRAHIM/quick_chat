@@ -18,6 +18,8 @@ class Config {
     public static function getDbUser() { return Env::get('DB_USER'); }
     public static function getDbPass() { return Env::get('DB_PASS', ''); }
     public static function getDbCharset() { return Env::get('DB_CHARSET', 'utf8mb4'); }
+    public static function isDbSslEnabled() { return Env::bool('DB_SSL_ENABLED', false); }
+    public static function getDbSslCaPath() { return Env::get('DB_SSL_CA_PATH', '.cert/ca.pem'); }
     
     // Security settings
     public static function getEncryptionKey() { return Env::get('ENCRYPTION_KEY'); }
@@ -119,13 +121,15 @@ class Config {
     
     // Database connection string
     public static function getDSN() {
-        return sprintf(
+        $dsn = sprintf(
             'mysql:host=%s;port=%d;dbname=%s;charset=%s',
             self::getDbHost(),
             self::getDbPort(),
             self::getDbName(),
             self::getDbCharset()
         );
+        
+        return $dsn;
     }
     
     // API constants
