@@ -1,21 +1,31 @@
-# Quick Chat - Enhanced PHP Version
+# Quick Chat - Secure Messaging Platform
 
-## Features
+<div align="center">
+  <img src="assets/images/icon-192.png" alt="Quick Chat Logo" width="120">
+  
+  **A modern, secure, and accessible real-time messaging platform**
+  
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![PHP Version](https://img.shields.io/badge/PHP-8.0%2B-blue.svg)](https://php.net/)
+  [![MySQL](https://img.shields.io/badge/MySQL-8.0%2B-orange.svg)](https://mysql.com/)
+</div>
 
-- 🔐 Secure user authentication with password hashing
-- 💬 Real-time messaging (polling-based)
-- 📁 File upload support (images, videos, audio, documents)
-- 🎤 Audio recording capability
-- 😊 Emoji support
-- 🔍 Message search
-- 📱 Responsive design
-- 🌙 Dark/Light theme support
-- 🔔 Desktop notifications
-- 🛡️ CSRF protection
-- 📊 Rate limiting
-- 🔍 SQL injection prevention
-- 🎯 XSS protection
-- 📝 Audit logging
+## ✨ Features
+
+- 🔐 **End-to-End Encryption** - Secure messaging with AES-256 encryption
+- ⚡ **Real-Time Communication** - Instant messaging with WebSocket support
+- 🌐 **Google & Facebook SSO** - Easy authentication with social login
+- ♿ **Accessibility First** - WCAG 2.1 compliant with screen reader support
+- 📱 **Progressive Web App** - Works offline and can be installed on devices
+- 🎨 **Modern UI** - Beautiful, responsive design with dark/light themes
+- 🗂️ **File Sharing** - Share documents, images, and media securely
+- 📞 **Voice & Video Calls** - WebRTC-powered audio/video communication
+- 🔒 **Advanced Security** - CSRF protection, rate limiting, and suspicious activity detection
+- 🌍 **SEO Optimized** - Full SEO support with Open Graph and Twitter Cards
+- 🔔 **Desktop Notifications** - Push notifications for new messages
+- 😊 **Emoji Support** - Rich emoji picker and reactions
+- 🎤 **Audio Recording** - Voice message support
+- 📊 **Audit Logging** - Comprehensive security and activity logging
 
 ## Installation
 
