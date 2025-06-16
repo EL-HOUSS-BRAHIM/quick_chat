@@ -2937,14 +2937,450 @@ class QuickChatApp {
     /**
      * Additional placeholder methods that might be called
      */
-    async loadMessages() {
-        // Implementation would load messages from API
-        console.log('Loading messages...');
+    async checkForNewMessages() {
+        try {
+            // Don't check if not authenticated or if offline
+            if (!this.user || !this.state.isOnline) {
+                return false;
+            }
+            
+            // Prepare request parameters
+            const url = new URL('/api/messages.php', window.location.origin);
+            url.searchParams.set('action', 'get_new');
+            
+            // Add last message ID if we have one
+            if (this.state.lastMessageId) {
+                url.searchParams.set('after_id', this.state.lastMessageId);
+            }
+            
+            // Add target user for direct messages
+            if (this.state.targetUser) {
+                url.searchParams.set('target_user_id', this.state.targetUser.id);
+            }
+            
+            // Add limit to prevent too many messages at once
+            url.searchParams.set('limit', '20');
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Cache-Control': 'no-cache'
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                if (response.status === 401) {
+                    // Session expired
+                    this.logout();
+                    return false;
+                }
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success && result.data && result.data.length > 0) {
+                const newMessages = result.data;
+                let hasNewMessages = false;
+                
+                // Add new messages to state
+                newMessages.forEach(message => {
+                    // Check if message is not already in our array
+                    const exists = this.state.messages.find(msg => msg.id === message.id);
+                    if (!exists) {
+                        // Mark messages from other users
+                        message.is_own = message.user_id === this.user.id;
+                        
+                        this.state.messages.push(message);
+                        hasNewMessages = true;
+                        
+                        // Update last message ID
+                        if (message.id > this.state.lastMessageId) {
+                            this.state.lastMessageId = message.id;
+                        }
+                        
+                        // Show notification for messages from other users
+                        if (!message.is_own && !this.state.isVisible) {
+                            this.showNotification(message);
+                        }
+                        
+                        // Play sound for new messages
+                        if (!message.is_own && this.state.soundEnabled) {
+                            this.playNotificationSound();
+                        }
+                    }
+                });
+                
+                if (hasNewMessages) {
+                    // Sort messages by timestamp
+                    this.state.messages.sort((a, b) => 
+                        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                    );
+                    
+                    // Re-render messages
+                    this.renderMessages();
+                    
+                    // Auto-scroll to bottom if user was already at bottom
+                    if (this.isScrollAtBottom()) {
+                        this.scrollToBottom();
+                    }
+                    
+                    // Update unread count if window is not visible
+                    if (!this.state.isVisible) {
+                        this.state.unreadMessages += newMessages.filter(msg => !msg.is_own).length;
+                        this.updateUnreadCount();
+                    }
+                    
+                    // Save to storage
+                    this.saveMessagesToStorage();
+                    
+                    // Broadcast to other tabs
+                    this.broadcastToOtherTabs('new_messages', newMessages);
+                    
+                    // Trigger custom event
+                    const event = new CustomEvent('newMessages', {
+                        detail: { messages: newMessages, count: newMessages.length }
+                    });
+                    document.dispatchEvent(event);
+                }
+                
+                return hasNewMessages;
+            }
+            
+            return false;
+            
+        } catch (error) {
+            console.error('Failed to check for new messages:', error);
+            
+            // Don't show error to user unless it's a critical error
+            if (error.message.includes('401')) {
+                this.showError('Session expired. Please log in again.');
+                this.logout();
+            } else if (error.message.includes('network') || error.message.includes('fetch')) {
+                // Network error - will retry on next poll
+                console.warn('Network error checking for messages, will retry...');
+            }
+            
+            return false;
+        }
+    }
+    
+    isScrollAtBottom() {
+        const messagesList = document.getElementById('messagesList') || 
+                           document.getElementById('messagesContainer') || 
+                           document.querySelector('.messages-list');
+        
+        if (!messagesList) return true;
+        
+        const threshold = 100; // pixels from bottom
+        return (messagesList.scrollTop + messagesList.clientHeight) >= 
+               (messagesList.scrollHeight - threshold);
+    }
+    
+    showNotification(message) {
+        if (!this.state.notificationsEnabled || Notification.permission !== 'granted') {
+            return;
+        }
+        
+        try {
+            const title = message.display_name || message.username || 'New Message';
+            let body = message.content;
+            
+            // Truncate long messages
+            if (body.length > 100) {
+                body = body.substring(0, 97) + '...';
+            }
+            
+            // Handle different message types
+            if (message.message_type !== 'text') {
+                switch (message.message_type) {
+                    case 'image':
+                        body = '📷 Sent an image';
+                        break;
+                    case 'video':
+                        body = '🎥 Sent a video';
+                        break;
+                    case 'audio':
+                        body = '🎵 Sent an audio file';
+                        break;
+                    case 'document':
+                        body = '📄 Sent a document';
+                        break;
+                    default:
+                        body = '📎 Sent a file';
+                }
+            }
+            
+            const notification = new Notification(title, {
+                body: body,
+                icon: message.avatar || '/assets/images/default-avatar.png',
+                badge: '/assets/images/icon-192.png',
+                tag: `message-${message.id}`,
+                requireInteraction: false,
+                silent: false
+            });
+            
+            // Auto-close after 5 seconds
+            setTimeout(() => {
+                notification.close();
+            }, 5000);
+            
+            // Click to focus window
+            notification.onclick = () => {
+                window.focus();
+                notification.close();
+            };
+            
+        } catch (error) {
+            console.error('Failed to show notification:', error);
+        }
+    }
+    
+    playNotificationSound() {
+        try {
+            // Use Web Audio API for better browser support
+            if (window.AudioContext || window.webkitAudioContext) {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Create a simple notification sound (short beep)
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.2);
+            } else {
+                // Fallback to HTML5 Audio (if sound file exists)
+                const audio = new Audio('/assets/sounds/notification.mp3');
+                audio.volume = 0.5;
+                audio.play().catch(() => {
+                    // Ignore play errors (user interaction required, etc.)
+                });
+            }
+        } catch (error) {
+            console.error('Failed to play notification sound:', error);
+        }
+    }
+    
+    updateUnreadCount() {
+        // Update title
+        if (this.state.unreadMessages > 0) {
+            document.title = `(${this.state.unreadMessages}) Quick Chat`;
+        } else {
+            document.title = 'Quick Chat';
+        }
+        
+        // Update badge/indicator if it exists
+        const unreadBadge = document.querySelector('.unread-badge') || 
+                           document.getElementById('unreadCount');
+        
+        if (unreadBadge) {
+            if (this.state.unreadMessages > 0) {
+                unreadBadge.textContent = this.state.unreadMessages > 99 ? '99+' : this.state.unreadMessages;
+                unreadBadge.style.display = 'inline';
+            } else {
+                unreadBadge.style.display = 'none';
+            }
+        }
+        
+        // Update favicon if available
+        this.updateFavicon();
+    }
+    
+    updateFavicon() {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            
+            // Draw base icon (simple circle)
+            ctx.fillStyle = '#667eea';
+            ctx.beginPath();
+            ctx.arc(16, 16, 14, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Add unread count if there are unread messages
+            if (this.state.unreadMessages > 0) {
+                ctx.fillStyle = '#ff4444';
+                ctx.beginPath();
+                ctx.arc(24, 8, 8, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 10px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const text = this.state.unreadMessages > 9 ? '9+' : this.state.unreadMessages.toString();
+                ctx.fillText(text, 24, 8);
+            }
+            
+            // Update favicon
+            const link = document.querySelector('link[rel="icon"]') || 
+                        document.createElement('link');
+            link.rel = 'icon';
+            link.href = canvas.toDataURL();
+            
+            if (!document.querySelector('link[rel="icon"]')) {
+                document.head.appendChild(link);
+            }
+        } catch (error) {
+            console.error('Failed to update favicon:', error);
+        }
     }
 
     async sendMessage(content) {
-        // Implementation would send message via API
-        console.log('Sending message:', content);
+        try {
+            // Get message content from input if not provided
+            if (!content) {
+                const messageInput = document.getElementById('messageInput') || 
+                                   document.querySelector('input[type="text"]') ||
+                                   document.querySelector('textarea');
+                
+                if (!messageInput) {
+                    throw new Error('Message input not found');
+                }
+                
+                content = messageInput.value.trim();
+                
+                if (!content) {
+                    this.showError('Message cannot be empty');
+                    return false;
+                }
+            }
+            
+            // Validate message length
+            if (content.length > this.config.maxMessageLength) {
+                this.showError(`Message too long. Maximum ${this.config.maxMessageLength} characters.`);
+                return false;
+            }
+            
+            // Check if user is authenticated
+            if (!this.user) {
+                this.showError('You must be logged in to send messages');
+                return false;
+            }
+            
+            // Create temporary message for immediate UI feedback
+            const tempMessage = {
+                id: 'temp_' + Date.now(),
+                content: content,
+                user_id: this.user.id,
+                username: this.user.username,
+                display_name: this.user.display_name || this.user.username,
+                avatar: this.user.avatar,
+                created_at: new Date().toISOString(),
+                is_own: true,
+                pending: true
+            };
+            
+            // Add to messages array for immediate display
+            this.state.messages.push(tempMessage);
+            this.renderMessages();
+            this.scrollToBottom();
+            
+            // Clear input
+            const messageInput = document.getElementById('messageInput') || 
+                               document.querySelector('input[type="text"]') ||
+                               document.querySelector('textarea');
+            if (messageInput) {
+                messageInput.value = '';
+                messageInput.focus();
+            }
+            
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('action', 'send');
+            formData.append('message', content);
+            formData.append('csrf_token', this.csrfToken);
+            
+            // Add reply context if replying
+            if (this.state.replyingTo) {
+                formData.append('reply_to_id', this.state.replyingTo.id);
+                this.clearReply();
+            }
+            
+            // Send to API
+            const response = await fetch('/api/messages.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Remove temporary message and add real message
+                this.state.messages = this.state.messages.filter(msg => msg.id !== tempMessage.id);
+                
+                if (result.data) {
+                    this.state.messages.push({
+                        ...result.data,
+                        is_own: true
+                    });
+                    
+                    // Update last message ID
+                    this.state.lastMessageId = result.data.id;
+                    
+                    // Save to storage
+                    this.saveMessagesToStorage();
+                }
+                
+                this.renderMessages();
+                this.scrollToBottom();
+                
+                // Update character counter if it exists
+                const charCounter = document.querySelector('.char-counter');
+                if (charCounter) {
+                    charCounter.textContent = '0';
+                }
+                
+                // Broadcast to other tabs
+                this.broadcastToOtherTabs('message_sent', result.data);
+                
+                return true;
+            } else {
+                throw new Error(result.message || 'Failed to send message');
+            }
+            
+        } catch (error) {
+            console.error('Failed to send message:', error);
+            
+            // Remove temporary message on error
+            this.state.messages = this.state.messages.filter(msg => !msg.pending);
+            this.renderMessages();
+            
+            // Show error
+            if (error.message.includes('401') || error.message.includes('authentication')) {
+                this.showError('Session expired. Please log in again.');
+                this.logout();
+            } else if (error.message.includes('network') || error.message.includes('fetch')) {
+                this.showError('Network error. Message will be sent when connection is restored.');
+                // Queue message for retry when online
+                this.queueOfflineMessage(content);
+            } else {
+                this.showError(error.message || 'Failed to send message');
+            }
+            
+            return false;
+        }
     }
 
     async loadMessagesFromStorage() {
@@ -2954,8 +3390,249 @@ class QuickChatApp {
     }
 
     renderMessages() {
-        // Implementation would render messages in UI
-        console.log('Rendering messages...');
+        try {
+            // Find message containers
+            const messagesList = document.getElementById('messagesList') || 
+                                document.getElementById('messagesContainer') || 
+                                document.querySelector('.messages-list') ||
+                                document.querySelector('.chat-messages');
+            
+            if (!messagesList) {
+                console.warn('Message container not found');
+                return;
+            }
+            
+            // Clear existing messages
+            messagesList.innerHTML = '';
+            
+            if (!this.state.messages || this.state.messages.length === 0) {
+                this.showWelcomeMessage();
+                return;
+            }
+            
+            // Group messages by date
+            const messagesByDate = this.groupMessagesByDate(this.state.messages);
+            
+            // Render messages
+            Object.keys(messagesByDate).forEach(date => {
+                // Add date separator
+                if (Object.keys(messagesByDate).length > 1) {
+                    const dateSeparator = this.createDateSeparator(date);
+                    messagesList.appendChild(dateSeparator);
+                }
+                
+                const messagesOnDate = messagesByDate[date];
+                
+                // Group consecutive messages from same user
+                const messageGroups = this.groupConsecutiveMessages(messagesOnDate);
+                
+                messageGroups.forEach(group => {
+                    const messageGroup = this.createMessageGroup(group);
+                    messagesList.appendChild(messageGroup);
+                });
+            });
+            
+            // Update unread count
+            this.updateUnreadCount();
+            
+            // Trigger custom event
+            const event = new CustomEvent('messagesRendered', {
+                detail: { messageCount: this.state.messages.length }
+            });
+            document.dispatchEvent(event);
+            
+        } catch (error) {
+            console.error('Failed to render messages:', error);
+            this.showError('Failed to display messages');
+        }
+    }
+    
+    groupMessagesByDate(messages) {
+        const grouped = {};
+        
+        messages.forEach(message => {
+            const date = new Date(message.created_at).toDateString();
+            if (!grouped[date]) {
+                grouped[date] = [];
+            }
+            grouped[date].push(message);
+        });
+        
+        return grouped;
+    }
+    
+    groupConsecutiveMessages(messages) {
+        const groups = [];
+        let currentGroup = [];
+        let lastUserId = null;
+        let lastTime = null;
+        
+        messages.forEach(message => {
+            const messageTime = new Date(message.created_at).getTime();
+            const timeDiff = lastTime ? messageTime - lastTime : 0;
+            const sameUser = message.user_id === lastUserId;
+            const withinTimeLimit = timeDiff < 300000; // 5 minutes
+            
+            if (sameUser && withinTimeLimit && currentGroup.length > 0) {
+                currentGroup.push(message);
+            } else {
+                if (currentGroup.length > 0) {
+                    groups.push([...currentGroup]);
+                }
+                currentGroup = [message];
+            }
+            
+            lastUserId = message.user_id;
+            lastTime = messageTime;
+        });
+        
+        if (currentGroup.length > 0) {
+            groups.push(currentGroup);
+        }
+        
+        return groups;
+    }
+    
+    createDateSeparator(date) {
+        const separator = document.createElement('div');
+        separator.className = 'date-separator';
+        
+        const dateText = document.createElement('span');
+        dateText.className = 'date-text';
+        
+        const today = new Date().toDateString();
+        const yesterday = new Date(Date.now() - 86400000).toDateString();
+        
+        if (date === today) {
+            dateText.textContent = 'Today';
+        } else if (date === yesterday) {
+            dateText.textContent = 'Yesterday';
+        } else {
+            dateText.textContent = new Date(date).toLocaleDateString();
+        }
+        
+        separator.appendChild(dateText);
+        return separator;
+    }
+    
+    createMessageGroup(messages) {
+        const group = document.createElement('div');
+        const firstMessage = messages[0];
+        const isOwn = firstMessage.user_id === this.user?.id;
+        
+        group.className = `message-group ${isOwn ? 'own' : 'other'}`;
+        
+        // Add avatar for other users
+        if (!isOwn) {
+            const avatar = this.createAvatar(firstMessage);
+            group.appendChild(avatar);
+        }
+        
+        // Message content container
+        const content = document.createElement('div');
+        content.className = 'message-content';
+        
+        // Add user info for other users or group chats
+        if (!isOwn) {
+            const userInfo = document.createElement('div');
+            userInfo.className = 'message-user';
+            userInfo.textContent = firstMessage.display_name || firstMessage.username;
+            content.appendChild(userInfo);
+        }
+        
+        // Add messages
+        messages.forEach(message => {
+            const messageEl = this.createMessageElement(message, isOwn);
+            content.appendChild(messageEl);
+        });
+        
+        group.appendChild(content);
+        return group;
+    }
+    
+    createMessageElement(message, isOwn) {
+        const messageEl = document.createElement('div');
+        messageEl.className = `message ${isOwn ? 'own' : 'other'}`;
+        messageEl.setAttribute('data-message-id', message.id);
+        
+        if (message.pending) {
+            messageEl.classList.add('pending');
+        }
+        
+        // Message text
+        const text = document.createElement('div');
+        text.className = 'message-text';
+        text.innerHTML = this.formatMessageText(message.content);
+        messageEl.appendChild(text);
+        
+        // Message meta (time, status)
+        const meta = document.createElement('div');
+        meta.className = 'message-meta';
+        
+        const time = document.createElement('span');
+        time.className = 'message-time';
+        time.textContent = this.formatTime(message.created_at);
+        meta.appendChild(time);
+        
+        // Status indicators for own messages
+        if (isOwn) {
+            const status = document.createElement('span');
+            status.className = 'message-status';
+            
+            if (message.pending) {
+                status.innerHTML = '<i class="icon-clock"></i>';
+                status.title = 'Sending...';
+            } else {
+                status.innerHTML = '<i class="icon-check"></i>';
+                status.title = 'Sent';
+            }
+            
+            meta.appendChild(status);
+        }
+        
+        messageEl.appendChild(meta);
+        
+        // Add context menu
+        messageEl.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.showMessageContextMenu(e, message);
+        });
+        
+        return messageEl;
+    }
+    
+    createAvatar(message) {
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        
+        if (message.avatar) {
+            const img = document.createElement('img');
+            img.src = message.avatar;
+            img.alt = message.display_name || message.username;
+            img.onerror = () => {
+                img.style.display = 'none';
+                avatar.textContent = (message.display_name || message.username).charAt(0).toUpperCase();
+            };
+            avatar.appendChild(img);
+        } else {
+            avatar.textContent = (message.display_name || message.username).charAt(0).toUpperCase();
+        }
+        
+        return avatar;
+    }
+    
+    formatMessageText(text) {
+        // Basic formatting (enhance as needed)
+        return text
+            .replace(/\n/g, '<br>')
+            .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>');
+    }
+    
+    formatTime(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
     scrollToBottom() {
@@ -2971,13 +3648,231 @@ class QuickChatApp {
     }
 
     startPeriodicUpdates() {
-        // Implementation would start polling for new messages
-        console.log('Starting periodic updates...');
+        try {
+            // Don't start if already running
+            if (this.timers.pollInterval) {
+                console.log('Polling already active');
+                return;
+            }
+            
+            // Don't start if not authenticated
+            if (!this.user) {
+                console.log('Cannot start polling: not authenticated');
+                return;
+            }
+            
+            console.log('Starting periodic message updates...');
+            
+            // Initial check
+            this.checkForNewMessages();
+            
+            // Set up regular polling
+            this.timers.pollInterval = setInterval(async () => {
+                try {
+                    // Only check if online and window is visible or has been visible recently
+                    if (this.state.isOnline && (this.state.isVisible || 
+                        Date.now() - this.state.lastActivityTime < 300000)) { // 5 minutes
+                        
+                        await this.checkForNewMessages();
+                        
+                        // Also check for typing indicators
+                        await this.checkTypingStatus();
+                        
+                        // Update user status
+                        await this.updateUserActivity();
+                    }
+                } catch (error) {
+                    console.error('Error during periodic update:', error);
+                    
+                    // If we get authentication errors repeatedly, stop polling
+                    if (error.message.includes('401')) {
+                        this.stopPeriodicUpdates();
+                        this.logout();
+                    }
+                }
+            }, this.config.pollInterval);
+            
+            // Also start a slower interval for user status updates
+            this.timers.statusCheckInterval = setInterval(async () => {
+                if (this.state.isOnline && this.user) {
+                    try {
+                        await this.updateOnlineStatus();
+                    } catch (error) {
+                        console.error('Error updating online status:', error);
+                    }
+                }
+            }, 30000); // Every 30 seconds
+            
+            console.log(`Polling started with ${this.config.pollInterval}ms interval`);
+            
+        } catch (error) {
+            console.error('Failed to start periodic updates:', error);
+        }
     }
-
+    
     stopPeriodicUpdates() {
-        // Implementation would stop polling
         console.log('Stopping periodic updates...');
+        
+        // Clear all timers
+        if (this.timers.pollInterval) {
+            clearInterval(this.timers.pollInterval);
+            this.timers.pollInterval = null;
+        }
+        
+        if (this.timers.statusCheckInterval) {
+            clearInterval(this.timers.statusCheckInterval);
+            this.timers.statusCheckInterval = null;
+        }
+        
+        if (this.timers.typingTimeout) {
+            clearTimeout(this.timers.typingTimeout);
+            this.timers.typingTimeout = null;
+        }
+        
+        if (this.timers.reconnectTimeout) {
+            clearTimeout(this.timers.reconnectTimeout);
+            this.timers.reconnectTimeout = null;
+        }
+        
+        if (this.timers.inactivityTimeout) {
+            clearTimeout(this.timers.inactivityTimeout);
+            this.timers.inactivityTimeout = null;
+        }
+        
+        console.log('All periodic updates stopped');
+    }
+    
+    async checkTypingStatus() {
+        try {
+            if (!this.state.targetUser) {
+                return;
+            }
+            
+            const url = new URL('/api/messages.php', window.location.origin);
+            url.searchParams.set('action', 'get_typing');
+            url.searchParams.set('target_user_id', this.state.targetUser.id);
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    this.updateTypingIndicator(result.data || []);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to check typing status:', error);
+        }
+    }
+    
+    updateTypingIndicator(typingUsers) {
+        const typingIndicator = document.getElementById('typingIndicator') || 
+                              document.querySelector('.typing-indicator');
+        
+        if (!typingIndicator) return;
+        
+        const currentTypingUsers = typingUsers.filter(user => user.id !== this.user.id);
+        
+        if (currentTypingUsers.length === 0) {
+            typingIndicator.style.display = 'none';
+            return;
+        }
+        
+        let text = '';
+        if (currentTypingUsers.length === 1) {
+            text = `${currentTypingUsers[0].display_name || currentTypingUsers[0].username} is typing...`;
+        } else if (currentTypingUsers.length === 2) {
+            text = `${currentTypingUsers[0].display_name || currentTypingUsers[0].username} and ${currentTypingUsers[1].display_name || currentTypingUsers[1].username} are typing...`;
+        } else {
+            text = `${currentTypingUsers.length} people are typing...`;
+        }
+        
+        typingIndicator.textContent = text;
+        typingIndicator.style.display = 'block';
+        
+        // Auto-hide after 10 seconds (in case we miss the stop signal)
+        setTimeout(() => {
+            if (typingIndicator.textContent === text) {
+                typingIndicator.style.display = 'none';
+            }
+        }, 10000);
+    }
+    
+    async updateUserActivity() {
+        try {
+            // Update last activity time
+            this.state.lastActivityTime = Date.now();
+            
+            // Send activity ping to server occasionally
+            const now = Date.now();
+            if (!this.lastActivityPing || now - this.lastActivityPing > 60000) { // Every minute
+                await this.sendActivityPing();
+                this.lastActivityPing = now;
+            }
+        } catch (error) {
+            console.error('Failed to update user activity:', error);
+        }
+    }
+    
+    async sendActivityPing() {
+        try {
+            const response = await fetch('/api/users.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new URLSearchParams({
+                    action: 'ping',
+                    csrf_token: this.csrfToken
+                }),
+                credentials: 'same-origin'
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.csrf_token) {
+                    this.updateCSRFToken(result.csrf_token);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to send activity ping:', error);
+        }
+    }
+    
+    async updateOnlineStatus() {
+        try {
+            const status = this.state.isVisible ? 'online' : 'away';
+            
+            const response = await fetch('/api/users.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new URLSearchParams({
+                    action: 'update_status',
+                    status: status,
+                    csrf_token: this.csrfToken
+                }),
+                credentials: 'same-origin'
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.csrf_token) {
+                    this.updateCSRFToken(result.csrf_token);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to update online status:', error);
+        }
     }
 
     handleMessageInput(event) {
@@ -2990,9 +3885,345 @@ class QuickChatApp {
         console.log('User is typing...');
     }
 
-    handleFileUpload(event) {
-        // Implementation would handle file uploads
-        console.log('File upload:', event.target.files);
+    async handleFileUpload(event) {
+        try {
+            const files = event.target?.files || event.dataTransfer?.files;
+            
+            if (!files || files.length === 0) {
+                this.showError('No files selected');
+                return false;
+            }
+            
+            // Check authentication
+            if (!this.user) {
+                this.showError('You must be logged in to upload files');
+                return false;
+            }
+            
+            // Process each file
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                await this.uploadSingleFile(file);
+            }
+            
+            // Clear file input
+            if (event.target && event.target.tagName === 'INPUT') {
+                event.target.value = '';
+            }
+            
+            return true;
+            
+        } catch (error) {
+            console.error('File upload handler error:', error);
+            this.showError('Failed to process file upload');
+            return false;
+        }
+    }
+    
+    async uploadSingleFile(file) {
+        try {
+            // Validate file
+            const validation = this.validateFile(file);
+            if (!validation.valid) {
+                this.showError(validation.error);
+                return false;
+            }
+            
+            // Create upload progress indicator
+            const uploadId = 'upload_' + Date.now() + '_' + Math.random();
+            this.createUploadProgress(uploadId, file.name);
+            
+            // Add to pending uploads
+            this.state.pendingUploads.set(uploadId, {
+                file: file,
+                name: file.name,
+                size: file.size,
+                progress: 0,
+                status: 'uploading'
+            });
+            
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('csrf_token', this.csrfToken);
+            formData.append('type', 'auto'); // Let server determine type
+            
+            // Add optional message
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput && messageInput.value.trim()) {
+                formData.append('message', messageInput.value.trim());
+                messageInput.value = '';
+            }
+            
+            // Add target user if in direct chat
+            if (this.state.targetUser) {
+                formData.append('target_user_id', this.state.targetUser.id);
+            }
+            
+            // Upload with progress tracking
+            const response = await this.uploadWithProgress(formData, uploadId);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Update upload status
+                this.updateUploadProgress(uploadId, 100, 'complete');
+                
+                // Add message to chat
+                if (result.data) {
+                    this.state.messages.push({
+                        ...result.data,
+                        is_own: true
+                    });
+                    
+                    this.renderMessages();
+                    this.scrollToBottom();
+                    
+                    // Save to storage
+                    this.saveMessagesToStorage();
+                    
+                    // Broadcast to other tabs
+                    this.broadcastToOtherTabs('file_uploaded', result.data);
+                }
+                
+                // Remove upload progress after delay
+                setTimeout(() => {
+                    this.removeUploadProgress(uploadId);
+                    this.state.pendingUploads.delete(uploadId);
+                }, 2000);
+                
+                this.showToast(`File "${file.name}" uploaded successfully`, 'success');
+                return true;
+                
+            } else {
+                throw new Error(result.error || 'Upload failed');
+            }
+            
+        } catch (error) {
+            console.error('File upload error:', error);
+            
+            // Update upload status to error
+            this.updateUploadProgress(uploadId, 0, 'error');
+            
+            // Show error message
+            let errorMessage = 'Failed to upload file';
+            if (error.message.includes('413')) {
+                errorMessage = 'File is too large';
+            } else if (error.message.includes('415')) {
+                errorMessage = 'File type not supported';
+            } else if (error.message.includes('401')) {
+                errorMessage = 'Session expired. Please log in again.';
+                this.logout();
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            this.showError(`Upload failed: ${errorMessage}`);
+            
+            // Remove upload progress after delay
+            setTimeout(() => {
+                this.removeUploadProgress(uploadId);
+                this.state.pendingUploads.delete(uploadId);
+            }, 5000);
+            
+            return false;
+        }
+    }
+    
+    validateFile(file) {
+        const result = { valid: false, error: '' };
+        
+        // Check file size (10MB limit)
+        if (file.size > this.config.maxFileSize) {
+            result.error = `File too large. Maximum size is ${this.config.maxFileSize / 1024 / 1024}MB`;
+            return result;
+        }
+        
+        if (file.size <= 0) {
+            result.error = 'File is empty';
+            return result;
+        }
+        
+        // Check file type
+        const allowedTypes = [
+            // Images
+            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+            // Videos
+            'video/mp4', 'video/webm', 'video/quicktime',
+            // Audio
+            'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm',
+            // Documents
+            'application/pdf', 'text/plain',
+            'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ];
+        
+        if (!allowedTypes.includes(file.type)) {
+            result.error = `File type "${file.type}" is not supported`;
+            return result;
+        }
+        
+        result.valid = true;
+        return result;
+    }
+    
+    async uploadWithProgress(formData, uploadId) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            // Track upload progress
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    this.updateUploadProgress(uploadId, percentComplete, 'uploading');
+                }
+            });
+            
+            xhr.addEventListener('load', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve({
+                        ok: true,
+                        status: xhr.status,
+                        json: () => Promise.resolve(JSON.parse(xhr.responseText))
+                    });
+                } else {
+                    reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+                }
+            });
+            
+            xhr.addEventListener('error', () => {
+                reject(new Error('Network error during upload'));
+            });
+            
+            xhr.addEventListener('timeout', () => {
+                reject(new Error('Upload timeout'));
+            });
+            
+            xhr.open('POST', '/api/upload.php');
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.timeout = 60000; // 60 second timeout
+            xhr.send(formData);
+        });
+    }
+    
+    createUploadProgress(uploadId, fileName) {
+        const container = document.getElementById('uploadProgressContainer') || 
+                         document.querySelector('.upload-progress-container') ||
+                         this.createUploadProgressContainer();
+        
+        const progressEl = document.createElement('div');
+        progressEl.className = 'upload-progress-item';
+        progressEl.setAttribute('data-upload-id', uploadId);
+        
+        progressEl.innerHTML = `
+            <div class="upload-info">
+                <span class="upload-filename">${this.escapeHtml(fileName)}</span>
+                <span class="upload-status">Preparing...</span>
+            </div>
+            <div class="upload-progress-bar">
+                <div class="upload-progress-fill" style="width: 0%"></div>
+            </div>
+            <button class="upload-cancel-btn" title="Cancel Upload">
+                <i class="icon-times"></i>
+            </button>
+        `;
+        
+        // Add cancel functionality
+        const cancelBtn = progressEl.querySelector('.upload-cancel-btn');
+        cancelBtn.addEventListener('click', () => {
+            this.cancelUpload(uploadId);
+        });
+        
+        container.appendChild(progressEl);
+    }
+    
+    createUploadProgressContainer() {
+        const container = document.createElement('div');
+        container.id = 'uploadProgressContainer';
+        container.className = 'upload-progress-container';
+        
+        // Insert before message input
+        const messageForm = document.getElementById('messageForm') || 
+                           document.querySelector('.message-form');
+        
+        if (messageForm) {
+            messageForm.parentNode.insertBefore(container, messageForm);
+        } else {
+            document.body.appendChild(container);
+        }
+        
+        return container;
+    }
+    
+    updateUploadProgress(uploadId, progress, status) {
+        const progressEl = document.querySelector(`[data-upload-id="${uploadId}"]`);
+        if (!progressEl) return;
+        
+        const progressFill = progressEl.querySelector('.upload-progress-fill');
+        const statusEl = progressEl.querySelector('.upload-status');
+        
+        if (progressFill) {
+            progressFill.style.width = `${Math.round(progress)}%`;
+        }
+        
+        if (statusEl) {
+            switch (status) {
+                case 'uploading':
+                    statusEl.textContent = `Uploading... ${Math.round(progress)}%`;
+                    break;
+                case 'complete':
+                    statusEl.textContent = 'Upload complete';
+                    progressEl.classList.add('complete');
+                    break;
+                case 'error':
+                    statusEl.textContent = 'Upload failed';
+                    progressEl.classList.add('error');
+                    break;
+            }
+        }
+        
+        // Update pending uploads state
+        const upload = this.state.pendingUploads.get(uploadId);
+        if (upload) {
+            upload.progress = progress;
+            upload.status = status;
+        }
+    }
+    
+    removeUploadProgress(uploadId) {
+        const progressEl = document.querySelector(`[data-upload-id="${uploadId}"]`);
+        if (progressEl) {
+            progressEl.remove();
+        }
+        
+        // Remove container if empty
+        const container = document.getElementById('uploadProgressContainer');
+        if (container && container.children.length === 0) {
+            container.remove();
+        }
+    }
+    
+    cancelUpload(uploadId) {
+        // Cancel the upload (if still in progress)
+        const upload = this.state.pendingUploads.get(uploadId);
+        if (upload && upload.status === 'uploading') {
+            // In a full implementation, you'd abort the XMLHttpRequest
+            upload.status = 'cancelled';
+        }
+        
+        this.removeUploadProgress(uploadId);
+        this.state.pendingUploads.delete(uploadId);
+        
+        this.showToast('Upload cancelled', 'info');
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     clearChat() {
