@@ -275,15 +275,28 @@ class User {
     }
     
     public function getUserSettings($userId) {
-        $sql = "SELECT setting_key, setting_value FROM user_settings WHERE user_id = ?";
-        $rows = $this->db->fetchAll($sql, [$userId]);
+        $sql = "SELECT * FROM user_settings WHERE user_id = ?";
+        $result = $this->db->query($sql, [$userId]);
+        $settings = $result->fetch();
         
-        $settings = [];
-        foreach ($rows as $row) {
-            $settings[$row['setting_key']] = json_decode($row['setting_value'], true);
+        // Return default settings if none exist
+        if (!$settings) {
+            return [
+                'notifications_enabled' => true,
+                'sound_enabled' => true,
+                'theme' => 'light',
+                'privacy_level' => 'normal'
+            ];
         }
         
         return $settings;
+    }
+    
+    public function getTotalUserCount() {
+        $sql = "SELECT COUNT(*) as count FROM users WHERE status = 'active'";
+        $result = $this->db->query($sql);
+        $row = $result->fetch();
+        return $row['count'] ?? 0;
     }
     
     public function updateUserSetting($userId, $key, $value) {
