@@ -25,7 +25,7 @@ $stats = [
     'totalMessages' => $messageClass->getUserMessageCount($currentUser['id']),
     'onlineUsers' => count($userClass->getOnlineUsers()),
     'totalUsers' => $userClass->getTotalUserCount(),
-    'todayMessages' => $messageClass->getTodayMessageCount($currentUser['id'])
+    'todayMessages' => $messageClass->getTodayMessageCount()
 ];
 
 $recentMessages = $messageClass->getRecentMessages(10);
