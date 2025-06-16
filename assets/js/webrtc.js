@@ -1,51 +1,86 @@
 /**
- * WebRTC Support for Quick Chat
- * Version: 1.0.0
+ * WebRTC Support for Quick Chat - Complete Implementation
+ * Version: 2.0.0
  * 
- * This module adds support for real-time features:
- * - Peer-to-peer video/audio calls
- * - Screen sharing
- * - Live typing indicators
- * - Read receipts
+ * This module provides complete WebRTC functionality:
+ * - Peer-to-peer video/audio calls with error handling
+ * - Screen sharing with device switching
+ * - Call recording capabilities
+ * - Device management and switching
+ * - Connection quality monitoring
+ * - Group calls support
  */
 
 class WebRTCManager {
     constructor(options = {}) {
-        // Default options
+        // Default options with enhanced configuration
         this.options = {
-            signalingServer: 'wss://signaling.quickchat.example/ws',
+            signalingServer: options.signalingServer || 
+                            (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + 
+                            window.location.host + '/ws',
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                // TURN servers with authentication
+                ...(options.turnServers || this.getAuthenticatedTURNServers())
             ],
             mediaConstraints: {
-                audio: true,
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                },
                 video: {
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
+                    width: { ideal: 1280, max: 1920 },
+                    height: { ideal: 720, max: 1080 },
+                    frameRate: { ideal: 30, max: 60 }
                 }
             },
+            screenShareConstraints: {
+                video: {
+                    mediaSource: 'screen',
+                    width: { max: 1920 },
+                    height: { max: 1080 }
+                },
+                audio: true
+            },
+            connectionTimeout: 30000, // 30 seconds
+            reconnectAttempts: 3,
+            reconnectDelay: 2000,
             ...options
         };
 
-        // State
+        // Enhanced state management
         this.state = {
             connection: null,
             localStream: null,
+            screenStream: null,
             remoteStreams: new Map(),
             activeCalls: new Map(),
             incomingCalls: new Map(),
             outgoingCalls: new Map(),
+            groupCalls: new Map(),
             userId: null,
             isConnected: false,
+            isReconnecting: false,
+            reconnectAttempts: 0,
+            connectionQuality: new Map(),
             mediaDevices: {
                 audioInput: [],
                 audioOutput: [],
                 videoInput: []
-            }
+            },
+            currentDevices: {
+                audioInput: null,
+                audioOutput: null,
+                videoInput: null
+            },
+            callStates: new Map(), // Track individual call states
+            recordings: new Map() // Track active recordings
         };
 
-        // Event handlers
+        // Enhanced event handlers
         this.events = {
             onCallReceived: null,
             onCallConnected: null,
@@ -844,6 +879,729 @@ class WebRTCManager {
         if (typeof this.events[handlerName] === 'function') {
             this.events[handlerName](data);
         }
+    }
+
+    /**
+     * Enhanced device switching functionality
+     */
+    async switchAudioDevice(deviceId) {
+        try {
+            if (!this.state.localStream) {
+                throw new Error('No active stream to switch devices');
+            }
+
+            const constraints = {
+                audio: { deviceId: { exact: deviceId } },
+                video: this.state.localStream.getVideoTracks().length > 0
+            };
+
+            const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            // Replace audio track in active calls
+            for (const [callId, peerConnection] of this.state.activeCalls) {
+                const sender = peerConnection.getSenders().find(s => 
+                    s.track && s.track.kind === 'audio'
+                );
+                if (sender) {
+                    await sender.replaceTrack(newStream.getAudioTracks()[0]);
+                }
+            }
+
+            // Stop old audio track
+            this.state.localStream.getAudioTracks().forEach(track => track.stop());
+            
+            // Update stream
+            this.state.localStream = newStream;
+            this.state.currentDevices.audioInput = deviceId;
+            
+            this.triggerEvent('deviceSwitched', { type: 'audio', deviceId });
+            return true;
+        } catch (error) {
+            this.triggerEvent('error', { message: 'Failed to switch audio device', error });
+            return false;
+        }
+    }
+
+    async switchVideoDevice(deviceId) {
+        try {
+            if (!this.state.localStream) {
+                throw new Error('No active stream to switch devices');
+            }
+
+            const constraints = {
+                audio: this.state.localStream.getAudioTracks().length > 0,
+                video: { deviceId: { exact: deviceId } }
+            };
+
+            const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            // Replace video track in active calls
+            for (const [callId, peerConnection] of this.state.activeCalls) {
+                const sender = peerConnection.getSenders().find(s => 
+                    s.track && s.track.kind === 'video'
+                );
+                if (sender) {
+                    await sender.replaceTrack(newStream.getVideoTracks()[0]);
+                }
+            }
+
+            // Stop old video track
+            this.state.localStream.getVideoTracks().forEach(track => track.stop());
+            
+            // Update stream with new video track
+            const audioTracks = this.state.localStream.getAudioTracks();
+            const videoTracks = newStream.getVideoTracks();
+            
+            this.state.localStream = new MediaStream([...audioTracks, ...videoTracks]);
+            this.state.currentDevices.videoInput = deviceId;
+            
+            this.triggerEvent('deviceSwitched', { type: 'video', deviceId });
+            return true;
+        } catch (error) {
+            this.triggerEvent('error', { message: 'Failed to switch video device', error });
+            return false;
+        }
+    }
+
+    /**
+     * Enhanced screen sharing with error handling
+     */
+    async startScreenShare() {
+        try {
+            if (!navigator.mediaDevices.getDisplayMedia) {
+                throw new Error('Screen sharing is not supported');
+            }
+
+            const screenStream = await navigator.mediaDevices.getDisplayMedia(
+                this.options.screenShareConstraints
+            );
+
+            this.state.screenStream = screenStream;
+
+            // Handle screen share ending
+            screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+                this.stopScreenShare();
+            });
+
+            // Replace video track in active calls
+            for (const [callId, peerConnection] of this.state.activeCalls) {
+                const sender = peerConnection.getSenders().find(s => 
+                    s.track && s.track.kind === 'video'
+                );
+                if (sender) {
+                    await sender.replaceTrack(screenStream.getVideoTracks()[0]);
+                }
+            }
+
+            this.triggerEvent('screenShareStarted', { stream: screenStream });
+            return screenStream;
+        } catch (error) {
+            this.triggerEvent('error', { message: 'Failed to start screen sharing', error });
+            throw error;
+        }
+    }
+
+    async stopScreenShare() {
+        try {
+            if (!this.state.screenStream) return;
+
+            // Stop screen stream
+            this.state.screenStream.getTracks().forEach(track => track.stop());
+            this.state.screenStream = null;
+
+            // Revert to camera if available
+            if (this.state.localStream && this.state.localStream.getVideoTracks().length > 0) {
+                const videoTrack = this.state.localStream.getVideoTracks()[0];
+                
+                // Replace screen track with camera track in active calls
+                for (const [callId, peerConnection] of this.state.activeCalls) {
+                    const sender = peerConnection.getSenders().find(s => 
+                        s.track && s.track.kind === 'video'
+                    );
+                    if (sender) {
+                        await sender.replaceTrack(videoTrack);
+                    }
+                }
+            }
+
+            this.triggerEvent('screenShareStopped');
+        } catch (error) {
+            this.triggerEvent('error', { message: 'Failed to stop screen sharing', error });
+        }
+    }
+
+    /**
+     * Call recording functionality
+     */
+    startRecording(callId) {
+        try {
+            const peerConnection = this.state.activeCalls.get(callId);
+            if (!peerConnection) {
+                throw new Error('No active call found');
+            }
+
+            // Create media recorder for local stream
+            const recordedChunks = [];
+            const mediaRecorder = new MediaRecorder(this.state.localStream, {
+                mimeType: 'video/webm; codecs=vp9'
+            });
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                this.triggerEvent('recordingComplete', { 
+                    callId, 
+                    blob, 
+                    url: URL.createObjectURL(blob) 
+                });
+            };
+
+            mediaRecorder.start();
+            this.state.recordings.set(callId, mediaRecorder);
+            
+            this.triggerEvent('recordingStarted', { callId });
+            return true;
+        } catch (error) {
+            this.triggerEvent('error', { message: 'Failed to start recording', error });
+            return false;
+        }
+    }
+
+    stopRecording(callId) {
+        try {
+            const mediaRecorder = this.state.recordings.get(callId);
+            if (!mediaRecorder) {
+                throw new Error('No active recording found');
+            }
+
+            mediaRecorder.stop();
+            this.state.recordings.delete(callId);
+            
+            this.triggerEvent('recordingStopped', { callId });
+            return true;
+        } catch (error) {
+            this.triggerEvent('error', { message: 'Failed to stop recording', error });
+            return false;
+        }
+    }
+
+    /**
+     * Connection quality monitoring
+     */
+    async monitorConnectionQuality(callId) {
+        const peerConnection = this.state.activeCalls.get(callId);
+        if (!peerConnection) return;
+
+        try {
+            const stats = await peerConnection.getStats();
+            const quality = this.analyzeStats(stats);
+            
+            this.state.connectionQuality.set(callId, quality);
+            this.triggerEvent('qualityUpdate', { callId, quality });
+            
+            return quality;
+        } catch (error) {
+            console.warn('Failed to get connection stats:', error);
+            return null;
+        }
+    }
+
+    analyzeStats(stats) {
+        const quality = {
+            bitrate: 0,
+            packetLoss: 0,
+            jitter: 0,
+            roundTripTime: 0,
+            rating: 'unknown' // poor, fair, good, excellent
+        };
+
+        stats.forEach(report => {
+            if (report.type === 'inbound-rtp' && report.mediaType === 'video') {
+                quality.bitrate = report.bytesReceived || 0;
+                quality.packetLoss = report.packetsLost || 0;
+                quality.jitter = report.jitter || 0;
+            }
+            
+            if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                quality.roundTripTime = report.currentRoundTripTime || 0;
+            }
+        });
+
+        // Calculate overall quality rating
+        if (quality.roundTripTime < 100 && quality.packetLoss < 1) {
+            quality.rating = 'excellent';
+        } else if (quality.roundTripTime < 200 && quality.packetLoss < 3) {
+            quality.rating = 'good';
+        } else if (quality.roundTripTime < 300 && quality.packetLoss < 5) {
+            quality.rating = 'fair';
+        } else {
+            quality.rating = 'poor';
+        }
+
+        return quality;
+    }
+
+    /**
+     * Enhanced error handling with reconnection logic
+     */
+    async handleConnectionError(error, callId = null) {
+        console.error('WebRTC Connection Error:', error);
+        
+        const errorInfo = {
+            message: error.message || 'Unknown connection error',
+            code: error.code || 'UNKNOWN_ERROR',
+            callId: callId,
+            timestamp: new Date().toISOString()
+        };
+
+        // Attempt reconnection for certain error types
+        if (this.shouldAttemptReconnection(error) && !this.state.isReconnecting) {
+            await this.attemptReconnection(callId);
+        }
+
+        this.triggerEvent('connectionError', errorInfo);
+    }
+
+    shouldAttemptReconnection(error) {
+        const reconnectableErrors = [
+            'ice-connection-failed',
+            'ice-connection-disconnected',
+            'connection-timeout'
+        ];
+        
+        return reconnectableErrors.some(type => 
+            error.message.includes(type) || error.code === type
+        );
+    }
+
+    async attemptReconnection(callId) {
+        if (this.state.reconnectAttempts >= this.options.reconnectAttempts) {
+            this.triggerEvent('reconnectionFailed', { callId });
+            return false;
+        }
+
+        this.state.isReconnecting = true;
+        this.state.reconnectAttempts++;
+
+        this.triggerEvent('reconnectionAttempt', { 
+            attempt: this.state.reconnectAttempts,
+            maxAttempts: this.options.reconnectAttempts,
+            callId 
+        });
+
+        try {
+            // Wait before reconnection attempt
+            await new Promise(resolve => 
+                setTimeout(resolve, this.options.reconnectDelay)
+            );
+
+            // Attempt to restart the call
+            if (callId && this.state.activeCalls.has(callId)) {
+                await this.restartCall(callId);
+                this.state.isReconnecting = false;
+                this.state.reconnectAttempts = 0;
+                this.triggerEvent('reconnectionSuccess', { callId });
+                return true;
+            }
+        } catch (error) {
+            console.error('Reconnection attempt failed:', error);
+        }
+
+        this.state.isReconnecting = false;
+        
+        // Try again if we haven't reached max attempts
+        if (this.state.reconnectAttempts < this.options.reconnectAttempts) {
+            setTimeout(() => this.attemptReconnection(callId), this.options.reconnectDelay);
+        } else {
+            this.triggerEvent('reconnectionFailed', { callId });
+        }
+
+        return false;
+    }
+
+    async restartCall(callId) {
+        // Implementation for restarting a failed call
+        const peerConnection = this.state.activeCalls.get(callId);
+        if (!peerConnection) return;
+
+        // Create new ICE candidates
+        await peerConnection.restartIce();
+        
+        // Re-establish connection
+        const offer = await peerConnection.createOffer({ iceRestart: true });
+        await peerConnection.setLocalDescription(offer);
+        
+        // Send restart offer through signaling
+        this.sendSignalingMessage(callId, {
+            type: 'restart-offer',
+            offer: offer
+        });
+    }
+
+    /**
+     * Group call functionality
+     */
+    async startGroupCall(userIds) {
+        try {
+            const groupCallId = this.generateCallId();
+            const participants = new Map();
+
+            // Create peer connections for each participant
+            for (const userId of userIds) {
+                const peerConnection = await this.createPeerConnection(userId);
+                participants.set(userId, peerConnection);
+            }
+
+            this.state.groupCalls.set(groupCallId, {
+                id: groupCallId,
+                participants: participants,
+                creator: this.state.userId,
+                startTime: Date.now()
+            });
+
+            // Start calls with each participant
+            for (const [userId, peerConnection] of participants) {
+                await this.initiateCall(userId, peerConnection, true);
+            }
+
+            this.triggerEvent('groupCallStarted', { 
+                callId: groupCallId, 
+                participants: Array.from(participants.keys()) 
+            });
+
+            return groupCallId;
+        } catch (error) {
+            this.triggerEvent('error', { message: 'Failed to start group call', error });
+            throw error;
+        }
+    }
+
+    async joinGroupCall(groupCallId, participants) {
+        try {
+            const participantConnections = new Map();
+
+            // Create peer connections for existing participants
+            for (const userId of participants) {
+                const peerConnection = await this.createPeerConnection(userId);
+                participantConnections.set(userId, peerConnection);
+            }
+
+            this.state.groupCalls.set(groupCallId, {
+                id: groupCallId,
+                participants: participantConnections,
+                creator: null,
+                joinTime: Date.now()
+            });
+
+            this.triggerEvent('groupCallJoined', { 
+                callId: groupCallId, 
+                participants: Array.from(participantConnections.keys()) 
+            });
+
+            return true;
+        } catch (error) {
+            this.triggerEvent('error', { message: 'Failed to join group call', error });
+            return false;
+        }
+    }
+
+    /**
+     * Get authenticated TURN servers with temporary credentials
+     */
+    async getAuthenticatedTURNServers() {
+        try {
+            const response = await fetch('/api/webrtc/turn-credentials', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': this.getCSRFToken()
+                },
+                body: JSON.stringify({
+                    userId: this.state.userId
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                return [
+                    {
+                        urls: data.turnUrls,
+                        username: data.username,
+                        credential: data.credential,
+                        credentialType: 'password'
+                    }
+                ];
+            }
+        } catch (error) {
+            console.warn('Failed to get TURN credentials:', error);
+        }
+
+        // Fallback to public STUN servers
+        return [];
+    }
+
+    /**
+     * Verify call encryption status
+     */
+    async verifyCallEncryption(callId) {
+        if (!this.securityOptions.callEncryptionVerification) return true;
+
+        const call = this.findCallById(callId);
+        if (!call || !call.peerConnection) return false;
+
+        try {
+            const stats = await call.peerConnection.getStats();
+            let isEncrypted = false;
+            let encryptionSuite = null;
+
+            stats.forEach(report => {
+                if (report.type === 'transport' && report.dtlsState === 'connected') {
+                    isEncrypted = true;
+                    encryptionSuite = report.selectedCandidatePairId;
+                }
+            });
+
+            // Update call state with encryption info
+            call.encryption = {
+                isEncrypted: isEncrypted,
+                suite: encryptionSuite,
+                verified: true,
+                timestamp: Date.now()
+            };
+
+            this.triggerEvent('encryptionVerified', {
+                callId: callId,
+                isEncrypted: isEncrypted,
+                encryptionSuite: encryptionSuite
+            });
+
+            return isEncrypted;
+        } catch (error) {
+            console.error('Failed to verify encryption:', error);
+            this.triggerEvent('encryptionVerificationFailed', { callId, error });
+            return false;
+        }
+    }
+
+    /**
+     * Validate screen sharing permissions
+     */
+    async validateScreenSharePermission(callId) {
+        if (!this.securityOptions.validateScreenShare) return true;
+
+        try {
+            // Check if user has explicit permission to share screen
+            const permission = await navigator.permissions.query({ name: 'display-capture' });
+            
+            if (permission.state === 'denied') {
+                throw new Error('Screen sharing permission denied');
+            }
+
+            // Log screen share request for audit
+            await this.logSecurityEvent('screen_share_requested', {
+                callId: callId,
+                userId: this.state.userId,
+                timestamp: Date.now(),
+                permissionState: permission.state
+            });
+
+            // Request explicit user consent
+            const consent = await this.requestScreenShareConsent(callId);
+            if (!consent) {
+                throw new Error('User declined screen sharing consent');
+            }
+
+            return true;
+        } catch (error) {
+            this.triggerEvent('screenSharePermissionDenied', { callId, error: error.message });
+            return false;
+        }
+    }
+
+    /**
+     * Request screen sharing consent from user
+     */
+    async requestScreenShareConsent(callId) {
+        return new Promise((resolve) => {
+            // Create consent modal
+            const modal = document.createElement('div');
+            modal.className = 'consent-modal';
+            modal.innerHTML = `
+                <div class="consent-modal-content">
+                    <h3>Screen Sharing Permission</h3>
+                    <p>Do you want to share your screen with other participants in this call?</p>
+                    <p><small>Your screen content will be visible to all call participants.</small></p>
+                    <div class="consent-buttons">
+                        <button class="btn-consent-deny">Cancel</button>
+                        <button class="btn-consent-allow">Allow Screen Sharing</button>
+                    </div>
+                </div>
+            `;
+
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.7);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+
+            const content = modal.querySelector('.consent-modal-content');
+            content.style.cssText = `
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                max-width: 400px;
+                text-align: center;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            `;
+
+            // Handle consent response
+            modal.querySelector('.btn-consent-allow').onclick = () => {
+                document.body.removeChild(modal);
+                this.logSecurityEvent('screen_share_consent_granted', { callId });
+                resolve(true);
+            };
+
+            modal.querySelector('.btn-consent-deny').onclick = () => {
+                document.body.removeChild(modal);
+                this.logSecurityEvent('screen_share_consent_denied', { callId });
+                resolve(false);
+            };
+
+            document.body.appendChild(modal);
+            
+            // Auto-deny after 30 seconds
+            setTimeout(() => {
+                if (document.body.contains(modal)) {
+                    document.body.removeChild(modal);
+                    resolve(false);
+                }
+            }, 30000);
+        });
+    }
+
+    /**
+     * Manage recording consent for calls
+     */
+    async requestRecordingConsent(callId, participants) {
+        if (!this.securityOptions.requireRecordingConsent) return true;
+
+        try {
+            // Send consent request to all participants
+            const consentResponses = await Promise.all(
+                participants.map(userId => this.sendConsentRequest(callId, userId, 'recording'))
+            );
+
+            // All participants must consent
+            const allConsented = consentResponses.every(response => response.consented);
+
+            if (allConsented) {
+                await this.logSecurityEvent('recording_consent_granted', {
+                    callId: callId,
+                    participants: participants,
+                    timestamp: Date.now()
+                });
+            } else {
+                await this.logSecurityEvent('recording_consent_denied', {
+                    callId: callId,
+                    participants: participants,
+                    deniedBy: consentResponses.filter(r => !r.consented).map(r => r.userId)
+                });
+            }
+
+            return allConsented;
+        } catch (error) {
+            console.error('Failed to get recording consent:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Send consent request to participant
+     */
+    async sendConsentRequest(callId, userId, consentType) {
+        return new Promise((resolve) => {
+            const timeoutId = setTimeout(() => {
+                resolve({ userId, consented: false, timeout: true });
+            }, 30000);
+
+            // Send consent request through signaling
+            this.sendSignalingMessage({
+                type: 'consent-request',
+                callId: callId,
+                targetUserId: userId,
+                fromUserId: this.state.userId,
+                consentType: consentType,
+                requestId: `${callId}_${userId}_${Date.now()}`
+            });
+
+            // Listen for consent response
+            this.consentListeners = this.consentListeners || new Map();
+            this.consentListeners.set(`${callId}_${userId}`, (response) => {
+                clearTimeout(timeoutId);
+                resolve({ userId, consented: response.granted });
+            });
+        });
+    }
+
+    /**
+     * Log security events for audit trail
+     */
+    async logSecurityEvent(eventType, eventData) {
+        try {
+            await fetch('/api/security/log-event', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': this.getCSRFToken()
+                },
+                body: JSON.stringify({
+                    eventType: eventType,
+                    eventData: eventData,
+                    userId: this.state.userId,
+                    timestamp: Date.now(),
+                    userAgent: navigator.userAgent,
+                    ipAddress: await this.getClientIP()
+                })
+            });
+        } catch (error) {
+            console.error('Failed to log security event:', error);
+        }
+    }
+
+    /**
+     * Get client IP address for security logging
+     */
+    async getClientIP() {
+        try {
+            const response = await fetch('/api/security/client-ip');
+            if (response.ok) {
+                const data = await response.json();
+                return data.ip;
+            }
+        } catch (error) {
+            console.warn('Failed to get client IP:', error);
+        }
+        return 'unknown';
+    }
+
+    /**
+     * Get CSRF token for requests
+     */
+    getCSRFToken() {
+        const metaTag = document.querySelector('meta[name="csrf-token"]');
+        return metaTag ? metaTag.getAttribute('content') : '';
     }
 }
 
