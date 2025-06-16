@@ -20,7 +20,7 @@ if (AuthChecker::isAuthenticated()) {
     header('Location: dashboard.php');
     exit();
 } else {
-    // User is not logged in, redirect to auth page
-    header('Location: auth.php');
+    // User is not logged in, redirect to landing page
+    header('Location: landing.php');
     exit();
 }
