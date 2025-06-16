@@ -37,7 +37,7 @@ session_start();
 
 try {
     $db = new Database();
-    $userClass = new User($db);
+    $userClass = new User();
     $security = new Security();
     
     // Check if user is logged in and is admin
@@ -439,10 +439,10 @@ function handleBackupData($db) {
     $filepath = $backupDir . '/' . $filename;
     
     // Get database credentials
-    $host = DB_HOST;
-    $dbname = DB_NAME;
-    $username = DB_USER;
-    $password = DB_PASS;
+    $host = Config::getDbHost();
+    $dbname = Config::getDbName();
+    $username = Config::getDbUser();
+    $password = Config::getDbPass();
     
     // Create backup using mysqldump
     $command = "mysqldump --host=$host --user=$username --password=$password $dbname > $filepath 2>&1";
