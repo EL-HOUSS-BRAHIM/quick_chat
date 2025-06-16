@@ -42,6 +42,9 @@ class QuickChatApp {
             pendingUploads: new Map() // Track file uploads in progress
         };
         
+        // For backward compatibility, add messages property
+        this.messages = this.state.messages;
+        
         // Timers and intervals
         this.timers = {
             pollInterval: null,
@@ -2851,13 +2854,7 @@ class QuickChatApp {
      * Show toast message
      */
     showToast(message, type = 'info', duration = 5000) {
-        // Use the chat handler's showToast if available
-        if (window.chatHandler && typeof window.chatHandler.showToast === 'function') {
-            window.chatHandler.showToast(message, type);
-            return;
-        }
-        
-        // Fallback to simple console log
+        // Don't use chat handler to avoid circular calls
         console.log(`[${type.toUpperCase()}] ${message}`);
         
         // Try to create a simple toast
