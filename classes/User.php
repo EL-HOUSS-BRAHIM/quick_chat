@@ -353,7 +353,7 @@ class User {
                 $_SERVER['REMOTE_ADDR'] ?? '',
                 $_SERVER['HTTP_USER_AGENT'] ?? '',
                 $expiresAt,
-                $rememberMe
+                $rememberMe ? 1 : 0  // Convert boolean to integer
             ]);
             
             error_log('Session inserted into database successfully');
