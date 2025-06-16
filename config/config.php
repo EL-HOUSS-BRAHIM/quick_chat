@@ -33,6 +33,16 @@ class Config {
     public static function isSessionCookieHttpOnly() { return Env::bool('SESSION_COOKIE_HTTPONLY', true); }
     public static function getSessionCookieSameSite() { return Env::get('SESSION_COOKIE_SAMESITE', 'Strict'); }
     
+    // Google SSO settings
+    public static function getGoogleClientId() { return Env::get('GOOGLE_CLIENT_ID'); }
+    public static function getGoogleClientSecret() { return Env::get('GOOGLE_CLIENT_SECRET'); }
+    public static function isGoogleSSOEnabled() { return !empty(self::getGoogleClientId()) && !empty(self::getGoogleClientSecret()); }
+    
+    // Facebook SSO settings
+    public static function getFacebookClientId() { return Env::get('FACEBOOK_CLIENT_ID'); }
+    public static function getFacebookClientSecret() { return Env::get('FACEBOOK_CLIENT_SECRET'); }
+    public static function isFacebookSSOEnabled() { return !empty(self::getFacebookClientId()) && !empty(self::getFacebookClientSecret()); }
+    
     // File upload settings
     public static function getMaxFileSize() { return Env::int('MAX_FILE_SIZE', 10485760); }
     public static function getAllowedImageTypes() { 
@@ -104,6 +114,21 @@ class Config {
     
     public static function getAvatarPath() { 
         return rtrim(__DIR__ . '/../' . trim(Env::get('AVATAR_PATH', 'uploads/avatars/'), '/'), '/') . '/';
+    }
+    
+    // Site URL and application settings
+    public static function getSiteUrl() { 
+        $siteUrl = Env::get('SITE_URL');
+        if ($siteUrl) {
+            return rtrim($siteUrl, '/');
+        }
+        
+        // Auto-detect site URL if not set
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $path = dirname($_SERVER['SCRIPT_NAME'] ?? '');
+        
+        return $protocol . '://' . $host . ($path !== '/' ? $path : '');
     }
     
     // Debug and environment settings
