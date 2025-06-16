@@ -172,6 +172,15 @@ class Database {
         return $this->connection->rollback();
     }
     
+    public function prepare($sql) {
+        try {
+            return $this->connection->prepare($sql);
+        } catch (PDOException $e) {
+            error_log("Prepare failed: " . $e->getMessage() . " SQL: " . $sql);
+            throw new Exception("Statement preparation failed: " . $e->getMessage());
+        }
+    }
+    
     public function createTables() {
         $tables = [
             'users' => "
@@ -190,11 +199,16 @@ class Database {
                     reset_token_expires TIMESTAMP NULL,
                     failed_login_attempts INT DEFAULT 0,
                     locked_until TIMESTAMP NULL,
+                    google_id VARCHAR(255) DEFAULT NULL,
+                    google_email VARCHAR(255) DEFAULT NULL,
+                    google_name VARCHAR(255) DEFAULT NULL,
+                    google_picture VARCHAR(500) DEFAULT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     INDEX idx_username (username),
                     INDEX idx_email (email),
-                    INDEX idx_last_seen (last_seen)
+                    INDEX idx_last_seen (last_seen),
+                    INDEX idx_google_id (google_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ",
             
@@ -250,16 +264,40 @@ class Database {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ",
             
+            'file_uploads' => "
+                CREATE TABLE IF NOT EXISTS file_uploads (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    message_id INT DEFAULT NULL,
+                    group_id INT DEFAULT NULL,
+                    original_filename VARCHAR(255) NOT NULL,
+                    stored_filename VARCHAR(255) NOT NULL,
+                    file_path VARCHAR(500) NOT NULL,
+                    file_type VARCHAR(100) NOT NULL,
+                    file_size INT NOT NULL,
+                    file_hash VARCHAR(64) DEFAULT NULL,
+                    thumbnail_path VARCHAR(500) DEFAULT NULL,
+                    mime_type VARCHAR(100) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+                    INDEX idx_user_id (user_id),
+                    INDEX idx_message_id (message_id),
+                    INDEX idx_file_hash (file_hash),
+                    INDEX idx_created_at (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ",
+            
             'rate_limits' => "
                 CREATE TABLE IF NOT EXISTS rate_limits (
                     id INT AUTO_INCREMENT PRIMARY KEY,
-                    identifier VARCHAR(100) NOT NULL,
-                    action_type VARCHAR(50) NOT NULL,
-                    attempts INT DEFAULT 1,
-                    window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    identifier VARCHAR(255) NOT NULL,
+                    endpoint VARCHAR(100) NOT NULL,
+                    window_start TIMESTAMP NOT NULL,
+                    request_count INT DEFAULT 1,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    UNIQUE KEY unique_limit (identifier, action_type),
+                    INDEX idx_identifier_endpoint (identifier, endpoint),
                     INDEX idx_window_start (window_start)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ",
