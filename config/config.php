@@ -85,6 +85,38 @@ class Config {
     public static function getWebSocketPort() { return Env::int('WEBSOCKET_PORT', 8080); }
     public static function isWebSocketEnabled() { return Env::bool('WEBSOCKET_ENABLED', false); }
     
+    // TURN server settings
+    public static function getTurnSecret() { return Env::get('TURN_SECRET', 'default-turn-secret-change-in-production'); }
+    public static function getTurnServers() { 
+        return [
+            'turn:' . Env::get('TURN_HOST', 'turn.quickchat.local') . ':3478',
+            'turns:' . Env::get('TURN_HOST', 'turn.quickchat.local') . ':5349'
+        ];
+    }
+    
+    // Redis settings
+    public static function isRedisEnabled() { return Env::bool('REDIS_ENABLED', false); }
+    public static function getRedisHost() { return Env::get('REDIS_HOST', 'localhost'); }
+    public static function getRedisPort() { return Env::int('REDIS_PORT', 6379); }
+    public static function getRedisPassword() { return Env::get('REDIS_PASSWORD', ''); }
+    public static function getRedisDatabase() { return Env::int('REDIS_DATABASE', 0); }_ENABLED', false); }
+    
+    // TURN server settings
+    public static function getTurnSecret() { return Env::get('TURN_SECRET', 'default-turn-secret-change-in-production'); }
+    public static function getTurnServers() { 
+        return [
+            'turn:' . Env::get('TURN_HOST', 'turn.quickchat.local') . ':3478',
+            'turns:' . Env::get('TURN_HOST', 'turn.quickchat.local') . ':5349'
+        ];
+    }
+    
+    // Redis settings
+    public static function isRedisEnabled() { return Env::bool('REDIS_ENABLED', false); }
+    public static function getRedisHost() { return Env::get('REDIS_HOST', 'localhost'); }
+    public static function getRedisPort() { return Env::int('REDIS_PORT', 6379); }
+    public static function getRedisPassword() { return Env::get('REDIS_PASSWORD', ''); }
+    public static function getRedisDatabase() { return Env::int('REDIS_DATABASE', 0); }
+    
     // Cache settings
     public static function isCacheEnabled() { return Env::bool('CACHE_ENABLED', true); }
     public static function getCacheLifetime() { return Env::int('CACHE_LIFETIME', 3600); }
