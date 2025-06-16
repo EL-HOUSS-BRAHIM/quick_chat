@@ -113,7 +113,8 @@ class User {
         $this->resetFailedAttempts($user['id']);
         
         // Create session
-        $sessionId = $this->createSession($user['id'], $rememberMe);
+        $sessionData = $this->createSession($user['id'], $rememberMe ? 'remember_me' : 'password');
+        $sessionId = $sessionData['session_id'];
         
         // Update last seen and online status
         $this->updateLastSeen($user['id']);
@@ -293,6 +294,100 @@ class User {
         $this->db->query($sql, [$userId, $key, json_encode($value)]);
     }
     
+    // Session management methods
+    public function validateSession($sessionId) {
+        $sql = "SELECT s.*, u.id as user_id, u.username, u.email, u.display_name, u.avatar 
+                FROM user_sessions s 
+                JOIN users u ON s.user_id = u.id 
+                WHERE s.session_id = ? AND s.expires_at > NOW() AND s.is_active = 1";
+        
+        $session = $this->db->fetch($sql, [$sessionId]);
+        
+        if ($session) {
+            // Update last activity
+            $this->db->query("UPDATE user_sessions SET last_activity = NOW() WHERE session_id = ?", [$sessionId]);
+            return $session;
+        }
+        
+        return false;
+    }
+    
+    public function getSession($sessionId) {
+        $sql = "SELECT * FROM user_sessions WHERE session_id = ? AND is_active = 1";
+        return $this->db->fetch($sql, [$sessionId]);
+    }
+    
+    public function deleteSession($sessionId) {
+        $sql = "UPDATE user_sessions SET is_active = 0 WHERE session_id = ?";
+        return $this->db->query($sql, [$sessionId]);
+    }
+    
+    // Rate limiting methods
+    public function isRateLimited($userId, $action = 'login', $maxAttempts = 5, $timeWindow = 300) {
+        $sql = "SELECT COUNT(*) as attempts FROM audit_logs 
+                WHERE user_id = ? AND action = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? SECOND)";
+        
+        $result = $this->db->fetch($sql, [$userId, $action, $timeWindow]);
+        return $result['attempts'] >= $maxAttempts;
+    }
+    
+    public function recordFailedLogin($identifier, $reason = 'invalid_credentials') {
+        // Record failed login attempt for rate limiting
+        $sql = "INSERT INTO failed_login_attempts (identifier, reason, ip_address, user_agent) 
+                VALUES (?, ?, ?, ?)";
+        
+        $this->db->query($sql, [
+            $identifier,
+            $reason,
+            $_SERVER['REMOTE_ADDR'] ?? '',
+            $_SERVER['HTTP_USER_AGENT'] ?? ''
+        ]);
+    }
+    
+    public function incrementFailedAttempts($userId) {
+        $sql = "UPDATE users SET failed_login_attempts = failed_login_attempts + 1, 
+                last_failed_login = NOW() WHERE id = ?";
+        $this->db->query($sql, [$userId]);
+    }
+    
+    public function resetFailedAttempts($userId) {
+        $sql = "UPDATE users SET failed_login_attempts = 0, last_failed_login = NULL WHERE id = ?";
+        $this->db->query($sql, [$userId]);
+    }
+    
+    public function updateLastLogin($userId) {
+        $sql = "UPDATE users SET last_login = NOW(), last_seen = NOW() WHERE id = ?";
+        $this->db->query($sql, [$userId]);
+    }
+    
+    // User lookup methods
+    public function getUserByEmail($email) {
+        $sql = "SELECT * FROM users WHERE email = ?";
+        return $this->db->fetch($sql, [$email]);
+    }
+    
+    public function updateEmail($userId, $newEmail) {
+        // Validate email
+        if (!$this->validateEmail($newEmail)) {
+            throw new Exception("Invalid email address.");
+        }
+        
+        // Check if email already exists
+        if ($this->emailExists($newEmail)) {
+            throw new Exception("Email already registered to another account.");
+        }
+        
+        $sql = "UPDATE users SET email = ?, email_verified = 0 WHERE id = ?";
+        $result = $this->db->query($sql, [$newEmail, $userId]);
+        
+        if ($result) {
+            $this->logAuditEvent($userId, 'email_updated', ['new_email' => $newEmail]);
+            return true;
+        }
+        
+        return false;
+    }
+    
     private function validateUsername($username) {
         return preg_match('/^[a-zA-Z0-9_]{3,20}$/', $username);
     }
@@ -333,112 +428,188 @@ class User {
         }
     }
     
-    private function createSession($userId, $rememberMe = false) {
-        $sessionId = bin2hex(random_bytes(32));
-        $expiresAt = $rememberMe 
-            ? date('Y-m-d H:i:s', time() + Config::getRememberMeLifetime())
-            : date('Y-m-d H:i:s', time() + Config::getSessionLifetime());
+    /**
+     * Create user from SSO (Google, Facebook, etc.)
+     */
+    public function createUserFromSSO($userData) {
+        // Validate required fields
+        if (empty($userData['email']) || empty($userData['username'])) {
+            throw new Exception("Email and username are required for SSO user creation");
+        }
         
-        error_log('=== Create Session Debug ===');
-        error_log('Creating session for user ID: ' . $userId);
-        error_log('Session ID: ' . $sessionId);
-        error_log('Expires at: ' . $expiresAt);
-        error_log('Remember me: ' . ($rememberMe ? 'YES' : 'NO'));
-        
-        $sql = "INSERT INTO sessions (id, user_id, ip_address, user_agent, expires_at, is_remember_token) 
-                VALUES (?, ?, ?, ?, ?, ?)";
+        // Check if user already exists by email
+        if ($this->emailExists($userData['email'])) {
+            throw new Exception("User with this email already exists");
+        }
         
         try {
-            $this->db->query($sql, [
-                $sessionId,
-                $userId,
-                $_SERVER['REMOTE_ADDR'] ?? '',
-                $_SERVER['HTTP_USER_AGENT'] ?? '',
+            $this->db->beginTransaction();
+            
+            $sql = "INSERT INTO users (
+                username, email, display_name, google_id, facebook_id, 
+                avatar_url, email_verified, created_via, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+            
+            $params = [
+                $userData['username'],
+                $userData['email'],
+                $userData['display_name'] ?? $userData['email'],
+                $userData['google_id'] ?? null,
+                $userData['facebook_id'] ?? null,
+                $userData['avatar_url'] ?? null,
+                $userData['email_verified'] ?? true,
+                $userData['created_via'] ?? 'sso'
+            ];
+            
+            $this->db->query($sql, $params);
+            $userId = $this->db->getConnection()->lastInsertId();
+            
+            // Create user settings
+            $this->createDefaultUserSettings($userId);
+            
+            $this->db->commit();
+            
+            error_log("SSO user created successfully: ID $userId, Email: " . $userData['email']);
+            
+            return $userId;
+            
+        } catch (Exception $e) {
+            $this->db->rollback();
+            error_log("SSO user creation failed: " . $e->getMessage());
+            throw new Exception("Failed to create user account");
+        }
+    }
+    
+    /**
+     * Update user with Google SSO information
+     */
+    public function updateGoogleSSO($userId, $googleId, $googleData) {
+        try {
+            $sql = "UPDATE users SET 
+                    google_id = ?, 
+                    display_name = COALESCE(NULLIF(display_name, ''), ?),
+                    avatar_url = COALESCE(NULLIF(avatar_url, ''), ?),
+                    email_verified = 1,
+                    last_login = NOW()
+                    WHERE id = ?";
+            
+            $params = [
+                $googleId,
+                $googleData['name'] ?? null,
+                $googleData['picture'] ?? null,
+                $userId
+            ];
+            
+            $this->db->query($sql, $params);
+            
+            error_log("Google SSO data updated for user ID: $userId");
+            
+        } catch (Exception $e) {
+            error_log("Failed to update Google SSO data: " . $e->getMessage());
+            throw new Exception("Failed to update user profile");
+        }
+    }
+    
+    /**
+     * Update user with Facebook SSO information
+     */
+    public function updateFacebookSSO($userId, $facebookId, $facebookData) {
+        try {
+            $sql = "UPDATE users SET 
+                    facebook_id = ?, 
+                    display_name = COALESCE(NULLIF(display_name, ''), ?),
+                    avatar_url = COALESCE(NULLIF(avatar_url, ''), ?),
+                    email_verified = 1,
+                    last_login = NOW()
+                    WHERE id = ?";
+            
+            $params = [
+                $facebookId,
+                $facebookData['name'] ?? null,
+                $facebookData['picture']['data']['url'] ?? null,
+                $userId
+            ];
+            
+            $this->db->query($sql, $params);
+            
+            error_log("Facebook SSO data updated for user ID: $userId");
+            
+        } catch (Exception $e) {
+            error_log("Failed to update Facebook SSO data: " . $e->getMessage());
+            throw new Exception("Failed to update user profile");
+        }
+    }
+    
+    /**
+     * Get user by Google ID
+     */
+    public function getUserByGoogleId($googleId) {
+        $sql = "SELECT * FROM users WHERE google_id = ? AND deleted_at IS NULL";
+        $stmt = $this->db->query($sql, [$googleId]);
+        return $stmt->fetch();
+    }
+    
+    /**
+     * Get user by Facebook ID
+     */
+    public function getUserByFacebookId($facebookId) {
+        $sql = "SELECT * FROM users WHERE facebook_id = ? AND deleted_at IS NULL";
+        $stmt = $this->db->query($sql, [$facebookId]);
+        return $stmt->fetch();
+    }
+    
+    /**
+     * Create session for user (including SSO logins)
+     */
+    public function createSession($userId, $loginMethod = 'password') {
+        try {
+            // Generate session ID
+            $sessionId = bin2hex(random_bytes(32));
+            $expiresAt = date('Y-m-d H:i:s', time() + Config::getSessionLifetime());
+            
+            // Create session record (removed login_method column as it doesn't exist)
+            $sql = "INSERT INTO user_sessions (user_id, session_id, expires_at, ip_address, user_agent, created_at) 
+                    VALUES (?, ?, ?, ?, ?, NOW())";
+            
+            $result = $this->db->query($sql, [
+                $userId, 
+                $sessionId, 
                 $expiresAt,
-                $rememberMe ? 1 : 0  // Convert boolean to integer
+                $_SERVER['REMOTE_ADDR'] ?? '',
+                $_SERVER['HTTP_USER_AGENT'] ?? ''
             ]);
             
-            error_log('Session inserted into database successfully');
+            if (!$result) {
+                throw new Exception("Failed to insert session into database");
+            }
             
-            // Set session cookie
-            setcookie('session_id', $sessionId, $rememberMe ? time() + Config::getRememberMeLifetime() : 0, '/', '', isset($_SERVER['HTTPS']), true);
-            $_SESSION['session_id'] = $sessionId;
-            $_SESSION['user_id'] = $userId;
+            // Update last login
+            $this->updateLastLogin($userId);
             
-            error_log('Session cookie and PHP session set');
+            return [
+                'session_id' => $sessionId,
+                'expires_at' => $expiresAt,
+                'login_method' => $loginMethod
+            ];
             
-            return $sessionId;
         } catch (Exception $e) {
-            error_log('Error creating session: ' . $e->getMessage());
-            throw $e;
+            error_log("Failed to create session: " . $e->getMessage());
+            throw new Exception("Failed to create session: " . $e->getMessage());
         }
     }
     
-    public function getSession($sessionId) {
-        $sql = "SELECT * FROM sessions WHERE id = ? AND expires_at > NOW()";
-        return $this->db->fetch($sql, [$sessionId]);
-    }
-    
-    public function validateSession($sessionId) {
-        $session = $this->getSession($sessionId);
-        if (!$session) {
-            return false;
-        }
+    /**
+     * Create default user settings
+     */
+    private function createDefaultUserSettings($userId) {
+        $sql = "INSERT INTO user_settings (user_id, setting_key, setting_value) VALUES 
+                (?, 'theme', 'light'),
+                (?, 'notifications_enabled', '1'),
+                (?, 'sound_enabled', '1'),
+                (?, 'privacy_online_status', '1'),
+                (?, 'privacy_read_receipts', '1')";
         
-        // Update last activity
-        $this->db->query("UPDATE sessions SET last_activity = NOW() WHERE id = ?", [$sessionId]);
-        
-        return $session;
-    }
-    
-    public function cleanupExpiredSessions() {
-        $this->db->query("DELETE FROM sessions WHERE expires_at < NOW()");
-    }
-    
-    public function deleteSession($sessionId) {
-        $this->db->query("DELETE FROM sessions WHERE id = ?", [$sessionId]);
-    }
-    
-    private function isRateLimited($identifier, $action) {
-        $sql = "SELECT attempts FROM rate_limits 
-                WHERE identifier = ? AND action_type = ? 
-                AND window_start > DATE_SUB(NOW(), INTERVAL 1 HOUR)";
-        
-        $result = $this->db->fetch($sql, [$identifier, $action]);
-        
-        $maxAttempts = $action === 'login' ? Config::getMaxLoginAttempts() : 10;
-        
-        return $result && $result['attempts'] >= $maxAttempts;
-    }
-    
-    private function recordFailedLogin($username) {
-        $sql = "INSERT INTO rate_limits (identifier, action_type, attempts) 
-                VALUES (?, 'login', 1) 
-                ON DUPLICATE KEY UPDATE attempts = attempts + 1";
-        
-        $this->db->query($sql, [$username]);
-    }
-    
-    private function incrementFailedAttempts($userId) {
-        $sql = "UPDATE users SET failed_login_attempts = failed_login_attempts + 1";
-        
-        // Lock account after max attempts
-        if ($this->getFailedAttempts($userId) >= Config::getMaxLoginAttempts() - 1) {
-            $lockUntil = date('Y-m-d H:i:s', time() + Config::getLoginLockoutTime());
-            $sql .= ", locked_until = '$lockUntil'";
-        }
-        
-        $sql .= " WHERE id = ?";
-        $this->db->query($sql, [$userId]);
-    }
-    
-    private function resetFailedAttempts($userId) {
-        $this->db->query("UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?", [$userId]);
-    }
-    
-    private function getFailedAttempts($userId) {
-        $result = $this->db->fetch("SELECT failed_login_attempts FROM users WHERE id = ?", [$userId]);
-        return $result ? $result['failed_login_attempts'] : 0;
+        $this->db->query($sql, [$userId, $userId, $userId, $userId, $userId]);
     }
     
     private function logAuditEvent($userId, $action, $details = null) {
@@ -464,6 +635,19 @@ class User {
         // Implementation depends on your email service
         // This is a placeholder for password reset email
         error_log("Password reset email sent to: $email with token: $token");
+    }
+    
+    // Session cleanup methods
+    public function cleanupExpiredSessions() {
+        // Delete expired sessions
+        $sql = "DELETE FROM user_sessions WHERE expires_at < NOW()";
+        $deletedCount = $this->db->query($sql)->rowCount();
+        
+        // Also cleanup inactive sessions older than 30 days
+        $sql = "DELETE FROM user_sessions WHERE last_activity < DATE_SUB(NOW(), INTERVAL 30 DAY)";
+        $this->db->query($sql);
+        
+        return $deletedCount;
     }
 }
 ?>
