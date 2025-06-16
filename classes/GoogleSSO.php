@@ -146,17 +146,7 @@ class GoogleSSO {
                 $user->updateGoogleSSO($userId, $userInfo['id'], $userInfo);
             } else {
                 // Create new user
-                $userData = [
-                    'username' => $this->generateUsername($userInfo['email']),
-                    'email' => $userInfo['email'],
-                    'display_name' => $userInfo['name'] ?? $userInfo['email'],
-                    'google_id' => $userInfo['id'],
-                    'avatar_url' => $userInfo['picture'] ?? null,
-                    'email_verified' => true,
-                    'created_via' => 'google_sso'
-                ];
-                
-                $userId = $user->createUserFromSSO($userData);
+                $userId = $user->createUserFromSSO($userInfo, $userInfo['id']);
             }
             
             // Create session
@@ -183,25 +173,6 @@ class GoogleSSO {
                 'error' => $e->getMessage()
             ];
         }
-    }
-    
-    /**
-     * Generate unique username from email
-     */
-    private function generateUsername($email) {
-        $user = new User();
-        $baseUsername = strtolower(explode('@', $email)[0]);
-        $baseUsername = preg_replace('/[^a-z0-9_]/', '', $baseUsername);
-        
-        $username = $baseUsername;
-        $counter = 1;
-        
-        while ($user->getUserByUsername($username)) {
-            $username = $baseUsername . '_' . $counter;
-            $counter++;
-        }
-        
-        return $username;
     }
     
     /**
