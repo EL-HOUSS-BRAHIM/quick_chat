@@ -1,54 +1,198 @@
-// emoji.js - Enhanced Emoji picker logic for Quick Chat
-
 /**
- * QuickChat Emoji Picker
- * Features:
- * - Multiple emoji categories
- * - Search functionality
- * - Recent emojis tracking
- * - Keyboard navigation
- * - Accessibility support
- * - Responsive design
+ * Simple Emoji Picker for Quick Chat
  */
+class EmojiPicker {
+    constructor(options = {}) {
+        this.container = options.container || null;
+        this.onEmojiSelect = options.onEmojiSelect || function() {};
+        this.categories = {
+            recent: JSON.parse(localStorage.getItem('recentEmojis') || '[]'),
+            smileys: ['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','😘','🥰','😗','😙','😚','🙂','🤗','🤩','🤔','🤨','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','🥱','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕'],
+            people: ['👤','👥','👨','👩','👧','👦','👶','👵','👴','👮','👷','💂','🕵️','👩‍⚕️','👨‍⚕️','👩‍🎓','👨‍🎓','👩‍🏫','👨‍🏫','👩‍⚖️','👨‍⚖️','👩‍🌾','👨‍🌾','👩‍🍳','👨‍🍳','👩‍🔧','👨‍🔧'],
+            nature: ['🌸','🌼','🌻','🌺','🌹','🌷','🌱','🌲','🌳','🌴','🌵','🌾','🌿','🍀','🍁','🍂','🍃','🐝','🐞','🐌','🐛','🐜','🦋','🐢','🐍','🦎','🐙','🦑','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆'],
+            food: ['🍕','🍔','🍟','🌭','🍿','🥓','🍗','🍖','🥚','🍳','🧀','🥞','🥨','🥯','🥐','🍞','🥖','🥪','🥙','🌮','🌯','🥗','🍲','🍛','🍜','🍝','🍠','🍢','🍣','🍤','🍦','🍧','🍨','🍩','🍪','🎂','🍰','☕','🍵','🥤','🍶','🍺','🍷','🥂']
+        };
+        this.currentCategory = 'smileys';
+        this.init();
+    }
+    
+    init() {
+        this.loadRecentEmojis();
+        if (this.container) {
+            this.render();
+        }
+    }
+    
+    render() {
+        if (!this.container) return;
+        
+        this.container.innerHTML = `
+            <div class="emoji-picker-header">
+                ${Object.keys(this.categories).map(cat => 
+                    `<button class="emoji-category-btn ${cat === this.currentCategory ? 'active' : ''}" 
+                             data-category="${cat}">${this.getCategoryIcon(cat)}</button>`
+                ).join('')}
+            </div>
+            <div class="emoji-picker-search">
+                <input type="text" placeholder="Search emojis..." class="emoji-search-input">
+            </div>
+            <div class="emoji-picker-body">
+                ${this.renderEmojis()}
+            </div>
+        `;
+        
+        this.bindEvents();
+    }
+    
+    renderEmojis() {
+        const emojis = this.categories[this.currentCategory] || [];
+        return emojis.map(emoji => 
+            `<button class="emoji-btn" data-emoji="${emoji}" title="${emoji}">${emoji}</button>`
+        ).join('');
+    }
+    
+    getCategoryIcon(category) {
+        const icons = {
+            recent: '🕒',
+            smileys: '😀',
+            people: '👤',
+            nature: '🌱',
+            food: '🍕'
+        };
+        return icons[category] || '📝';
+    }
+    
+    bindEvents() {
+        if (!this.container) return;
+        
+        // Category buttons
+        this.container.querySelectorAll('.emoji-category-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.currentCategory = e.target.dataset.category;
+                this.updateActiveCategory();
+                this.updateEmojiGrid();
+            });
+        });
+        
+        // Emoji buttons
+        this.container.querySelectorAll('.emoji-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const emoji = e.target.dataset.emoji;
+                this.selectEmoji(emoji);
+            });
+        });
+        
+        // Search input
+        const searchInput = this.container.querySelector('.emoji-search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.searchEmojis(e.target.value);
+            });
+        }
+    }
+    
+    updateActiveCategory() {
+        this.container.querySelectorAll('.emoji-category-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.category === this.currentCategory);
+        });
+    }
+    
+    updateEmojiGrid() {
+        const body = this.container.querySelector('.emoji-picker-body');
+        if (body) {
+            body.innerHTML = this.renderEmojis();
+            this.bindEmojiEvents();
+        }
+    }
+    
+    bindEmojiEvents() {
+        this.container.querySelectorAll('.emoji-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const emoji = e.target.dataset.emoji;
+                this.selectEmoji(emoji);
+            });
+        });
+    }
+    
+    selectEmoji(emoji) {
+        this.addToRecent(emoji);
+        this.onEmojiSelect(emoji);
+    }
+    
+    addToRecent(emoji) {
+        const recent = this.categories.recent;
+        const index = recent.indexOf(emoji);
+        
+        if (index > -1) {
+            recent.splice(index, 1);
+        }
+        
+        recent.unshift(emoji);
+        recent.splice(10); // Keep only 10 recent emojis
+        
+        this.saveRecentEmojis();
+    }
+    
+    loadRecentEmojis() {
+        try {
+            const saved = localStorage.getItem('quickchat_recent_emojis');
+            if (saved) {
+                this.categories.recent = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.warn('Failed to load recent emojis:', e);
+        }
+    }
+    
+    saveRecentEmojis() {
+        try {
+            localStorage.setItem('quickchat_recent_emojis', JSON.stringify(this.categories.recent));
+        } catch (e) {
+            console.warn('Failed to save recent emojis:', e);
+        }
+    }
+    
+    searchEmojis(query) {
+        if (!query.trim()) {
+            this.currentCategory = this.currentCategory === 'search' ? 'smileys' : this.currentCategory;
+            this.updateActiveCategory();
+            this.updateEmojiGrid();
+            return;
+        }
+        
+        const allEmojis = Object.values(this.categories).flat();
+        const filtered = allEmojis.filter(emoji => 
+            emoji.includes(query.toLowerCase()) || 
+            this.getEmojiName(emoji).includes(query.toLowerCase())
+        );
+        
+        // Temporarily show search results
+        this.currentCategory = 'search';
+        this.categories.search = filtered;
+        this.updateEmojiGrid();
+    }
+    
+    getEmojiName(emoji) {
+        // Basic emoji name mapping - in a real app you'd have a comprehensive database
+        const names = {
+            '😀': 'grinning face',
+            '😂': 'face with tears of joy',
+            '❤️': 'red heart',
+            '👍': 'thumbs up',
+            '🎉': 'party popper'
+        };
+        return names[emoji] || '';
+    }
+    
+    destroy() {
+        if (this.container) {
+            this.container.innerHTML = '';
+        }
+    }
+}
 
-// Emoji data by category
-const emojiCategories = {
-    smileys: ['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','😘','🥰','😗','😙','😚','🙂','🤗','🤩','🤔','🤨','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','🥱','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕','🙃','🤑','😲','☹️','🙁','😖','😞','😟','😤','😢','😭','😦','😧','😨','😩','🤯','😬','😰','😱','🥵','🥶','😳','🤪','😵','😡','😠','🤬','😷','🤒','🤕','🤢','🤮','🥴','😇','🥳'],
-    people: ['👤','👥','🧑','👨','👩','👧','👦','🧒','👶','👵','👴','🧓','👲','👳','🧕','👮','👷','💂','🕵️','👩‍⚕️','👨‍⚕️','👩‍🎓','👨‍🎓','👩‍🏫','👨‍🏫','👩‍⚖️','👨‍⚖️','👩‍🌾','👨‍🌾','👩‍🍳','👨‍🍳','👩‍🔧','👨‍🔧','👩‍🏭','👨‍🏭','👩‍💼','👨‍💼','👩‍🔬','👨‍🔬','👩‍🎤','👨‍🎤','👩‍🚀','👨‍🚀','👩‍✈️','👨‍✈️','🧑‍🚒','👮‍♀️','👮‍♂️'],
-    nature: ['🌸','🌼','🌻','🌺','🌹','🌷','🌱','🌲','🌳','🌴','🌵','🌾','🌿','🍀','🍁','🍂','🍃','🍄','🌰','🦋','🐝','🐞','🐌','🐛','🐜','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦥','🦦','🦨','🦡','🐁','🐀','🐇','🐿️','🦔'],
-    food: ['🍕','🍔','🍟','🌭','🍿','🥓','🥩','🍗','🍖','🥚','🍳','🧀','🥞','🧇','🥨','🥯','🥐','🍞','🥖','🥪','🥙','🧆','🌮','🌯','🥗','🥘','🍲','🍛','🍜','🍝','🍠','🍢','🍣','🍤','🍥','🥮','🍡','🥟','🥠','🥡','🦪','🍦','🍧','🍨','🍩','🍪','🎂','🍰','🧁','🥧','🍫','🍬','🍭','🍮','🍯','🍼','🥛','☕','🍵','🧃','🥤','🍶','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🍾'],
-    activities: ['⚽','🏀','🏈','⚾','🎾','🏐','🏉','🥏','🎱','🏓','🏸','🥅','🏒','🏑','🏏','⛳','🏹','🎣','🤿','🥊','🥋','🎽','🛹','🛷','⛸️','🥌','🎿','⛷️','🏂','🏋️','🤼','🤸','⛹️','🤺','🤾','🏌️','🏇','🧘','🏄','🏊','🤽','🚣','🧗','🚵','🚴','🏆','🥇','🥈','🥉','🏅','🎖️','🏵️','🎗️','🎫','🎟️','🎪','🤹','🎭','🩰','🎨','🎬','🎤','🎧','🎼','🎹','🥁','🎷','🎺','🎸','🪕','🎻','🎲','♟️','🎯','🎳','🎮','🎰'],
-    travel: ['🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🚚','🚛','🚜','🛴','🚲','🛵','🏍️','🛺','🚨','🚔','🚍','🚘','🚖','🚡','🚠','🚟','🚃','🚋','🚞','🚝','🚄','🚅','🚈','🚂','🚆','🚇','🚊','🚉','✈️','🛫','🛬','🛩️','💺','🛰️','🚀','🛸','🚁','🛶','⛵','🚤','🛥️','🛳️','⛴️','🚢','⚓','🪝','⛽','🚧','🚦','🚥','🛑','🚏','🗺️','🗿','🗽','🗼','🏰','🏯','🏟️','🎡','🎢','🎠','⛲','⛱️','🏖️','🏝️','🏜️','🌋','⛰️','🏔️','🗻','🏕️','🏞️','🏙️','🏚️','🏠','🏡','🏘️','🏗️','🏭','🏢','🏬','🏣','🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏩','💒','🏛️','⛪','🕌','🕍','🕋','⛩️','🛤️','🛣️','🗾','🎑','🏞️','🌅','🌄','🌠','🎇','🎆','🌇','🌆','🏙️','🌃','🌌','🌉','🌁'],
-    objects: ['💡','🔦','🕯️','💸','💵','💴','💶','💷','💰','💳','🧾','💎','⚖️','🔧','🔨','⚒️','🛠️','⛏️','🔩','⚙️','🗜️','⚗️','🧪','🧫','🧬','🔬','🔭','📡','💻','🖥️','🖨️','⌨️','🖱️','🖲️','💽','💾','💿','📀','📼','📷','📸','📹','🎥','📽️','🎞️','📞','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🔌','💡','🔦','🕯️','🧯','🛢️','💸','💵','💴','💶','💷','💰','💳','🧾','💎','⚖️','🔧','🔨','⚒️','🛠️','⛏️','🔩','⚙️','🗜️','⚗️','🧪','🧫','🧬','🔬','🔭','📡'],
-    symbols: ['❤️','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚','💮','🉐','㊙️','㊗️','🈴','🈵','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💯','💢','♨️','💤','🚷','🚯','🚳','🚱','🔞','📵','🚭','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🔱','⚜️','🔰','♻️','✅','🈯','💹','❇️','✳️','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿','🅿️','🈂️','🛂','🛃','🛄','🛅','🚹','🚺','🚼','🚻','🚮','🎦','📶','🈁','🔣','ℹ️','🔤','🔡','🔠','🆖','🆗','🆙','🆒','🆓','🆕','🆚','🈁','🈳','🈵','🈴','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘']
-};
-
-// Configuration
-const MAX_RECENT_EMOJIS = 16;
-const LOCAL_STORAGE_KEYS = {
-    RECENT_EMOJIS: 'quickchat_recent_emojis',
-    LAST_CATEGORY: 'quickchat_last_emoji_category',
-    EMOJI_SKIN_TONE: 'quickchat_emoji_skin_tone'
-};
-
-// Skin tone modifiers
-const skinTones = {
-    default: '',
-    light: '🏻',
-    mediumLight: '🏼',
-    medium: '🏽',
-    mediumDark: '🏾',
-    dark: '🏿'
-};
-
-// State management
-const emojiState = {
-    currentCategory: getLastUsedCategory() || 'smileys',
-    recentEmojis: getRecentEmojis(),
-    searchQuery: '',
-    focusedEmojiIndex: -1,
-    selectedSkinTone: getSelectedSkinTone() || 'default'
-};
+// Global emoji picker functions for backward compatibility
+window.EmojiPicker = EmojiPicker;
 
 /**
  * Get recent emojis from localStorage
@@ -756,4 +900,9 @@ window.emojiPicker = {
     // Expose a reinitialize method for dynamic content
     init: initEmojiPicker
     }
+}
+
+// Make EmojiPicker available globally
+if (typeof window !== 'undefined') {
+    window.EmojiPicker = EmojiPicker;
 }
