@@ -16,10 +16,14 @@ class RateLimiter {
         $this->useRedis = class_exists('Redis') && Config::isRedisEnabled();
         if ($this->useRedis) {
             try {
-                $this->redis = new Redis();
-                $this->redis->connect(Config::getRedisHost(), Config::getRedisPort());
-                if (Config::getRedisPassword()) {
-                    $this->redis->auth(Config::getRedisPassword());
+                if (class_exists('Redis')) {
+                    $this->redis = new Redis();
+                    $this->redis->connect(Config::getRedisHost(), Config::getRedisPort());
+                    if (Config::getRedisPassword()) {
+                        $this->redis->auth(Config::getRedisPassword());
+                    }
+                } else {
+                    $this->useRedis = false;
                 }
             } catch (Exception $e) {
                 $this->useRedis = false;
