@@ -2,12 +2,69 @@
 $pageTitle = 'Login - Quick Chat';
 $pageClass = 'auth-page';
 
+// Load required classes
+require_once __DIR__ . '/classes/GoogleSSO.php';
+
 // Check if user is already logged in
 require_once __DIR__ . '/includes/auth_check.php';
 
 if (AuthChecker::isAuthenticated()) {
     header('Location: dashboard.php');
     exit();
+}
+
+// Handle OAuth actions
+if (isset($_GET['action'])) {
+    $action = $_GET['action'];
+    
+    switch ($action) {
+        case 'google_login':
+            try {
+                $googleSSO = new GoogleSSO();
+                $state = $_GET['state'] ?? null;
+                $loginUrl = $googleSSO->getLoginUrl($state);
+                header('Location: ' . $loginUrl);
+                exit();
+            } catch (Exception $e) {
+                error_log("Google OAuth login error: " . $e->getMessage());
+                header('Location: auth.php?error=' . urlencode('Google login is not available at this time'));
+                exit();
+            }
+            
+        case 'google_callback':
+            try {
+                if (isset($_GET['error'])) {
+                    $error = $_GET['error_description'] ?? $_GET['error'];
+                    header('Location: auth.php?error=' . urlencode($error));
+                    exit();
+                }
+                
+                if (!isset($_GET['code'])) {
+                    header('Location: auth.php?error=' . urlencode('Authorization code not received'));
+                    exit();
+                }
+                
+                $googleSSO = new GoogleSSO();
+                $result = $googleSSO->handleCallback($_GET['code'], $_GET['state'] ?? null);
+                
+                if ($result['success']) {
+                    header('Location: ' . $result['redirect'] . '?oauth_success=1');
+                    exit();
+                } else {
+                    header('Location: auth.php?error=' . urlencode($result['error']));
+                    exit();
+                }
+            } catch (Exception $e) {
+                error_log("Google OAuth callback error: " . $e->getMessage());
+                header('Location: auth.php?error=' . urlencode('Google authentication failed'));
+                exit();
+            }
+            
+        case 'logout':
+            AuthChecker::logout();
+            header('Location: auth.php?message=logged_out');
+            exit();
+    }
 }
 
 // Handle logout from other pages
@@ -200,6 +257,112 @@ $csrfToken = AuthChecker::getCSRFToken();
         .back-to-login a:hover {
             text-decoration: underline;
         }
+
+        /* Social Login Styles */
+        .social-divider {
+            text-align: center;
+            margin: 2rem 0 1.5rem;
+            position: relative;
+        }
+
+        .social-divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #e0e0e0;
+        }
+
+        .social-divider span {
+            background: white;
+            padding: 0 1rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .social-login-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .social-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            color: #333;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+
+        .social-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .google-btn {
+            border-color: #dd4b39;
+        }
+
+        .google-btn:hover {
+            background: #dd4b39;
+            color: white;
+        }
+
+        .facebook-btn {
+            border-color: #4267B2;
+        }
+
+        .facebook-btn:hover {
+            background: #4267B2;
+            color: white;
+        }
+
+        .social-btn i {
+            font-size: 1.1rem;
+        }
+
+        /* OAuth Loading State */
+        .oauth-loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .oauth-loading.active {
+            display: flex;
+        }
+
+        .oauth-loading-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .oauth-loading-content i {
+            font-size: 2rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
     </style>
 </head>
 <body class="auth-page">
@@ -267,6 +430,28 @@ $csrfToken = AuthChecker::getCSRFToken();
             <div class="forgot-password-link">
                 <a href="javascript:void(0)" onclick="switchTab('forgot')">Forgot Password?</a>
             </div>
+
+            <!-- Social Login Divider -->
+            <div class="social-divider">
+                <span>or continue with</span>
+            </div>
+
+            <!-- Social Login Buttons -->
+            <div class="social-login-buttons">
+                <?php if (Config::isGoogleSSOEnabled()): ?>
+                <button type="button" class="social-btn google-btn" onclick="loginWithGoogle()">
+                    <i class="fab fa-google"></i>
+                    <span>Continue with Google</span>
+                </button>
+                <?php endif; ?>
+                
+                <?php if (Config::isFacebookSSOEnabled()): ?>
+                <button type="button" class="social-btn facebook-btn" onclick="loginWithFacebook()">
+                    <i class="fab fa-facebook-f"></i>
+                    <span>Continue with Facebook</span>
+                </button>
+                <?php endif; ?>
+            </div>
         </form>
         
         <!-- Register Form -->
@@ -317,6 +502,28 @@ $csrfToken = AuthChecker::getCSRFToken();
                 <i class="fas fa-user-plus"></i>
                 Create Account
             </button>
+
+            <!-- Social Login Divider -->
+            <div class="social-divider">
+                <span>or continue with</span>
+            </div>
+
+            <!-- Social Login Buttons -->
+            <div class="social-login-buttons">
+                <?php if (Config::isGoogleSSOEnabled()): ?>
+                <button type="button" class="social-btn google-btn" onclick="loginWithGoogle()">
+                    <i class="fab fa-google"></i>
+                    <span>Continue with Google</span>
+                </button>
+                <?php endif; ?>
+                
+                <?php if (Config::isFacebookSSOEnabled()): ?>
+                <button type="button" class="social-btn facebook-btn" onclick="loginWithFacebook()">
+                    <i class="fab fa-facebook-f"></i>
+                    <span>Continue with Facebook</span>
+                </button>
+                <?php endif; ?>
+            </div>
         </form>
         
         <!-- Forgot Password Form -->
@@ -550,6 +757,82 @@ $csrfToken = AuthChecker::getCSRFToken();
                 submitButton.innerHTML = '<i class="fas fa-paper-plane"></i> Send Reset Link';
             }
         }
+        
+        // Social Login Functions
+        function loginWithGoogle() {
+            showOAuthLoading('Connecting to Google...');
+            
+            // Generate state parameter for security
+            const state = generateRandomString(32);
+            localStorage.setItem('oauth_state', state);
+            
+            // Redirect to Google OAuth
+            window.location.href = 'auth.php?action=google_login&state=' + encodeURIComponent(state);
+        }
+
+        function loginWithFacebook() {
+            showOAuthLoading('Connecting to Facebook...');
+            
+            // Generate state parameter for security
+            const state = generateRandomString(32);
+            localStorage.setItem('oauth_state', state);
+            
+            // Redirect to Facebook OAuth
+            window.location.href = 'auth.php?action=facebook_login&state=' + encodeURIComponent(state);
+        }
+
+        function showOAuthLoading(message) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'oauth-loading active';
+            loadingDiv.innerHTML = `
+                <div class="oauth-loading-content">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>${message}</p>
+                </div>
+            `;
+            document.body.appendChild(loadingDiv);
+        }
+
+        function generateRandomString(length) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        // Handle OAuth callback messages
+        function handleOAuthCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            const success = urlParams.get('oauth_success');
+            const message = urlParams.get('message');
+            
+            if (error) {
+                showMessage('OAuth authentication failed: ' + decodeURIComponent(error), 'error');
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (success) {
+                showMessage('Successfully logged in!', 'success');
+                setTimeout(() => {
+                    window.location.href = 'dashboard.php';
+                }, 1000);
+            } else if (message) {
+                // Handle other message types
+                const messageText = decodeURIComponent(message);
+                if (messageText.includes('success')) {
+                    showMessage(messageText, 'success');
+                } else {
+                    showMessage(messageText, 'error');
+                }
+            }
+        }
+
+        // Check for OAuth callback on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            handleOAuthCallback();
+        });
         
         function showMessage(text, type) {
             // Remove existing messages
