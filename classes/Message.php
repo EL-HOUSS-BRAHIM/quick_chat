@@ -313,6 +313,24 @@ class Message {
         return $result->rowCount();
     }
     
+    // Dashboard and statistics methods
+    public function getUserMessageCount($userId) {
+        $sql = "SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND deleted_at IS NULL";
+        $result = $this->db->fetch($sql, [$userId]);
+        return $result['count'] ?? 0;
+    }
+    
+    public function getRecentMessages($userId, $limit = 10) {
+        $sql = "SELECT m.*, u.username, u.display_name, u.avatar 
+                FROM messages m 
+                JOIN users u ON m.user_id = u.id 
+                WHERE m.deleted_at IS NULL 
+                ORDER BY m.created_at DESC 
+                LIMIT ?";
+        
+        return $this->db->fetchAll($sql, [$limit]);
+    }
+    
     private function processMessage($message) {
         // Decrypt if encrypted
         if ($message['is_encrypted'] && $message['content']) {
