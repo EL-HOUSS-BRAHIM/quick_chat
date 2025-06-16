@@ -32,7 +32,12 @@ class BackupManager {
      */
     private function initializeS3Client() {
         try {
-            require_once __DIR__ . '/../vendor/autoload.php'; // Assuming AWS SDK is installed
+            // Check if AWS SDK is available
+            if (!class_exists('Aws\S3\S3Client')) {
+                $this->logger->log('warning', 'AWS SDK not available, S3 backups disabled');
+                $this->s3Client = null;
+                return;
+            }
             
             $this->s3Client = new Aws\S3\S3Client([
                 'version' => 'latest',
