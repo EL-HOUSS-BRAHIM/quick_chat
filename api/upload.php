@@ -226,7 +226,7 @@ class FileUploadAPI {
         }
         
         // Additional security checks
-        if (!$this->security->isFileSecure($file['tmp_name'], $mimeType)) {
+        if (!$this->security->isFileSecure($file['tmp_name'])) {
             $result['error'] = 'File failed security validation';
             return $result;
         }
