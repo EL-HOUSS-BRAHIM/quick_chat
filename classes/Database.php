@@ -3,15 +3,31 @@ require_once __DIR__ . '/../config/config.php';
 
 class Database {
     private static $instance = null;
+    private static $connectionPool = [];
+    private static $poolSize = 10;
+    private static $activeConnections = 0;
     private $connection;
     
     private function __construct() {
+        $this->connection = $this->createConnection();
+    }
+    
+    /**
+     * Create a new database connection
+     * @return PDO Database connection
+     */
+    private function createConnection() {
         try {
             $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . Config::getDbCharset()
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . Config::getDbCharset(),
+                // Connection pooling optimizations
+                PDO::ATTR_PERSISTENT => true,
+                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => false,
+                PDO::ATTR_TIMEOUT => 30,
+                PDO::MYSQL_ATTR_COMPRESS => true
             ];
             
             // Add SSL options if SSL is enabled
@@ -27,15 +43,63 @@ class Database {
                 }
             }
             
-            $this->connection = new PDO(
+            $connection = new PDO(
                 Config::getDSN(),
                 Config::getDbUser(),
                 Config::getDbPass(),
                 $options
             );
+            
+            // Set connection-specific optimizations
+            $connection->exec("SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO'");
+            $connection->exec("SET SESSION innodb_lock_wait_timeout=10");
+            
+            return $connection;
         } catch (PDOException $e) {
             error_log("Database connection failed: " . $e->getMessage());
             throw new Exception("Database connection failed");
+        }
+    }
+    
+    /**
+     * Get a connection from the pool or create a new one
+     * @return PDO Database connection
+     */
+    public static function getPooledConnection() {
+        // If pool is empty and we haven't reached max connections, create new
+        if (empty(self::$connectionPool) && self::$activeConnections < self::$poolSize) {
+            $db = new self();
+            self::$activeConnections++;
+            return $db->connection;
+        }
+        
+        // Get connection from pool if available
+        if (!empty(self::$connectionPool)) {
+            return array_pop(self::$connectionPool);
+        }
+        
+        // If pool is full, wait and retry or return singleton instance
+        return self::getInstance()->getConnection();
+    }
+    
+    /**
+     * Return connection to pool
+     * @param PDO $connection Connection to return
+     */
+    public static function returnToPool(PDO $connection) {
+        // Check if connection is still valid
+        try {
+            $connection->query('SELECT 1');
+            if (count(self::$connectionPool) < self::$poolSize) {
+                self::$connectionPool[] = $connection;
+            } else {
+                // Pool is full, let connection close naturally
+                self::$activeConnections--;
+            }
+        } catch (Exception $e) {
+            // Connection is invalid, don't return to pool
+            self::$activeConnections--;
+            error_log("Invalid connection not returned to pool: " . $e->getMessage());
         }
     }
     
