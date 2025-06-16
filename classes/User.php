@@ -268,7 +268,9 @@ class User {
     }
     
     public function setOnlineStatus($userId, $isOnline) {
-        $this->db->query("UPDATE users SET is_online = ? WHERE id = ?", [$isOnline, $userId]);
+        // Convert boolean to integer for MySQL BOOLEAN column
+        $status = $isOnline ? 1 : 0;
+        $this->db->query("UPDATE users SET is_online = ? WHERE id = ?", [$status, $userId]);
     }
     
     public function getUserSettings($userId) {
