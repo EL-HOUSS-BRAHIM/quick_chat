@@ -310,6 +310,47 @@ class OptimizedFileUpload {
     }
     
     /**
+     * Create thumbnail using ImageMagick
+     */
+    private function createThumbnailImageMagick($sourcePath, $thumbnailPath, $maxWidth = 200, $maxHeight = 200) {
+        try {
+            // Check if Imagick extension is available
+            if (!class_exists('Imagick')) {
+                return false;
+            }
+            
+            $imagick = new Imagick($sourcePath);
+            
+            // Get original dimensions
+            $originalWidth = $imagick->getImageWidth();
+            $originalHeight = $imagick->getImageHeight();
+            
+            // Calculate thumbnail dimensions
+            $ratio = min($maxWidth / $originalWidth, $maxHeight / $originalHeight);
+            $thumbWidth = intval($originalWidth * $ratio);
+            $thumbHeight = intval($originalHeight * $ratio);
+            
+            // Resize image
+            $imagick->resizeImage($thumbWidth, $thumbHeight, Imagick::FILTER_LANCZOS, 1);
+            
+            // Set compression quality
+            $imagick->setImageCompressionQuality(85);
+            
+            // Write thumbnail
+            $result = $imagick->writeImage($thumbnailPath);
+            
+            // Clean up
+            $imagick->destroy();
+            
+            return $result;
+            
+        } catch (Exception $e) {
+            error_log("ImageMagick thumbnail creation failed: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
      * Update user storage quota
      */
     private function updateUserStorageQuota($userId) {
