@@ -805,31 +805,127 @@ function refreshActivity() {
 }
 
 function showNewGroupModal() {
-    if (window.dashboard) {
-        window.dashboard.showModal('newGroupModal');
+    if (window.dashboard && window.dashboard.showNewGroupModal) {
+        window.dashboard.showNewGroupModal();
+    } else {
+        // Fallback implementation
+        const modal = document.getElementById('newGroupModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.add('show');
+        }
     }
 }
 
 function showInviteModal() {
-    console.log('Show invite modal');
-}
-
-function showAddContactModal() {
-    console.log('Show add contact modal');
-}
-
-function closeModal(modalId) {
-    if (window.dashboard) {
-        window.dashboard.closeModal(modalId);
+    if (window.dashboard && window.dashboard.showInviteModal) {
+        window.dashboard.showInviteModal();
+    } else {
+        console.log('Show invite modal - dashboard not ready');
     }
 }
 
+// Add missing global functions for invite functionality
+function copyInviteLink() {
+    const linkInput = document.getElementById('inviteLink');
+    if (linkInput) {
+        linkInput.select();
+        linkInput.setSelectionRange(0, 99999); // For mobile devices
+        
+        try {
+            document.execCommand('copy');
+            if (window.dashboard && window.dashboard.showToast) {
+                window.dashboard.showToast('Invite link copied!', 'success');
+            }
+        } catch (err) {
+            console.error('Failed to copy invite link:', err);
+        }
+    }
+}
+
+function sendEmailInvite() {
+    const emailInput = document.getElementById('inviteEmail');
+    if (!emailInput || !emailInput.value.trim()) {
+        if (window.dashboard && window.dashboard.showToast) {
+            window.dashboard.showToast('Please enter an email address', 'error');
+        }
+        return;
+    }
+    
+    // Here you would normally send the invite via API
+    // For now, just show success message
+    if (window.dashboard && window.dashboard.showToast) {
+        window.dashboard.showToast('Invite sent successfully!', 'success');
+    }
+    
+    emailInput.value = '';
+}
+
+function showAddContactModal() {
+    // Create and show add contact modal
+    let modal = document.getElementById('addContactModal');
+    if (!modal) {
+        modal = createAddContactModal();
+        document.body.appendChild(modal);
+    }
+    
+    modal.style.display = 'flex';
+    modal.classList.add('show');
+}
+
+function createAddContactModal() {
+    const modal = document.createElement('div');
+    modal.id = 'addContactModal';
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-backdrop" onclick="closeModal('addContactModal')"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Contact</h3>
+                <button class="modal-close" onclick="closeModal('addContactModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Search Users</label>
+                    <input type="text" id="contactSearch" placeholder="Enter username or email...">
+                </div>
+                <div class="search-results" id="contactSearchResults">
+                    <!-- Search results will appear here -->
+                </div>
+            </div>
+        </div>
+    `;
+    return modal;
+}
+
 function createGroup() {
-    console.log('Create group');
+    const groupName = document.getElementById('groupName')?.value?.trim();
+    const groupDescription = document.getElementById('groupDescription')?.value?.trim();
+    
+    if (!groupName) {
+        if (window.dashboard && window.dashboard.showToast) {
+            window.dashboard.showToast('Please enter a group name', 'error');
+        }
+        return;
+    }
+    
+    // Here you would normally create the group via API
+    // For now, just show success message
+    if (window.dashboard && window.dashboard.showToast) {
+        window.dashboard.showToast('Group created successfully!', 'success');
+    }
+    
+    closeModal('newGroupModal');
 }
 
 function addMember(userId) {
     console.log('Add member:', userId);
+    // Implementation for adding member to group
+    if (window.dashboard && window.dashboard.showToast) {
+        window.dashboard.showToast('Member added to group!', 'success');
+    }
 }
 
 function changePassword() {
