@@ -2466,6 +2466,855 @@ class QuickChatApp {
         
         console.log('Chat events bound successfully');
     }
+
+    /**
+     * Confirm logout and handle the logout process
+     */
+    async confirmLogout() {
+        if (!confirm('Are you sure you want to logout?')) {
+            return;
+        }
+
+        try {
+            console.log('Logging out user...');
+            
+            // Call logout API
+            const response = await fetch('api/auth-simple.php?action=logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'include'
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                // Clear user state
+                this.state.user = null;
+                this.user = null;
+                
+                // Clear stored messages
+                this.state.messages = [];
+                this.messages = [];
+                
+                // Stop periodic updates
+                this.stopPeriodicUpdates();
+                
+                // Broadcast logout to other tabs
+                this.broadcastToOtherTabs('USER_LOGGED_OUT', {});
+                
+                // Show login interface
+                this.showLoginInterface();
+                
+                this.showToast('Successfully logged out', 'success');
+                console.log('User logged out successfully');
+            } else {
+                throw new Error(result.message || 'Logout failed');
+            }
+        } catch (error) {
+            console.error('Logout failed:', error);
+            this.showError('Failed to logout: ' + error.message);
+        }
+    }
+
+    /**
+     * Show the login interface
+     */
+    showLoginInterface() {
+        console.log('Showing login interface...');
+        
+        const loginScreen = document.getElementById('loginScreen');
+        const chatScreen = document.getElementById('chatScreen');
+        
+        if (loginScreen && chatScreen) {
+            loginScreen.style.display = 'flex';
+            loginScreen.classList.add('active');
+            chatScreen.style.display = 'none';
+            chatScreen.classList.remove('active');
+        }
+        
+        // Clear any existing messages
+        const messagesContainer = document.getElementById('messagesContainer');
+        if (messagesContainer) {
+            messagesContainer.innerHTML = '';
+        }
+        
+        // Reset document title
+        document.title = 'Quick Chat - Login';
+        
+        console.log('Login interface displayed');
+    }
+
+    /**
+     * Show the chat interface
+     */
+    showChatInterface() {
+        console.log('Showing chat interface...');
+        
+        const loginScreen = document.getElementById('loginScreen');
+        const chatScreen = document.getElementById('chatScreen');
+        
+        if (loginScreen && chatScreen) {
+            loginScreen.style.display = 'none';
+            loginScreen.classList.remove('active');
+            chatScreen.style.display = 'flex';
+            chatScreen.classList.add('active');
+        }
+        
+        // Update document title
+        document.title = 'Quick Chat';
+        
+        // Update user info in header if available
+        if (this.user) {
+            const currentUserElement = document.getElementById('currentUser');
+            if (currentUserElement) {
+                currentUserElement.textContent = this.user.username || this.user.display_name;
+            }
+        }
+        
+        console.log('Chat interface displayed');
+    }
+
+    /**
+     * Handle login form submission
+     */
+    async handleLogin(event) {
+        event.preventDefault();
+        
+        if (this.state.isLoggingIn) {
+            console.log('Login already in progress, ignoring');
+            return;
+        }
+        
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        // Set login state
+        this.state.isLoggingIn = true;
+        
+        // Get form elements
+        const submitButton = form.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton?.innerHTML;
+        
+        try {
+            console.log('Attempting login...');
+            
+            // Update button state
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+            }
+            
+            // Send login request
+            const response = await fetch('api/auth-simple.php?action=login', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            
+            const result = await response.json();
+            console.log('Login response:', result);
+            
+            if (result.success) {
+                // Store user data
+                this.user = result.user;
+                this.state.user = result.user;
+                
+                // Update CSRF token if provided
+                if (result.csrf_token) {
+                    this.updateCSRFToken(result.csrf_token);
+                }
+                
+                console.log('Login successful, user:', this.user);
+                
+                // Show chat interface immediately
+                this.showChatInterface();
+                
+                // Bind chat events
+                this.bindChatEvents();
+                
+                // Load messages
+                await this.loadMessages();
+                
+                // Start periodic updates
+                this.startPeriodicUpdates();
+                
+                this.showToast('Welcome back, ' + this.user.username + '!', 'success');
+                
+                // Clear form
+                form.reset();
+                
+            } else {
+                throw new Error(result.error || result.message || 'Login failed');
+            }
+            
+        } catch (error) {
+            console.error('Login error:', error);
+            this.showError('Login failed: ' + error.message);
+            
+        } finally {
+            // Reset login state and button
+            this.state.isLoggingIn = false;
+            
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText || '<i class="fas fa-sign-in-alt"></i> Sign In';
+            }
+        }
+    }
+
+    /**
+     * Handle register form submission
+     */
+    async handleRegister(event) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        // Get form elements
+        const submitButton = form.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton?.innerHTML;
+        
+        try {
+            console.log('Attempting registration...');
+            
+            // Update button state
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+            }
+            
+            // Send registration request
+            const response = await fetch('api/auth.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            
+            const result = await response.json();
+            console.log('Registration response:', result);
+            
+            if (result.success) {
+                this.showToast('Registration successful! Please check your email to verify your account.', 'success');
+                
+                // Show login form
+                this.showLoginForm();
+                
+                // Clear form
+                form.reset();
+                
+            } else {
+                throw new Error(result.message || 'Registration failed');
+            }
+            
+        } catch (error) {
+            console.error('Registration error:', error);
+            this.showError('Registration failed: ' + error.message);
+            
+        } finally {
+            // Reset button
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText || '<i class="fas fa-user-plus"></i> Create Account';
+            }
+        }
+    }
+
+    /**
+     * Handle password reset form submission
+     */
+    async handlePasswordReset(event) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        try {
+            const response = await fetch('api/auth.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showToast('If an account with this email exists, a password reset link has been sent.', 'info');
+                this.showLoginForm();
+            } else {
+                throw new Error(result.message || 'Password reset failed');
+            }
+            
+        } catch (error) {
+            console.error('Password reset error:', error);
+            this.showError('Password reset failed: ' + error.message);
+        }
+    }
+
+    /**
+     * Show login form
+     */
+    showLoginForm(event) {
+        if (event) {
+            event.preventDefault();
+        }
+        
+        const loginContainer = document.getElementById('loginContainer');
+        const registerContainer = document.getElementById('registerContainer');
+        const resetContainer = document.getElementById('resetContainer');
+        
+        if (loginContainer) loginContainer.style.display = 'block';
+        if (registerContainer) registerContainer.style.display = 'none';
+        if (resetContainer) resetContainer.style.display = 'none';
+    }
+
+    /**
+     * Show register form
+     */
+    showRegisterForm(event) {
+        if (event) {
+            event.preventDefault();
+        }
+        
+        const loginContainer = document.getElementById('loginContainer');
+        const registerContainer = document.getElementById('registerContainer');
+        const resetContainer = document.getElementById('resetContainer');
+        
+        if (loginContainer) loginContainer.style.display = 'none';
+        if (registerContainer) registerContainer.style.display = 'block';
+        if (resetContainer) resetContainer.style.display = 'none';
+    }
+
+    /**
+     * Show reset password form
+     */
+    showResetForm(event) {
+        if (event) {
+            event.preventDefault();
+        }
+        
+        const loginContainer = document.getElementById('loginContainer');
+        const registerContainer = document.getElementById('registerContainer');
+        const resetContainer = document.getElementById('resetContainer');
+        
+        if (loginContainer) loginContainer.style.display = 'none';
+        if (registerContainer) registerContainer.style.display = 'none';
+        if (resetContainer) resetContainer.style.display = 'block';
+    }
+
+    /**
+     * Check session status with the server
+     */
+    async checkSession() {
+        try {
+            const response = await fetch('api/auth-simple.php?action=check_session', {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-cache'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Session check failed with status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('Session check result:', result);
+            
+            return {
+                authenticated: result.authenticated || false,
+                user: result.user || null,
+                csrf_token: result.csrf_token || null
+            };
+            
+        } catch (error) {
+            console.error('Session check error:', error);
+            return {
+                authenticated: false,
+                user: null,
+                csrf_token: null
+            };
+        }
+    }
+
+    /**
+     * Show error message to user
+     */
+    showError(message, duration = 5000) {
+        console.error('Error:', message);
+        this.showToast(message, 'error', duration);
+    }
+
+    /**
+     * Show toast message
+     */
+    showToast(message, type = 'info', duration = 5000) {
+        // Use the chat handler's showToast if available
+        if (window.chatHandler && typeof window.chatHandler.showToast === 'function') {
+            window.chatHandler.showToast(message, type);
+            return;
+        }
+        
+        // Fallback to simple console log
+        console.log(`[${type.toUpperCase()}] ${message}`);
+        
+        // Try to create a simple toast
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4caf50' : '#2196f3'};
+            color: white;
+            padding: 12px 20px;
+            border-radius: 4px;
+            z-index: 10000;
+            max-width: 300px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        `;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, duration);
+    }
+
+    /**
+     * Update CSRF token
+     */
+    updateCSRFToken(token) {
+        this.csrfToken = token;
+        
+        // Update meta tag
+        const metaTag = document.querySelector('meta[name="csrf-token"]');
+        if (metaTag) {
+            metaTag.content = token;
+        }
+        
+        // Update hidden form inputs
+        const hiddenInputs = document.querySelectorAll('input[name="csrf_token"]');
+        hiddenInputs.forEach(input => {
+            input.value = token;
+        });
+    }
+
+    /**
+     * Get CSRF token
+     */
+    getCSRFToken() {
+        const metaTag = document.querySelector('meta[name="csrf-token"]');
+        return metaTag ? metaTag.content : '';
+    }
+
+    /**
+     * Check password strength
+     */
+    checkPasswordStrength(input) {
+        // Simple password strength checking
+        const password = input.value;
+        const strengthIndicator = input.parentElement.querySelector('.password-strength');
+        
+        if (!strengthIndicator) return;
+        
+        let strength = 0;
+        if (password.length >= 8) strength++;
+        if (/[A-Z]/.test(password)) strength++;
+        if (/[a-z]/.test(password)) strength++;
+        if (/[0-9]/.test(password)) strength++;
+        if (/[^A-Za-z0-9]/.test(password)) strength++;
+        
+        const levels = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
+        const colors = ['#f44336', '#ff9800', '#ffeb3b', '#8bc34a', '#4caf50'];
+        
+        strengthIndicator.textContent = levels[strength] || '';
+        strengthIndicator.style.color = colors[strength] || '#999';
+    }
+
+    /**
+     * Additional placeholder methods that might be called
+     */
+    async loadMessages() {
+        // Implementation would load messages from API
+        console.log('Loading messages...');
+    }
+
+    async sendMessage(content) {
+        // Implementation would send message via API
+        console.log('Sending message:', content);
+    }
+
+    async loadMessagesFromStorage() {
+        // Implementation would load cached messages
+        console.log('Loading messages from storage...');
+        return false;
+    }
+
+    renderMessages() {
+        // Implementation would render messages in UI
+        console.log('Rendering messages...');
+    }
+
+    scrollToBottom() {
+        // Use chat handler if available
+        if (window.chatHandler && typeof window.chatHandler.scrollToBottom === 'function') {
+            window.chatHandler.scrollToBottom();
+        }
+    }
+
+    showWelcomeMessage() {
+        // Implementation would show welcome message
+        console.log('Showing welcome message...');
+    }
+
+    startPeriodicUpdates() {
+        // Implementation would start polling for new messages
+        console.log('Starting periodic updates...');
+    }
+
+    stopPeriodicUpdates() {
+        // Implementation would stop polling
+        console.log('Stopping periodic updates...');
+    }
+
+    handleMessageInput(event) {
+        // Implementation would handle message input events
+        console.log('Message input event:', event.type);
+    }
+
+    handleTyping() {
+        // Implementation would handle typing indicators
+        console.log('User is typing...');
+    }
+
+    handleFileUpload(event) {
+        // Implementation would handle file uploads
+        console.log('File upload:', event.target.files);
+    }
+
+    clearChat() {
+        // Implementation would clear chat messages
+        console.log('Clearing chat...');
+    }
+
+    toggleEmojiPicker() {
+        // Implementation would toggle emoji picker
+        console.log('Toggling emoji picker...');
+    }
+
+    toggleRecording() {
+        // Implementation would toggle voice recording
+        console.log('Toggling recording...');
+    }
+
+    showSettings() {
+        // Implementation would show settings modal
+        console.log('Showing settings...');
+    }
+
+    /**
+     * Handle user activity tracking
+     */
+    handleUserActivity(event) {
+        this.state.lastActivityTime = Date.now();
+        console.log('User activity tracked:', event.type);
+    }
+
+    /**
+     * Handle keyboard shortcuts
+     */
+    handleKeyboardShortcuts(event) {
+        // Implementation for keyboard shortcuts
+        console.log('Keyboard shortcut:', event.key);
+    }
+
+    /**
+     * Handle storage change events
+     */
+    handleStorageChange(event) {
+        // Implementation for storage changes
+        console.log('Storage changed:', event.key);
+    }
+
+    /**
+     * Setup event listeners for the application
+     */
+    setupEventListeners() {
+        // Document visibility change
+        document.addEventListener('visibilitychange', this.boundHandlers.visibilityChange);
+        
+        // Online/offline status
+        window.addEventListener('online', this.boundHandlers.onlineStatusChange);
+        window.addEventListener('offline', this.boundHandlers.onlineStatusChange);
+        
+        // Before unload
+        window.addEventListener('beforeunload', this.boundHandlers.beforeUnload);
+        
+        // Storage changes
+        window.addEventListener('storage', this.boundHandlers.storageChange);
+        
+        // User activity tracking
+        document.addEventListener('click', this.boundHandlers.activityTracking);
+        document.addEventListener('keydown', this.boundHandlers.activityTracking);
+        document.addEventListener('mousemove', this.boundHandlers.activityTracking);
+        
+        console.log('Event listeners setup complete');
+    }
+
+    /**
+     * Clean up old storage data
+     */
+    cleanupOldStorageData() {
+        try {
+            // Remove old data older than 30 days
+            const cutoffTime = Date.now() - (30 * 24 * 60 * 60 * 1000);
+            
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(this.config.storagePrefix)) {
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        if (data.timestamp && data.timestamp < cutoffTime) {
+                            localStorage.removeItem(key);
+                        }
+                    } catch (e) {
+                        // Remove corrupted data
+                        localStorage.removeItem(key);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Failed to cleanup old storage data:', error);
+        }
+    }
+
+    /**
+     * Setup broadcast channel for cross-tab communication
+     */
+    setupBroadcastChannel() {
+        if ('BroadcastChannel' in window) {
+            this.broadcastChannel = new BroadcastChannel('quick_chat_channel');
+            
+            this.broadcastChannel.onmessage = (event) => {
+                const { type, data } = event.data;
+                
+                switch (type) {
+                    case 'NEW_MESSAGE':
+                        if (!this.state.messages.some(m => m.id === data.id)) {
+                            this.state.messages.push(data);
+                            this.renderMessages();
+                        }
+                        break;
+                    case 'USER_LOGGED_OUT':
+                        this.handleLogoutFromOtherTab();
+                        break;
+                    case 'THEME_CHANGED':
+                        this.applyTheme(data.theme);
+                        break;
+                }
+            };
+        }
+    }
+
+    /**
+     * Setup activity tracking
+     */
+    setupActivityTracking() {
+        // Setup activity monitoring
+        this.state.lastActivityTime = Date.now();
+        
+        // Check user activity periodically
+        setInterval(() => {
+            const inactiveTime = Date.now() - this.state.lastActivityTime;
+            if (inactiveTime > 300000) { // 5 minutes
+                console.log('User inactive for 5 minutes');
+            }
+        }, 60000); // Check every minute
+    }
+
+    /**
+     * Clean up old storage data
+     */
+    cleanupOldStorageData() {
+        try {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(this.config.storagePrefix)) {
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        if (data && data.timestamp && Date.now() - data.timestamp > 30 * 24 * 60 * 60 * 1000) {
+                            keysToRemove.push(key);
+                        }
+                    } catch (e) {
+                        keysToRemove.push(key);
+                    }
+                }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+            console.log(`Cleaned up ${keysToRemove.length} old storage entries`);
+        } catch (error) {
+            console.error('Error cleaning up storage:', error);
+        }
+    }
+
+    /**
+     * Initialize service worker for offline support
+     */
+    async initializeServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            try {
+                const registration = await navigator.serviceWorker.register('/sw.js');
+                console.log('Service Worker registered:', registration);
+                return registration;
+            } catch (error) {
+                console.warn('Service Worker registration failed:', error);
+                return null;
+            }
+        } else {
+            console.warn('Service Workers not supported');
+            return null;
+        }
+    }
+
+    /**
+     * Set up broadcast channel for cross-tab communication
+     */
+    setupBroadcastChannel() {
+        if ('BroadcastChannel' in window) {
+            this.broadcastChannel = new BroadcastChannel('quick_chat_channel');
+            this.broadcastChannel.onmessage = (event) => {
+                const { type, data } = event.data;
+                switch (type) {
+                    case 'NEW_MESSAGE':
+                        if (!this.state.messages.some(m => m.id === data.id)) {
+                            this.state.messages.push(data);
+                            this.renderMessages();
+                        }
+                        break;
+                    case 'USER_LOGGED_OUT':
+                        this.handleLogoutFromOtherTab();
+                        break;
+                    case 'THEME_CHANGED':
+                        this.applyTheme(data.theme);
+                        break;
+                }
+            };
+            console.log('Broadcast channel initialized');
+        } else {
+            window.addEventListener('storage', this.boundHandlers.storageChange);
+        }
+    }
+
+    /**
+     * Setup event listeners for the application
+     */
+    setupEventListeners() {
+        console.log('Setting up global event listeners...');
+        
+        // Set up activity tracking
+        this.setupActivityTracking();
+        
+        console.log('Global event listeners set up successfully');
+    }
+
+    /**
+     * Clean up old storage data
+     */
+    cleanupOldStorageData() {
+        try {
+            const prefix = this.config.storagePrefix;
+            const cutoffTime = Date.now() - (7 * 24 * 60 * 60 * 1000); // 7 days ago
+            
+            // Clean up old message cache
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(prefix + 'messages_')) {
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        if (data.timestamp && data.timestamp < cutoffTime) {
+                            localStorage.removeItem(key);
+                        }
+                    } catch (e) {
+                        // Remove corrupted data
+                        localStorage.removeItem(key);
+                    }
+                }
+            }
+            
+            console.log('Storage cleanup completed');
+        } catch (error) {
+            console.error('Storage cleanup error:', error);
+        }
+    }
+
+    /**
+     * Handle storage change events (for cross-tab communication fallback)
+     */
+    handleStorageChange(e) {
+        if (e.key === 'quick_chat_cross_tab_message') {
+            try {
+                const message = JSON.parse(e.newValue);
+                // Process cross-tab message
+                if (message.type === 'USER_LOGGED_OUT') {
+                    this.handleLogoutFromOtherTab();
+                }
+            } catch (error) {
+                console.error('Failed to process cross-tab message:', error);
+            }
+        }
+    }
+
+    /**
+     * Handle user activity for auto-away status
+     */
+    handleUserActivity() {
+        this.state.lastActivityTime = Date.now();
+    }
+
+    /**
+     * Handle keyboard shortcuts
+     */
+    handleKeyboardShortcuts(e) {
+        // Ctrl/Cmd + Enter to send message
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput && document.activeElement === messageInput) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        }
+        
+        // Escape to close modals
+        if (e.key === 'Escape') {
+            // Close emoji picker
+            if (window.chatHandler && typeof window.chatHandler.hideEmojiPicker === 'function') {
+                window.chatHandler.hideEmojiPicker();
+            }
+        }
+    }
+
+    /**
+     * Set up user activity tracking
+     */
+    setupActivityTracking() {
+        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+        events.forEach(event => {
+            document.addEventListener(event, this.boundHandlers.activityTracking, true);
+        });
+        document.addEventListener('visibilitychange', this.boundHandlers.visibilityChange);
+        window.addEventListener('online', this.boundHandlers.onlineStatusChange);
+        window.addEventListener('offline', this.boundHandlers.onlineStatusChange);
+        window.addEventListener('beforeunload', this.boundHandlers.beforeUnload);
+        document.addEventListener('keydown', this.boundHandlers.keyboardShortcuts);
+        console.log('Activity tracking initialized');
+    }
 }
 
 // Initialize the application when DOM is ready
@@ -2474,6 +3323,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     try {
         const app = new QuickChatApp();
+        
+        // Expose app to global scope for integration
+        window.quickChatApp = app;
+        
         await app.init();
         console.log('QuickChat application started successfully');
     } catch (error) {
