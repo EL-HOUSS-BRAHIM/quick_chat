@@ -257,7 +257,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
                     <button id="clearChatBtn" class="action-btn" title="Clear Chat">
                         <i class="fas fa-trash"></i>
                     </button>
-                    <button id="logoutBtn" class="action-btn" title="Logout" onclick="confirmLogout()">
+                    <button id="logoutBtn" class="action-btn" title="Logout">
                         <i class="fas fa-sign-out-alt"></i>
                     </button>
                 </div>
