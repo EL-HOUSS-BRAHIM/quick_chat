@@ -28,6 +28,7 @@ class Config {
     
     // Session settings
     public static function getSessionLifetime() { return Env::int('SESSION_LIFETIME', 3600); }
+    public static function getSessionTimeout() { return Env::int('SESSION_TIMEOUT', 3600); }
     public static function getRememberMeLifetime() { return Env::int('REMEMBER_ME_LIFETIME', 2592000); }
     public static function isSessionCookieSecure() { return Env::bool('SESSION_COOKIE_SECURE', false); }
     public static function isSessionCookieHttpOnly() { return Env::bool('SESSION_COOKIE_HTTPONLY', true); }
@@ -58,7 +59,7 @@ class Config {
         return ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']; 
     }
     
-    // Rate limiting
+    // Rate limiting settings
     public static function getMaxMessagesPerMinute() { return Env::int('MAX_MESSAGES_PER_MINUTE', 30); }
     public static function getMaxLoginAttempts() { return Env::int('MAX_LOGIN_ATTEMPTS', 5); }
     public static function getLoginLockoutTime() { return Env::int('LOGIN_LOCKOUT_TIME', 900); }
@@ -84,22 +85,6 @@ class Config {
     public static function getWebSocketHost() { return Env::get('WEBSOCKET_HOST', 'localhost'); }
     public static function getWebSocketPort() { return Env::int('WEBSOCKET_PORT', 8080); }
     public static function isWebSocketEnabled() { return Env::bool('WEBSOCKET_ENABLED', false); }
-    
-    // TURN server settings
-    public static function getTurnSecret() { return Env::get('TURN_SECRET', 'default-turn-secret-change-in-production'); }
-    public static function getTurnServers() { 
-        return [
-            'turn:' . Env::get('TURN_HOST', 'turn.quickchat.local') . ':3478',
-            'turns:' . Env::get('TURN_HOST', 'turn.quickchat.local') . ':5349'
-        ];
-    }
-    
-    // Redis settings
-    public static function isRedisEnabled() { return Env::bool('REDIS_ENABLED', false); }
-    public static function getRedisHost() { return Env::get('REDIS_HOST', 'localhost'); }
-    public static function getRedisPort() { return Env::int('REDIS_PORT', 6379); }
-    public static function getRedisPassword() { return Env::get('REDIS_PASSWORD', ''); }
-    public static function getRedisDatabase() { return Env::int('REDIS_DATABASE', 0); }_ENABLED', false); }
     
     // TURN server settings
     public static function getTurnSecret() { return Env::get('TURN_SECRET', 'default-turn-secret-change-in-production'); }
@@ -192,6 +177,36 @@ class Config {
     // API constants
     public static function getApiKeyLength() {
         return Env::int('API_KEY_LENGTH', 32);
+    }
+    
+    // File deduplication settings
+    public static function isDeduplicationEnabled() {
+        return Env::bool('FILE_DEDUPLICATION_ENABLED', false);
+    }
+    
+    // Backup settings
+    public static function getBackupStoragePath() {
+        return rtrim(__DIR__ . '/../' . trim(Env::get('BACKUP_PATH', 'backups/'), '/'), '/') . '/';
+    }
+    
+    public static function isS3BackupEnabled() {
+        return Env::bool('S3_BACKUP_ENABLED', false);
+    }
+    
+    public static function getS3BackupBucket() {
+        return Env::get('S3_BACKUP_BUCKET');
+    }
+    
+    public static function getS3BackupRegion() {
+        return Env::get('S3_BACKUP_REGION', 'us-east-1');
+    }
+    
+    public static function getS3BackupKey() {
+        return Env::get('S3_BACKUP_KEY');
+    }
+    
+    public static function getS3BackupSecret() {
+        return Env::get('S3_BACKUP_SECRET');
     }
 }
 
