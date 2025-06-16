@@ -59,27 +59,30 @@
         // Set up observer to wait for both components
         console.log('Waiting for components...');
         
-        // Use a more patient approach - check periodically
-        let attempts = 0;
-        const checkInterval = setInterval(function() {
-            attempts++;
-            
-            if (checkComponents()) {
-                clearInterval(checkInterval);
-                console.log('Components connected successfully after', attempts, 'attempts');
-                return;
-            }
-            
-            // Give up after max attempts
-            if (attempts >= maxReconnectAttempts) {
-                clearInterval(checkInterval);
-                console.error('Failed to connect components after maximum attempts');
-                triggerEvent('integrationFailed', { 
-                    reason: 'Components not available after max attempts',
-                    attempts: attempts
-                });
-            }
-        }, reconnectDelay);
+        // Add a delay to ensure all components are fully initialized
+        setTimeout(() => {
+            // Use a more patient approach - check periodically
+            let attempts = 0;
+            const checkInterval = setInterval(function() {
+                attempts++;
+                
+                if (checkComponents()) {
+                    clearInterval(checkInterval);
+                    console.log('Components connected successfully after', attempts, 'attempts');
+                    return;
+                }
+                
+                // Give up after max attempts
+                if (attempts >= maxReconnectAttempts * 2) { // Double the attempts
+                    clearInterval(checkInterval);
+                    console.error('Failed to connect components after maximum attempts');
+                    triggerEvent('integrationFailed', { 
+                        reason: 'Components not available after max attempts',
+                        attempts: attempts
+                    });
+                }
+            }, reconnectDelay);
+        }, 1500); // Add 1.5 second delay
         
         // Also set up a fallback timeout
         setTimeout(() => {
