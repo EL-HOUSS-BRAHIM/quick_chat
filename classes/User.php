@@ -356,7 +356,7 @@ class User {
     }
     
     public function updateLastLogin($userId) {
-        $sql = "UPDATE users SET last_login = NOW(), last_seen = NOW() WHERE id = ?";
+        $sql = "UPDATE users SET last_seen = NOW() WHERE id = ?";
         $this->db->query($sql, [$userId]);
     }
     
