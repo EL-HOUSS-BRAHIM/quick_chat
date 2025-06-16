@@ -35,8 +35,13 @@ document.addEventListener('DOMContentLoaded', function() {
         unreadBadge: document.getElementById('unreadBadge')
     };
 
-    // Initialize chat features
-    initChat();
+    // Wait for DOM to be ready before initializing
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initChat);
+    } else {
+        // DOM is already ready
+        initChat();
+    }
 
     /**
      * Initialize chat features
@@ -312,6 +317,305 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             console.log(`[${type.toUpperCase()}] ${message}`);
         }
+    }
+
+    /**
+     * Handle input in message input field
+     */
+    function handleInput() {
+        if (!elements.messageInput || !elements.charCount) return;
+        
+        const currentLength = elements.messageInput.value.length;
+        const maxLength = elements.messageInput.maxLength || 2000;
+        
+        elements.charCount.textContent = currentLength;
+        
+        // Update character count color based on length
+        if (currentLength > maxLength * 0.9) {
+            elements.charCount.style.color = '#ff4444';
+        } else if (currentLength > maxLength * 0.8) {
+            elements.charCount.style.color = '#ff8800';
+        } else {
+            elements.charCount.style.color = '';
+        }
+    }
+
+    /**
+     * Send message
+     */
+    function sendMessage() {
+        if (!elements.messageInput) return;
+        
+        const content = elements.messageInput.value.trim();
+        if (!content) return;
+        
+        // Use the app's sendMessage if available
+        if (window.quickChatApp && typeof window.quickChatApp.sendMessage === 'function') {
+            window.quickChatApp.sendMessage(content);
+        } else {
+            console.log('No app sendMessage method available');
+        }
+        
+        // Clear input
+        elements.messageInput.value = '';
+        handleInput(); // Update character count
+    }
+
+    /**
+     * Handle keydown events in message input
+     * @param {KeyboardEvent} e - Keyboard event
+     */
+    function handleKeyDown(e) {
+        if (e.key === 'Enter') {
+            if (e.shiftKey) {
+                // Allow new line with Shift+Enter
+                return;
+            } else {
+                // Send message with Enter
+                e.preventDefault();
+                sendMessage();
+            }
+        } else if (e.key === 'ArrowUp' && elements.messageInput.value === '') {
+            // Edit last message
+            if (state.previousMessages.length > 0) {
+                e.preventDefault();
+                const lastMessage = state.previousMessages[state.previousMessages.length - 1];
+                elements.messageInput.value = lastMessage;
+                handleInput();
+            }
+        }
+    }
+
+    /**
+     * Handle paste events
+     * @param {ClipboardEvent} e - Paste event
+     */
+    function handlePaste(e) {
+        // Let the app handle paste events if available
+        if (window.quickChatApp && typeof window.quickChatApp.handlePaste === 'function') {
+            window.quickChatApp.handlePaste(e);
+        }
+    }
+
+    /**
+     * Toggle emoji picker visibility
+     */
+    function toggleEmojiPicker() {
+        if (!elements.emojiPicker) return;
+        
+        state.isEmojiPickerVisible = !state.isEmojiPickerVisible;
+        
+        if (state.isEmojiPickerVisible) {
+            elements.emojiPicker.style.display = 'block';
+            setupEmojiPicker();
+        } else {
+            elements.emojiPicker.style.display = 'none';
+        }
+    }
+
+    /**
+     * Handle file selection
+     * @param {Event} e - File input change event
+     */
+    function handleFileSelect(e) {
+        const files = e.target.files;
+        if (files && files.length > 0) {
+            handleFileUpload(files);
+        }
+    }
+
+    /**
+     * Toggle theme
+     */
+    function toggleTheme() {
+        if (window.quickChatApp && typeof window.quickChatApp.toggleTheme === 'function') {
+            window.quickChatApp.toggleTheme();
+        }
+    }
+
+    /**
+     * Setup emoji picker with emojis from config
+     */
+    function setupEmojiPicker() {
+        if (!elements.emojiPicker || !window.ChatConfig || !window.ChatConfig.emojiCategories) return;
+        
+        const emojiGrid = elements.emojiPicker.querySelector('.emoji-grid');
+        if (!emojiGrid) return;
+        
+        // Clear existing emojis
+        emojiGrid.innerHTML = '';
+        
+        // Add emojis from first category (smileys)
+        const smileys = window.ChatConfig.emojiCategories.smileys || [];
+        smileys.forEach(emoji => {
+            const emojiBtn = document.createElement('button');
+            emojiBtn.className = 'emoji-button';
+            emojiBtn.textContent = emoji;
+            emojiBtn.addEventListener('click', () => {
+                insertEmoji(emoji);
+            });
+            emojiGrid.appendChild(emojiBtn);
+        });
+    }
+
+    /**
+     * Insert emoji into message input
+     * @param {string} emoji - Emoji to insert
+     */
+    function insertEmoji(emoji) {
+        if (!elements.messageInput) return;
+        
+        const cursorPos = elements.messageInput.selectionStart;
+        const textBefore = elements.messageInput.value.substring(0, cursorPos);
+        const textAfter = elements.messageInput.value.substring(elements.messageInput.selectionEnd);
+        
+        elements.messageInput.value = textBefore + emoji + textAfter;
+        elements.messageInput.selectionStart = elements.messageInput.selectionEnd = cursorPos + emoji.length;
+        
+        handleInput(); // Update character count
+        elements.messageInput.focus();
+        
+        // Hide emoji picker
+        hideEmojiPicker();
+    }
+
+    /**
+     * Send message
+     */
+    function sendMessage() {
+        if (!elements.messageInput) return;
+        
+        const content = elements.messageInput.value.trim();
+        if (!content) return;
+        
+        // Use the app's sendMessage if available
+        if (window.quickChatApp && typeof window.quickChatApp.sendMessage === 'function') {
+            window.quickChatApp.sendMessage(content);
+        } else {
+            console.log('No app sendMessage method available');
+        }
+        
+        // Clear input
+        elements.messageInput.value = '';
+        handleInput(); // Update character count
+    }
+
+    /**
+     * Handle keydown events in message input
+     * @param {KeyboardEvent} e - Keyboard event
+     */
+    function handleKeyDown(e) {
+        if (e.key === 'Enter') {
+            if (e.shiftKey) {
+                // Allow new line with Shift+Enter
+                return;
+            } else {
+                // Send message with Enter
+                e.preventDefault();
+                sendMessage();
+            }
+        } else if (e.key === 'ArrowUp' && elements.messageInput.value === '') {
+            // Edit last message
+            if (state.previousMessages.length > 0) {
+                e.preventDefault();
+                const lastMessage = state.previousMessages[state.previousMessages.length - 1];
+                elements.messageInput.value = lastMessage;
+                handleInput();
+            }
+        }
+    }
+
+    /**
+     * Handle paste events
+     * @param {ClipboardEvent} e - Paste event
+     */
+    function handlePaste(e) {
+        // Let the app handle paste events if available
+        if (window.quickChatApp && typeof window.quickChatApp.handlePaste === 'function') {
+            window.quickChatApp.handlePaste(e);
+        }
+    }
+
+    /**
+     * Toggle emoji picker visibility
+     */
+    function toggleEmojiPicker() {
+        if (!elements.emojiPicker) return;
+        
+        state.isEmojiPickerVisible = !state.isEmojiPickerVisible;
+        
+        if (state.isEmojiPickerVisible) {
+            elements.emojiPicker.style.display = 'block';
+            setupEmojiPicker();
+        } else {
+            elements.emojiPicker.style.display = 'none';
+        }
+    }
+
+    /**
+     * Handle file selection
+     * @param {Event} e - File input change event
+     */
+    function handleFileSelect(e) {
+        const files = e.target.files;
+        if (files && files.length > 0) {
+            handleFileUpload(files);
+        }
+    }
+
+    /**
+     * Toggle theme
+     */
+    function toggleTheme() {
+        if (window.quickChatApp && typeof window.quickChatApp.toggleTheme === 'function') {
+            window.quickChatApp.toggleTheme();
+        }
+    }
+
+    /**
+     * Setup emoji picker with emojis from config
+     */
+    function setupEmojiPicker() {
+        if (!elements.emojiPicker || !window.ChatConfig || !window.ChatConfig.emojiCategories) return;
+        
+        const emojiGrid = elements.emojiPicker.querySelector('.emoji-grid');
+        if (!emojiGrid) return;
+        
+        // Clear existing emojis
+        emojiGrid.innerHTML = '';
+        
+        // Add emojis from first category (smileys)
+        const smileys = window.ChatConfig.emojiCategories.smileys || [];
+        smileys.forEach(emoji => {
+            const emojiBtn = document.createElement('button');
+            emojiBtn.className = 'emoji-button';
+            emojiBtn.textContent = emoji;
+            emojiBtn.addEventListener('click', () => {
+                insertEmoji(emoji);
+            });
+            emojiGrid.appendChild(emojiBtn);
+        });
+    }
+
+    /**
+     * Insert emoji into message input
+     * @param {string} emoji - Emoji to insert
+     */
+    function insertEmoji(emoji) {
+        if (!elements.messageInput) return;
+        
+        const cursorPos = elements.messageInput.selectionStart;
+        const textBefore = elements.messageInput.value.substring(0, cursorPos);
+        const textAfter = elements.messageInput.value.substring(elements.messageInput.selectionEnd);
+        
+        elements.messageInput.value = textBefore + emoji + textAfter;
+        elements.messageInput.selectionStart = elements.messageInput.selectionEnd = cursorPos + emoji.length;
+        
+        handleInput(); // Update character count
+        elements.messageInput.focus();
+        
+        // Hide emoji picker
+        hideEmojiPicker();
     }
 
     /**
