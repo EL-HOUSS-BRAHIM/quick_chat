@@ -3,11 +3,11 @@ require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Security.php';
 
 class User {
-    private $db;
+    public $db;
     private $security;
     
-    public function __construct() {
-        $this->db = Database::getInstance();
+    public function __construct($db = null) {
+        $this->db = $db ?: Database::getInstance();
         $this->security = new Security();
     }
     
@@ -401,6 +401,7 @@ class User {
         return false;
     }
     
+    // Validation methods
     private function validateUsername($username) {
         return preg_match('/^[a-zA-Z0-9_]{3,20}$/', $username);
     }
@@ -410,246 +411,151 @@ class User {
     }
     
     private function validatePassword($password) {
-        // At least 8 characters, uppercase, lowercase, number, special character
-        return strlen($password) >= 8 &&
-               preg_match('/[A-Z]/', $password) &&
-               preg_match('/[a-z]/', $password) &&
-               preg_match('/[0-9]/', $password) &&
-               preg_match('/[^A-Za-z0-9]/', $password);
+        // At least 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special character
+        return preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/', $password);
     }
     
     private function usernameExists($username) {
-        $result = $this->db->fetch("SELECT id FROM users WHERE username = ?", [$username]);
-        return $result !== false;
+        $sql = "SELECT COUNT(*) as count FROM users WHERE username = ?";
+        $result = $this->db->fetch($sql, [$username]);
+        return $result['count'] > 0;
     }
     
     private function emailExists($email) {
-        $result = $this->db->fetch("SELECT id FROM users WHERE email = ?", [$email]);
-        return $result !== false;
+        $sql = "SELECT COUNT(*) as count FROM users WHERE email = ?";
+        $result = $this->db->fetch($sql, [$email]);
+        return $result['count'] > 0;
     }
     
     private function createDefaultSettings($userId) {
         $defaultSettings = [
-            'notifications_sound' => true,
-            'notifications_desktop' => true,
             'theme' => 'light',
+            'notifications_enabled' => 1,
+            'sound_enabled' => 1,
+            'auto_play_media' => 1,
+            'show_online_status' => 1,
             'language' => 'en'
         ];
         
         foreach ($defaultSettings as $key => $value) {
-            $this->updateUserSetting($userId, $key, $value);
+            $sql = "INSERT INTO user_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?)";
+            $this->db->query($sql, [$userId, $key, json_encode($value)]);
         }
     }
     
-    /**
-     * Create user from SSO (Google, Facebook, etc.)
-     */
-    public function createUserFromSSO($userData) {
-        // Validate required fields
-        if (empty($userData['email']) || empty($userData['username'])) {
-            throw new Exception("Email and username are required for SSO user creation");
-        }
-        
-        // Check if user already exists by email
-        if ($this->emailExists($userData['email'])) {
-            throw new Exception("User with this email already exists");
-        }
-        
-        try {
-            $this->db->beginTransaction();
-            
-            $sql = "INSERT INTO users (
-                username, email, display_name, google_id, facebook_id, 
-                avatar_url, email_verified, created_via, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())";
-            
-            $params = [
-                $userData['username'],
-                $userData['email'],
-                $userData['display_name'] ?? $userData['email'],
-                $userData['google_id'] ?? null,
-                $userData['facebook_id'] ?? null,
-                $userData['avatar_url'] ?? null,
-                $userData['email_verified'] ?? true,
-                $userData['created_via'] ?? 'sso'
-            ];
-            
-            $this->db->query($sql, $params);
-            $userId = $this->db->getConnection()->lastInsertId();
-            
-            // Create user settings
-            $this->createDefaultUserSettings($userId);
-            
-            $this->db->commit();
-            
-            error_log("SSO user created successfully: ID $userId, Email: " . $userData['email']);
-            
-            return $userId;
-            
-        } catch (Exception $e) {
-            $this->db->rollback();
-            error_log("SSO user creation failed: " . $e->getMessage());
-            throw new Exception("Failed to create user account");
-        }
-    }
-    
-    /**
-     * Update user with Google SSO information
-     */
-    public function updateGoogleSSO($userId, $googleId, $googleData) {
-        try {
-            $sql = "UPDATE users SET 
-                    google_id = ?, 
-                    display_name = COALESCE(NULLIF(display_name, ''), ?),
-                    avatar_url = COALESCE(NULLIF(avatar_url, ''), ?),
-                    email_verified = 1,
-                    last_login = NOW()
-                    WHERE id = ?";
-            
-            $params = [
-                $googleId,
-                $googleData['name'] ?? null,
-                $googleData['picture'] ?? null,
-                $userId
-            ];
-            
-            $this->db->query($sql, $params);
-            
-            error_log("Google SSO data updated for user ID: $userId");
-            
-        } catch (Exception $e) {
-            error_log("Failed to update Google SSO data: " . $e->getMessage());
-            throw new Exception("Failed to update user profile");
-        }
-    }
-    
-    /**
-     * Update user with Facebook SSO information
-     */
-    public function updateFacebookSSO($userId, $facebookId, $facebookData) {
-        try {
-            $sql = "UPDATE users SET 
-                    facebook_id = ?, 
-                    display_name = COALESCE(NULLIF(display_name, ''), ?),
-                    avatar_url = COALESCE(NULLIF(avatar_url, ''), ?),
-                    email_verified = 1,
-                    last_login = NOW()
-                    WHERE id = ?";
-            
-            $params = [
-                $facebookId,
-                $facebookData['name'] ?? null,
-                $facebookData['picture']['data']['url'] ?? null,
-                $userId
-            ];
-            
-            $this->db->query($sql, $params);
-            
-            error_log("Facebook SSO data updated for user ID: $userId");
-            
-        } catch (Exception $e) {
-            error_log("Failed to update Facebook SSO data: " . $e->getMessage());
-            throw new Exception("Failed to update user profile");
-        }
-    }
-    
-    /**
-     * Get user by Google ID
-     */
-    public function getUserByGoogleId($googleId) {
-        $sql = "SELECT * FROM users WHERE google_id = ? AND deleted_at IS NULL";
-        $stmt = $this->db->query($sql, [$googleId]);
-        return $stmt->fetch();
-    }
-    
-    /**
-     * Get user by Facebook ID
-     */
-    public function getUserByFacebookId($facebookId) {
-        $sql = "SELECT * FROM users WHERE facebook_id = ? AND deleted_at IS NULL";
-        $stmt = $this->db->query($sql, [$facebookId]);
-        return $stmt->fetch();
-    }
-    
-    /**
-     * Create session for user (including SSO logins)
-     */
-    public function createSession($userId, $loginMethod = 'password') {
-        try {
-            // Generate session ID
-            $sessionId = bin2hex(random_bytes(32));
-            $expiresAt = date('Y-m-d H:i:s', time() + Config::getSessionLifetime());
-            
-            // Create session record (removed login_method column as it doesn't exist)
-            $sql = "INSERT INTO user_sessions (user_id, session_id, expires_at, ip_address, user_agent, created_at) 
-                    VALUES (?, ?, ?, ?, ?, NOW())";
-            
-            $result = $this->db->query($sql, [
-                $userId, 
-                $sessionId, 
-                $expiresAt,
-                $_SERVER['REMOTE_ADDR'] ?? '',
-                $_SERVER['HTTP_USER_AGENT'] ?? ''
-            ]);
-            
-            if (!$result) {
-                throw new Exception("Failed to insert session into database");
-            }
-            
-            // Update last login
-            $this->updateLastLogin($userId);
-            
-            return [
-                'session_id' => $sessionId,
-                'expires_at' => $expiresAt,
-                'login_method' => $loginMethod
-            ];
-            
-        } catch (Exception $e) {
-            error_log("Failed to create session: " . $e->getMessage());
-            throw new Exception("Failed to create session: " . $e->getMessage());
-        }
-    }
-    
-    /**
-     * Create default user settings
-     */
-    private function createDefaultUserSettings($userId) {
-        $sql = "INSERT INTO user_settings (user_id, setting_key, setting_value) VALUES 
-                (?, 'theme', 'light'),
-                (?, 'notifications_enabled', '1'),
-                (?, 'sound_enabled', '1'),
-                (?, 'privacy_online_status', '1'),
-                (?, 'privacy_read_receipts', '1')";
-        
-        $this->db->query($sql, [$userId, $userId, $userId, $userId, $userId]);
-    }
-    
-    private function logAuditEvent($userId, $action, $details = null) {
-        $sql = "INSERT INTO audit_logs (user_id, action, details, ip_address, user_agent) 
-                VALUES (?, ?, ?, ?, ?)";
+    private function logAuditEvent($userId, $action, $details = []) {
+        $sql = "INSERT INTO audit_logs (user_id, action, details, ip_address, user_agent, created_at) 
+                VALUES (?, ?, ?, ?, ?, NOW())";
         
         $this->db->query($sql, [
             $userId,
             $action,
-            $details ? json_encode($details) : null,
+            json_encode($details),
             $_SERVER['REMOTE_ADDR'] ?? '',
             $_SERVER['HTTP_USER_AGENT'] ?? ''
         ]);
     }
     
     private function sendVerificationEmail($email, $token) {
-        // Implementation depends on your email service
-        // This is a placeholder for email verification
-        error_log("Verification email sent to: $email with token: $token");
+        // In a real application, you would send an actual email
+        // For now, just log it
+        error_log("Verification email would be sent to: $email with token: $token");
+    }
+    
+    public function createSession($userId, $type = 'password', $rememberMe = false) {
+        $sessionId = bin2hex(random_bytes(32));
+        $expiresAt = $rememberMe ? 
+            date('Y-m-d H:i:s', time() + Config::getRememberMeLifetime()) :
+            date('Y-m-d H:i:s', time() + Config::getSessionLifetime());
+        
+        $sql = "INSERT INTO user_sessions (session_id, user_id, login_type, expires_at, ip_address, user_agent, created_at, last_activity) 
+                VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
+        
+        $this->db->query($sql, [
+            $sessionId,
+            $userId,
+            $type,
+            $expiresAt,
+            $_SERVER['REMOTE_ADDR'] ?? '',
+            $_SERVER['HTTP_USER_AGENT'] ?? ''
+        ]);
+        
+        return [
+            'session_id' => $sessionId,
+            'expires_at' => $expiresAt
+        ];
     }
     
     private function sendPasswordResetEmail($email, $token) {
-        // Implementation depends on your email service
-        // This is a placeholder for password reset email
-        error_log("Password reset email sent to: $email with token: $token");
+        // In a real application, you would send an actual email
+        // For now, just log it
+        error_log("Password reset email would be sent to: $email with token: $token");
     }
     
+    // Missing methods referenced in API files
+    public function searchUsers($query, $limit = 20) {
+        $query = '%' . $query . '%';
+        $sql = "SELECT id, username, display_name, email, avatar_url, status, last_seen 
+                FROM users 
+                WHERE (username LIKE ? OR display_name LIKE ? OR email LIKE ?) 
+                AND is_active = 1
+                ORDER BY username ASC 
+                LIMIT ?";
+        
+        return $this->db->fetchAll($sql, [$query, $query, $query, $limit]);
+    }
+    
+    public function getUserStats($userId) {
+        $sql = "SELECT 
+                    u.id,
+                    u.username,
+                    u.display_name,
+                    u.created_at,
+                    u.last_seen,
+                    u.status,
+                    COUNT(DISTINCT m.id) as message_count,
+                    COUNT(DISTINCT s.id) as session_count
+                FROM users u
+                LEFT JOIN messages m ON u.id = m.user_id
+                LEFT JOIN user_sessions s ON u.id = s.user_id
+                WHERE u.id = ?
+                GROUP BY u.id";
+        
+        return $this->db->fetch($sql, [$userId]);
+    }
+    
+    public function updateUserStatus($userId, $status) {
+        $validStatuses = ['online', 'away', 'busy', 'invisible'];
+        if (!in_array($status, $validStatuses)) {
+            throw new Exception("Invalid status");
+        }
+        
+        $sql = "UPDATE users SET status = ?, last_seen = NOW() WHERE id = ?";
+        return $this->db->query($sql, [$status, $userId]);
+    }
+    
+    public function updateUserProfile($userId, $data) {
+        $allowedFields = ['display_name', 'email', 'bio', 'avatar_url'];
+        $updates = [];
+        $params = [];
+        
+        foreach ($data as $field => $value) {
+            if (in_array($field, $allowedFields)) {
+                $updates[] = "$field = ?";
+                $params[] = $value;
+            }
+        }
+        
+        if (empty($updates)) {
+            throw new Exception("No valid fields to update");
+        }
+        
+        $params[] = $userId;
+        $sql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?";
+        
+        return $this->db->query($sql, $params);
+    }
+
     // Session cleanup methods
     public function cleanupExpiredSessions() {
         // Delete expired sessions
@@ -661,6 +567,139 @@ class User {
         $this->db->query($sql);
         
         return $deletedCount;
+    }
+    
+    /**
+     * Update user's Google SSO information
+     */
+    public function updateGoogleSSO($userId, $googleId, $userInfo) {
+        $sql = "UPDATE users SET 
+                google_id = ?,
+                google_email = ?,
+                google_name = ?,
+                google_picture = ?,
+                updated_at = NOW()
+                WHERE id = ?";
+        
+        return $this->db->query($sql, [
+            $googleId,
+            $userInfo['email'],
+            $userInfo['name'],
+            $userInfo['picture'] ?? null,
+            $userId
+        ]);
+    }
+    
+    /**
+     * Create new user from Google SSO data
+     */
+    public function createUserFromSSO($userInfo, $googleId) {
+        $username = $this->generateUsername($userInfo['email']);
+        
+        $sql = "INSERT INTO users (
+                    username, 
+                    email, 
+                    display_name, 
+                    google_id, 
+                    google_email, 
+                    google_name, 
+                    google_picture, 
+                    email_verified,
+                    password_hash,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, '', NOW())";
+        
+        $this->db->query($sql, [
+            $username,
+            $userInfo['email'],
+            $userInfo['name'],
+            $googleId,
+            $userInfo['email'],
+            $userInfo['name'],
+            $userInfo['picture'] ?? null
+        ]);
+        
+        return $this->db->lastInsertId();
+    }
+    
+    /**
+     * Generate unique username from email
+     */
+    private function generateUsername($email) {
+        $baseUsername = strtolower(explode('@', $email)[0]);
+        $baseUsername = preg_replace('/[^a-z0-9_]/', '', $baseUsername);
+        
+        $username = $baseUsername;
+        $counter = 1;
+        
+        while ($this->getUserByUsername($username)) {
+            $username = $baseUsername . $counter;
+            $counter++;
+        }
+        
+        return $username;
+    }
+    
+    public function checkAuthentication() {
+        // Start session if not already started
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        // Check if user is logged in
+        if (!isset($_SESSION['user_id'])) {
+            throw new Exception('Authentication required');
+        }
+        
+        // Validate session
+        if (!$this->isValidSession($_SESSION['user_id'])) {
+            $this->logout();
+            throw new Exception('Invalid session');
+        }
+        
+        // Update last activity
+        $this->updateLastActivity($_SESSION['user_id']);
+        
+        return $_SESSION['user_id'];
+    }
+    
+    private function isValidSession($userId) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT id, is_active, locked_until 
+                FROM users 
+                WHERE id = ?
+            ");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch();
+            
+            if (!$user || !$user['is_active']) {
+                return false;
+            }
+            
+            // Check if account is locked
+            if ($user['locked_until'] && new DateTime() < new DateTime($user['locked_until'])) {
+                return false;
+            }
+            
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    
+    private function updateLastActivity($userId) {
+        try {
+            $stmt = $this->db->prepare("
+                UPDATE users 
+                SET last_activity = NOW() 
+                WHERE id = ?
+            ");
+            $stmt->execute([$userId]);
+        } catch (Exception $e) {
+            // Log error but don't throw - this is not critical
+            error_log("Failed to update last activity: " . $e->getMessage());
+        }
     }
 }
 ?>
