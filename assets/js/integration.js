@@ -356,11 +356,61 @@
         
         // Connect toast messages
         chat.showToast = function(message, type = 'info') {
-            if (typeof app.showToast === 'function') {
-                app.showToast(message, type);
-            } else if (window.utils && typeof window.utils.showToast === 'function') {
+            // Don't call app.showToast to avoid circular calls - implement toast directly
+            if (window.utils && typeof window.utils.showToast === 'function') {
                 window.utils.showToast(message, type);
             } else {
+                // Add CSS animation styles if they don't exist
+                if (!document.querySelector('#toast-animations')) {
+                    const style = document.createElement('style');
+                    style.id = 'toast-animations';
+                    style.textContent = `
+                        @keyframes slideIn {
+                            from { transform: translateX(100%); opacity: 0; }
+                            to { transform: translateX(0); opacity: 1; }
+                        }
+                        @keyframes slideOut {
+                            from { transform: translateX(0); opacity: 1; }
+                            to { transform: translateX(100%); opacity: 0; }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+                
+                // Create a simple toast notification directly
+                const toast = document.createElement('div');
+                toast.className = `toast toast-${type}`;
+                toast.textContent = message;
+                toast.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 12px 20px;
+                    border-radius: 8px;
+                    color: white;
+                    font-size: 14px;
+                    font-weight: 500;
+                    z-index: 9999;
+                    max-width: 350px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    animation: slideIn 0.3s ease-out;
+                    background-color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
+                `;
+                
+                document.body.appendChild(toast);
+                
+                // Remove toast after 5 seconds
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.style.animation = 'slideOut 0.3s ease-in';
+                        setTimeout(() => {
+                            if (toast.parentNode) {
+                                toast.parentNode.removeChild(toast);
+                            }
+                        }, 300);
+                    }
+                }, 5000);
+                
                 console.log(`[${type.toUpperCase()}] ${message}`);
             }
         };
