@@ -57,7 +57,30 @@ class Database {
             return $stmt;
         } catch (PDOException $e) {
             error_log("Query failed: " . $e->getMessage() . " SQL: " . $sql);
-            throw new Exception("Query execution failed");
+            
+            // Load config to check debug mode
+            require_once __DIR__ . '/../config/config.php';
+            
+            // Provide more specific error message while hiding sensitive SQL details in production
+            if (Config::isDebugMode()) {
+                throw new Exception("Query execution failed: " . $e->getMessage() . " (SQL: " . $sql . ")");
+            } else {
+                // Map common errors to user-friendly messages
+                $errorCode = $e->getCode();
+                $errorMessage = $e->getMessage();
+                
+                if (strpos($errorMessage, 'Duplicate entry') !== false) {
+                    throw new Exception("Duplicate entry error");
+                } elseif (strpos($errorMessage, 'doesn\'t exist') !== false) {
+                    throw new Exception("Database table missing");
+                } elseif (strpos($errorMessage, 'Connection') !== false) {
+                    throw new Exception("Database connection error");
+                } elseif (strpos($errorMessage, 'Access denied') !== false) {
+                    throw new Exception("Database access denied");
+                } else {
+                    throw new Exception("Database query failed: " . $errorMessage);
+                }
+            }
         }
     }
     
