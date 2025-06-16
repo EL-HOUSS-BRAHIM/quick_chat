@@ -68,8 +68,10 @@ class MessageAPI {
     }
     
     private function handlePost($action) {
-        // CSRF protection
-        if (!$this->security->validateCSRF($_POST['csrf_token'] ?? '')) {
+        // CSRF protection - but allow some actions without CSRF for better UX
+        $requireCSRF = !in_array($action, ['typing']);
+        
+        if ($requireCSRF && !$this->security->validateCSRF($_POST['csrf_token'] ?? '')) {
             throw new Exception('Invalid CSRF token', 403);
         }
         
@@ -83,6 +85,9 @@ class MessageAPI {
             case 'add_reaction':
                 return $this->addReaction();
                 
+            case 'typing':
+                return $this->handleTyping();
+                
             default:
                 throw new Exception('Invalid action', 400);
         }
@@ -90,6 +95,7 @@ class MessageAPI {
     
     private function handleGet($action) {
         switch ($action) {
+            case 'get':
             case 'list':
                 return $this->getMessages();
                 
@@ -134,10 +140,25 @@ class MessageAPI {
     }
     
     private function sendMessage() {
-        $content = trim($_POST['content'] ?? '');
-        $messageType = $_POST['message_type'] ?? 'text';
-        $filePath = $_POST['file_path'] ?? null;
-        $replyToId = $_POST['reply_to_id'] ?? null;
+        // Handle both POST data and JSON input
+        $input = $_POST;
+        if (empty($input) || (!isset($input['message']) && !isset($input['content']))) {
+            $jsonInput = json_decode(file_get_contents('php://input'), true);
+            if ($jsonInput) {
+                $input = array_merge($input, $jsonInput);
+            }
+        }
+        
+        $content = trim($input['message'] ?? $input['content'] ?? '');
+        $messageType = $input['message_type'] ?? $input['type'] ?? 'text';
+        $filePath = $input['file_path'] ?? null;
+        $replyToId = $input['reply_to_id'] ?? null;
+        $targetUserId = $input['target_user_id'] ?? null;
+        
+        // Handle typing indicator requests
+        if (isset($input['action']) && $input['action'] === 'typing') {
+            return $this->handleTypingIndicator($input);
+        }
         
         if ($messageType === 'text' && empty($content)) {
             throw new Exception('Message content cannot be empty');
@@ -212,12 +233,36 @@ class MessageAPI {
         ]);
     }
     
+    private function handleTyping() {
+        $isTyping = ($_POST['is_typing'] ?? '0') === '1';
+        $targetUserId = $_POST['target_user_id'] ?? null;
+        
+        // Store typing status in session or database
+        $_SESSION['typing_status'] = [
+            'is_typing' => $isTyping,
+            'target_user_id' => $targetUserId,
+            'timestamp' => time()
+        ];
+        
+        $this->sendResponse([
+            'success' => true,
+            'message' => 'Typing status updated'
+        ]);
+    }
+    
     private function getMessages() {
         $limit = min((int)($_GET['limit'] ?? 50), 100); // Max 100 messages
         $offset = (int)($_GET['offset'] ?? 0);
         $beforeId = $_GET['before_id'] ?? null;
+        $targetUserId = $_GET['target_user_id'] ?? null;
         
-        $messages = $this->message->getMessages($limit, $offset, $beforeId);
+        if ($targetUserId) {
+            // Get direct messages between current user and target user
+            $messages = $this->message->getDirectMessages($_SESSION['user_id'], $targetUserId, $limit, $offset);
+        } else {
+            // Get general chat messages
+            $messages = $this->message->getMessages($limit, $offset, $beforeId);
+        }
         
         $this->sendResponse([
             'success' => true,
@@ -409,6 +454,28 @@ class MessageAPI {
             'timestamp' => date('c')
         ]);
         exit;
+    }
+    
+    private function handleTypingIndicator($input) {
+        $targetUserId = $input['target_user_id'] ?? null;
+        $isTyping = isset($input['typing']) ? (bool)$input['typing'] : true;
+        
+        // Store typing status in session or cache (simplified version)
+        if (!isset($_SESSION['typing_status'])) {
+            $_SESSION['typing_status'] = [];
+        }
+        
+        $typingKey = $targetUserId ? "dm_{$targetUserId}" : 'general';
+        $_SESSION['typing_status'][$typingKey] = [
+            'user_id' => $_SESSION['user_id'],
+            'is_typing' => $isTyping,
+            'timestamp' => time()
+        ];
+        
+        return $this->sendResponse([
+            'success' => true,
+            'message' => 'Typing status updated'
+        ]);
     }
 }
 
