@@ -113,19 +113,58 @@ class ModernChatApp {
                 url.searchParams.set('target_user_id', this.state.targetUser.id);
             }
             
-            const response = await fetch(url);
+            // Add pagination support
+            const limit = 50;
+            const offset = this.state.messages.length;
+            url.searchParams.set('limit', limit);
+            url.searchParams.set('offset', offset);
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const result = await response.json();
             
             if (result.success) {
-                this.state.messages = result.data || [];
+                const newMessages = result.data || [];
+                
+                // If this is initial load, replace messages
+                if (offset === 0) {
+                    this.state.messages = newMessages;
+                } else {
+                    // If loading more, prepend messages
+                    this.state.messages = [...newMessages, ...this.state.messages];
+                }
+                
                 this.renderMessages();
-                this.scrollToBottom();
+                
+                // Auto-scroll to bottom on initial load
+                if (offset === 0) {
+                    this.scrollToBottom();
+                }
+                
+                // Update last message time for polling
+                if (newMessages.length > 0) {
+                    this.state.lastMessageTime = new Date(newMessages[newMessages.length - 1].created_at).getTime();
+                }
+                
+                return newMessages;
             } else {
                 throw new Error(result.error || 'Failed to load messages');
             }
         } catch (error) {
             console.error('Failed to load messages:', error);
             this.showError('Failed to load messages');
+            throw error;
         }
     }
     
@@ -144,9 +183,336 @@ class ModernChatApp {
     }
     
     async loadConversations() {
-        // Mock conversations for now - would be loaded from API
-        this.state.conversations = [];
-        this.renderConversations();
+        try {
+            const response = await fetch(`${this.config.apiEndpoints.users}?action=get_conversations`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.state.conversations = result.data || [];
+                
+                // Sort conversations by last message time
+                this.state.conversations.sort((a, b) => {
+                    const timeA = a.last_message_time ? new Date(a.last_message_time).getTime() : 0;
+                    const timeB = b.last_message_time ? new Date(b.last_message_time).getTime() : 0;
+                    return timeB - timeA; // Most recent first
+                });
+                
+                this.renderConversations();
+                
+                // Load first conversation if none is selected
+                if (!this.state.targetUser && this.state.conversations.length > 0) {
+                    this.selectConversation(this.state.conversations[0]);
+                }
+                
+            } else {
+                // If API doesn't support conversations yet, create mock data from online users
+                await this.createMockConversations();
+            }
+            
+        } catch (error) {
+            console.error('Failed to load conversations:', error);
+            
+            // Fallback to creating conversations from online users
+            await this.createMockConversations();
+        }
+    }
+    
+    async createMockConversations() {
+        try {
+            // Load online users first
+            await this.loadOnlineUsers();
+            
+            // Convert online users to conversations
+            this.state.conversations = this.state.onlineUsers.map(user => ({
+                id: `user_${user.id}`,
+                type: 'direct',
+                name: user.display_name || user.username,
+                avatar: user.avatar,
+                participants: [user],
+                last_message: null,
+                last_message_time: null,
+                unread_count: 0,
+                is_online: user.is_online,
+                user_id: user.id
+            }));
+            
+            this.renderConversations();
+            
+        } catch (error) {
+            console.error('Failed to create mock conversations:', error);
+        }
+    }
+    
+    renderConversations() {
+        if (!this.ui.conversationList) {
+            console.warn('Conversation list container not found');
+            return;
+        }
+        
+        this.ui.conversationList.innerHTML = '';
+        
+        if (!this.state.conversations || this.state.conversations.length === 0) {
+            const emptyState = document.createElement('div');
+            emptyState.className = 'empty-state';
+            emptyState.innerHTML = `
+                <div class="empty-state-icon">💬</div>
+                <div class="empty-state-text">No conversations yet</div>
+                <div class="empty-state-subtext">Start a new conversation to get chatting!</div>
+            `;
+            this.ui.conversationList.appendChild(emptyState);
+            return;
+        }
+        
+        this.state.conversations.forEach(conversation => {
+            const conversationEl = this.createConversationElement(conversation);
+            this.ui.conversationList.appendChild(conversationEl);
+        });
+    }
+    
+    createConversationElement(conversation) {
+        const el = document.createElement('div');
+        el.className = `conversation-item ${conversation.unread_count > 0 ? 'unread' : ''}`;
+        el.setAttribute('data-conversation-id', conversation.id);
+        
+        // Check if this is the active conversation
+        if (this.state.targetUser && 
+            ((conversation.type === 'direct' && conversation.user_id === this.state.targetUser.id) ||
+             (conversation.type === 'group' && conversation.id === this.state.currentConversation?.id))) {
+            el.classList.add('active');
+        }
+        
+        const avatar = this.createConversationAvatar(conversation);
+        const content = document.createElement('div');
+        content.className = 'conversation-content';
+        
+        // Conversation name
+        const name = document.createElement('div');
+        name.className = 'conversation-name';
+        name.textContent = conversation.name;
+        content.appendChild(name);
+        
+        // Last message
+        const lastMessage = document.createElement('div');
+        lastMessage.className = 'conversation-last-message';
+        
+        if (conversation.last_message) {
+            let messageText = conversation.last_message.content;
+            
+            // Handle different message types
+            if (conversation.last_message.message_type !== 'text') {
+                switch (conversation.last_message.message_type) {
+                    case 'image':
+                        messageText = '📷 Image';
+                        break;
+                    case 'video':
+                        messageText = '🎥 Video';
+                        break;
+                    case 'audio':
+                        messageText = '🎵 Audio';
+                        break;
+                    case 'document':
+                        messageText = '📄 Document';
+                        break;
+                    default:
+                        messageText = '📎 File';
+                }
+            }
+            
+            // Truncate long messages
+            if (messageText.length > 50) {
+                messageText = messageText.substring(0, 47) + '...';
+            }
+            
+            lastMessage.textContent = messageText;
+        } else {
+            lastMessage.textContent = 'No messages yet';
+            lastMessage.classList.add('no-messages');
+        }
+        
+        content.appendChild(lastMessage);
+        
+        // Meta info (time, unread count)
+        const meta = document.createElement('div');
+        meta.className = 'conversation-meta';
+        
+        // Time
+        if (conversation.last_message_time) {
+            const time = document.createElement('div');
+            time.className = 'conversation-time';
+            time.textContent = this.formatConversationTime(conversation.last_message_time);
+            meta.appendChild(time);
+        }
+        
+        // Unread count
+        if (conversation.unread_count > 0) {
+            const unreadBadge = document.createElement('div');
+            unreadBadge.className = 'unread-badge';
+            unreadBadge.textContent = conversation.unread_count > 99 ? '99+' : conversation.unread_count;
+            meta.appendChild(unreadBadge);
+        }
+        
+        // Online indicator for direct conversations
+        if (conversation.type === 'direct' && conversation.is_online) {
+            const onlineIndicator = document.createElement('div');
+            onlineIndicator.className = 'online-indicator';
+            meta.appendChild(onlineIndicator);
+        }
+        
+        // Assemble the conversation item
+        el.appendChild(avatar);
+        el.appendChild(content);
+        el.appendChild(meta);
+        
+        // Add click handler
+        el.addEventListener('click', () => {
+            this.selectConversation(conversation);
+        });
+        
+        // Add context menu
+        el.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.showConversationContextMenu(e, conversation);
+        });
+        
+        return el;
+    }
+    
+    createConversationAvatar(conversation) {
+        const avatar = document.createElement('div');
+        avatar.className = 'conversation-avatar';
+        
+        if (conversation.type === 'group') {
+            // Group avatar
+            avatar.classList.add('group-avatar');
+            avatar.innerHTML = '👥';
+        } else {
+            // User avatar
+            if (conversation.avatar) {
+                const img = document.createElement('img');
+                img.src = conversation.avatar;
+                img.alt = conversation.name;
+                img.onerror = () => {
+                    img.style.display = 'none';
+                    avatar.textContent = conversation.name.charAt(0).toUpperCase();
+                };
+                avatar.appendChild(img);
+            } else {
+                avatar.textContent = conversation.name.charAt(0).toUpperCase();
+            }
+        }
+        
+        return avatar;
+    }
+    
+    formatConversationTime(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffTime = Math.abs(now - date);
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) {
+            // Today - show time
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else if (diffDays === 1) {
+            // Yesterday
+            return 'Yesterday';
+        } else if (diffDays < 7) {
+            // This week - show day
+            return date.toLocaleDateString([], { weekday: 'short' });
+        } else {
+            // Older - show date
+            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        }
+    }
+    
+    selectConversation(conversation) {
+        try {
+            // Remove active class from all conversations
+            const allConversations = this.ui.conversationList.querySelectorAll('.conversation-item');
+            allConversations.forEach(el => el.classList.remove('active'));
+            
+            // Add active class to selected conversation
+            const selectedEl = this.ui.conversationList.querySelector(`[data-conversation-id="${conversation.id}"]`);
+            if (selectedEl) {
+                selectedEl.classList.add('active');
+            }
+            
+            // Update state
+            this.state.currentConversation = conversation;
+            
+            if (conversation.type === 'direct') {
+                // Set target user for direct conversations
+                this.state.targetUser = {
+                    id: conversation.user_id,
+                    username: conversation.participants[0]?.username || conversation.name,
+                    display_name: conversation.name,
+                    avatar: conversation.avatar
+                };
+            } else {
+                // Handle group conversations
+                this.state.targetUser = null;
+            }
+            
+            // Clear unread count for this conversation
+            conversation.unread_count = 0;
+            
+            // Update conversation display
+            this.renderConversations();
+            
+            // Load messages for this conversation
+            this.state.messages = [];
+            this.loadMessages();
+            
+            // Show chat interface
+            this.showChatInterface();
+            
+            // Update page title
+            document.title = `${conversation.name} - Quick Chat`;
+            
+            // Trigger custom event
+            const event = new CustomEvent('conversationSelected', {
+                detail: { conversation }
+            });
+            document.dispatchEvent(event);
+            
+        } catch (error) {
+            console.error('Failed to select conversation:', error);
+        }
+    }
+    
+    showChatInterface() {
+        // Hide welcome screen if it exists
+        if (this.ui.welcomeScreen) {
+            this.ui.welcomeScreen.style.display = 'none';
+        }
+        
+        // Show chat container
+        if (this.ui.chatContainer) {
+            this.ui.chatContainer.style.display = 'flex';
+        }
+        
+        // Focus message input
+        if (this.ui.messageInput) {
+            this.ui.messageInput.focus();
+        }
+    }
+    
+    showConversationContextMenu(event, conversation) {
+        // Implementation for conversation context menu
+        // For now, just log the action
+        console.log('Show context menu for conversation:', conversation.name);
     }
     
     renderMessages() {
@@ -425,208 +791,384 @@ class ModernChatApp {
         this.searchUsersForNewChat(query);
     }
     
+    /**
+     * Search users functionality
+     */
     async searchUsers(query) {
+        if (!query || query.trim().length < 2) {
+            return [];
+        }
+        
         try {
-            const response = await fetch(`${this.config.apiEndpoints.users}?action=search&query=${encodeURIComponent(query)}`);
+            const url = new URL(`${this.config.apiEndpoints.users}`, window.location.origin);
+            url.searchParams.set('action', 'search');
+            url.searchParams.set('query', query.trim());
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const result = await response.json();
             
             if (result.success) {
-                this.state.onlineUsers = result.users || [];
-                this.renderOnlineUsers();
+                return result.users || [];
+            } else {
+                throw new Error(result.error || 'Search failed');
             }
         } catch (error) {
             console.error('Failed to search users:', error);
+            this.showError('Failed to search users');
+            return [];
         }
     }
     
-    async searchUsersForNewChat(query) {
-        try {
-            const response = await fetch(`${this.config.apiEndpoints.users}?action=search&query=${encodeURIComponent(query)}`);
-            const result = await response.json();
-            
-            if (result.success) {
-                const users = result.users.filter(user => user.id !== this.state.currentUser.id);
-                const container = document.getElementById('newChatUsers');
-                
-                if (container) {
-                    container.innerHTML = users.map(user => this.createUserElement(user)).join('');
-                }
-            }
-        } catch (error) {
-            console.error('Failed to search users for new chat:', error);
-        }
-    }
-    
+    /**
+     * Setup emoji picker functionality
+     */
     setupEmojiPicker() {
-        if (typeof EmojiPicker !== 'undefined' && this.ui.emojiPickerContainer) {
-            this.state.emojiPicker = new EmojiPicker({
-                container: this.ui.emojiPickerContainer,
-                onEmojiSelect: (emoji) => {
-                    this.insertEmoji(emoji);
-                    this.hideEmojiPicker();
-                }
-            });
-        }
-    }
-    
-    insertEmoji(emoji) {
-        if (!this.ui.messageInput) return;
+        const emojiPickerContainer = this.ui.emojiPickerContainer;
+        if (!emojiPickerContainer) return;
         
-        const start = this.ui.messageInput.selectionStart;
-        const end = this.ui.messageInput.selectionEnd;
-        const text = this.ui.messageInput.value;
-        
-        this.ui.messageInput.value = text.slice(0, start) + emoji + text.slice(end);
-        this.ui.messageInput.selectionStart = this.ui.messageInput.selectionEnd = start + emoji.length;
-        this.ui.messageInput.focus();
-        
-        this.updateCharCounter();
-        this.autoResizeTextarea();
-    }
-    
-    showEmojiPicker() {
-        if (this.ui.emojiPickerContainer) {
-            this.ui.emojiPickerContainer.style.display = 'block';
-            if (this.state.emojiPicker) {
-                this.state.emojiPicker.render();
+        // Create emoji picker structure
+        const emojiCategories = {
+            'smileys': {
+                name: 'Smileys & Emotion',
+                icon: '😀',
+                emojis: [
+                    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+                    '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+                    '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
+                    '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣'
+                ]
+            },
+            'people': {
+                name: 'People & Body',
+                icon: '👋',
+                emojis: [
+                    '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟',
+                    '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎',
+                    '👊', '✊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏'
+                ]
+            },
+            'nature': {
+                name: 'Animals & Nature',
+                icon: '🐶',
+                emojis: [
+                    '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
+                    '🦁', '🐮', '🐷', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🦆'
+                ]
+            },
+            'food': {
+                name: 'Food & Drink',
+                icon: '🍎',
+                emojis: [
+                    '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍈', '🍒',
+                    '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬'
+                ]
+            },
+            'activities': {
+                name: 'Activities',
+                icon: '⚽',
+                emojis: [
+                    '⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱',
+                    '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳'
+                ]
+            },
+            'objects': {
+                name: 'Objects',
+                icon: '💎',
+                emojis: [
+                    '💎', '🔔', '🔕', '🎵', '🎶', '💰', '💴', '💵', '💶', '💷',
+                    '💸', '💳', '🧾', '💹', '📧', '📨', '📩', '📤', '📥', '📦'
+                ]
             }
-        }
-    }
-    
-    hideEmojiPicker() {
-        if (this.ui.emojiPickerContainer) {
-            this.ui.emojiPickerContainer.style.display = 'none';
-        }
-    }
-    
-    startPolling() {
-        // Poll for new messages every 3 seconds
-        this.timers.messagePolling = setInterval(() => {
-            this.loadMessages();
-        }, 3000);
-        
-        // Poll for online users every 30 seconds
-        this.timers.userPolling = setInterval(() => {
-            this.loadOnlineUsers();
-        }, 30000);
-    }
-    
-    scrollToBottom(smooth = true) {
-        if (!this.ui.messagesContainer) return;
-        
-        const scrollOptions = {
-            top: this.ui.messagesContainer.scrollHeight,
-            behavior: smooth ? 'smooth' : 'auto'
         };
         
-        this.ui.messagesContainer.scrollTo(scrollOptions);
+        // Create emoji picker HTML
+        let emojiPickerHTML = '<div class="emoji-picker-header">';
+        
+        // Add category tabs
+        emojiPickerHTML += '<div class="emoji-categories">';
+        for (const [categoryKey, category] of Object.entries(emojiCategories)) {
+            emojiPickerHTML += `
+                <button class="emoji-category-btn ${categoryKey === 'smileys' ? 'active' : ''}" 
+                        data-category="${categoryKey}" title="${category.name}">
+                    ${category.icon}
+                </button>
+            `;
+        }
+        emojiPickerHTML += '</div>';
+        emojiPickerHTML += '</div>';
+        
+        // Add emoji grid container
+        emojiPickerHTML += '<div class="emoji-grid-container">';
+        for (const [categoryKey, category] of Object.entries(emojiCategories)) {
+            emojiPickerHTML += `
+                <div class="emoji-category-grid ${categoryKey === 'smileys' ? 'active' : ''}" 
+                     data-category="${categoryKey}">
+            `;
+            
+            category.emojis.forEach(emoji => {
+                emojiPickerHTML += `
+                    <button class="emoji-btn" data-emoji="${emoji}" title="${emoji}">
+                        ${emoji}
+                    </button>
+                `;
+            });
+            
+            emojiPickerHTML += '</div>';
+        }
+        emojiPickerHTML += '</div>';
+        
+        emojiPickerContainer.innerHTML = emojiPickerHTML;
+        
+        // Add event listeners
+        this.setupEmojiPickerEvents();
     }
     
-    formatTime(timestamp) {
-        return new Date(timestamp).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit'
+    /**
+     * Setup emoji picker event handlers
+     */
+    setupEmojiPickerEvents() {
+        const emojiPickerContainer = this.ui.emojiPickerContainer;
+        if (!emojiPickerContainer) return;
+        
+        // Category tab switching
+        emojiPickerContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('emoji-category-btn')) {
+                const category = e.target.dataset.category;
+                
+                // Update active category button
+                emojiPickerContainer.querySelectorAll('.emoji-category-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.category === category);
+                });
+                
+                // Update active category grid
+                emojiPickerContainer.querySelectorAll('.emoji-category-grid').forEach(grid => {
+                    grid.classList.toggle('active', grid.dataset.category === category);
+                });
+            }
+            
+            // Emoji selection
+            if (e.target.classList.contains('emoji-btn')) {
+                const emoji = e.target.dataset.emoji;
+                this.insertEmoji(emoji);
+            }
         });
     }
     
-    formatMessageContent(content) {
-        // Escape HTML
-        content = this.escapeHtml(content);
+    /**
+     * Insert emoji into message input
+     */
+    insertEmoji(emoji) {
+        const messageInput = this.ui.messageInput;
+        if (!messageInput) return;
         
-        // Convert URLs to links
-        content = content.replace(
-            /(https?:\/\/[^\s]+)/g,
-            '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
-        );
+        const cursorPos = messageInput.selectionStart || messageInput.value.length;
+        const textBefore = messageInput.value.substring(0, cursorPos);
+        const textAfter = messageInput.value.substring(cursorPos);
         
-        // Convert line breaks
-        content = content.replace(/\n/g, '<br>');
+        messageInput.value = textBefore + emoji + textAfter;
         
-        return content;
+        // Set cursor position after emoji
+        const newCursorPos = cursorPos + emoji.length;
+        messageInput.setSelectionRange(newCursorPos, newCursorPos);
+        messageInput.focus();
+        
+        // Update character counter and auto-resize
+        this.updateCharCounter();
+        this.autoResizeTextarea();
+        
+        // Hide emoji picker
+        this.hideEmojiPicker();
     }
     
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-    
-    setButtonLoading(button, loading) {
-        if (!button) return;
-        
-        if (loading) {
-            button.disabled = true;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        } else {
-            button.disabled = false;
-            button.innerHTML = '<i class="fas fa-paper-plane"></i>';
-        }
-    }
-    
-    showSuccess(message) {
-        this.showNotification(message, 'success');
-    }
-    
-    showError(message) {
-        this.showNotification(message, 'error');
-    }
-    
-    showNotification(message, type = 'info') {
-        // Create a simple toast notification
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.textContent = message;
-        
-        toast.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 16px;
-            border-radius: 8px;
-            color: white;
-            font-weight: 500;
-            z-index: 10000;
-            animation: slideIn 0.3s ease-out;
-            max-width: 300px;
-        `;
-        
-        if (type === 'success') {
-            toast.style.background = '#06d6a0';
-        } else if (type === 'error') {
-            toast.style.background = '#ef476f';
-        } else {
-            toast.style.background = '#667eea';
+    /**
+     * Start polling for new messages and updates
+     */
+    startPolling() {
+        // Don't start polling if already active
+        if (this.timers.messagePolling || this.timers.userPolling) {
+            return;
         }
         
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.style.animation = 'slideOut 0.3s ease-out';
-            setTimeout(() => document.body.removeChild(toast), 300);
+        // Poll for new messages every 3 seconds
+        this.timers.messagePolling = setInterval(async () => {
+            try {
+                if (this.state.targetUser) {
+                    await this.pollForNewMessages();
+                }
+            } catch (error) {
+                console.error('Message polling error:', error);
+            }
         }, 3000);
+        
+        // Poll for online users every 30 seconds
+        this.timers.userPolling = setInterval(async () => {
+            try {
+                await this.loadOnlineUsers();
+            } catch (error) {
+                console.error('User polling error:', error);
+            }
+        }, 30000);
+        
+        // Poll for typing indicators every 2 seconds
+        this.timers.typingPolling = setInterval(async () => {
+            try {
+                await this.pollTypingIndicators();
+            } catch (error) {
+                console.error('Typing polling error:', error);
+            }
+        }, 2000);
+        
+        console.log('Polling started');
     }
     
-    updateConnectionStatus(status) {
-        this.state.connectionStatus = status;
-        // Could show connection status in UI if needed
+    /**
+     * Stop all polling
+     */
+    stopPolling() {
+        if (this.timers.messagePolling) {
+            clearInterval(this.timers.messagePolling);
+            this.timers.messagePolling = null;
+        }
+        
+        if (this.timers.userPolling) {
+            clearInterval(this.timers.userPolling);
+            this.timers.userPolling = null;
+        }
+        
+        if (this.timers.typingPolling) {
+            clearInterval(this.timers.typingPolling);
+            this.timers.typingPolling = null;
+        }
+        
+        console.log('Polling stopped');
     }
     
-    handleOnline() {
-        this.updateConnectionStatus('connected');
-        this.loadMessages();
-        this.loadOnlineUsers();
+    /**
+     * Poll for new messages
+     */
+    async pollForNewMessages() {
+        if (!this.state.targetUser) return;
+        
+        const lastMessageId = this.state.messages.length > 0 
+            ? Math.max(...this.state.messages.map(m => m.id))
+            : 0;
+        
+        try {
+            const url = new URL(`${this.config.apiEndpoints.messages}`, window.location.origin);
+            url.searchParams.set('action', 'get_new');
+            url.searchParams.set('target_user_id', this.state.targetUser.id);
+            url.searchParams.set('after_id', lastMessageId.toString());
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.data && result.data.length > 0) {
+                    // Add new messages
+                    this.state.messages.push(...result.data);
+                    this.renderMessages();
+                    this.scrollToBottom();
+                    
+                    // Show notification for new messages from others
+                    result.data.forEach(message => {
+                        if (message.user_id !== this.state.currentUser.id) {
+                            this.showNewMessageNotification(message);
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Failed to poll for new messages:', error);
+        }
     }
     
-    handleOffline() {
-        this.updateConnectionStatus('disconnected');
-        this.showError('Connection lost. Some features may not work.');
+    /**
+     * Poll for typing indicators
+     */
+    async pollTypingIndicators() {
+        if (!this.state.targetUser) return;
+        
+        try {
+            const url = new URL(`${this.config.apiEndpoints.messages}`, window.location.origin);
+            url.searchParams.set('action', 'get_typing');
+            url.searchParams.set('target_user_id', this.state.targetUser.id);
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    this.updateTypingIndicator(result.is_typing || false);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to poll typing indicators:', error);
+        }
     }
     
-    handleVisibilityChange() {
-        if (!document.hidden) {
-            // User came back to the tab, refresh data
-            this.loadMessages();
-            this.loadOnlineUsers();
+    /**
+     * Update typing indicator display
+     */
+    updateTypingIndicator(isTyping) {
+        const typingIndicator = this.ui.typingIndicator;
+        if (!typingIndicator) return;
+        
+        if (isTyping) {
+            typingIndicator.style.display = 'block';
+            typingIndicator.textContent = `${this.state.targetUser.display_name || this.state.targetUser.username} is typing...`;
+        } else {
+            typingIndicator.style.display = 'none';
+        }
+    }
+    
+    /**
+     * Show notification for new message
+     */
+    showNewMessageNotification(message) {
+        if (!this.config.notifications || document.hidden === false) {
+            return; // Don't show notification if page is visible
+        }
+        
+        if ('Notification' in window && Notification.permission === 'granted') {
+            const notification = new Notification(`${message.display_name || message.username}`, {
+                body: message.content.substring(0, 100),
+                icon: message.avatar || 'assets/images/default-avatar.png',
+                tag: 'new-message'
+            });
+            
+            notification.onclick = () => {
+                window.focus();
+                notification.close();
+            };
+            
+            // Auto close after 5 seconds
+            setTimeout(() => notification.close(), 5000);
         }
     }
     
