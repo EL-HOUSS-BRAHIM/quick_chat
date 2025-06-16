@@ -331,6 +331,14 @@ class Message {
         return $this->db->fetchAll($sql, [$limit]);
     }
     
+    public function getTodayMessageCount() {
+        $sql = "SELECT COUNT(*) as count FROM messages 
+                WHERE DATE(created_at) = CURDATE()";
+        
+        $result = $this->db->query($sql);
+        return $result[0]['count'] ?? 0;
+    }
+    
     private function processMessage($message) {
         // Decrypt if encrypted
         if ($message['is_encrypted'] && $message['content']) {
