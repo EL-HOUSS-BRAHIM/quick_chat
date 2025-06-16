@@ -1,17 +1,24 @@
 // Service Worker for offline functionality and caching
-const CACHE_NAME = 'quick-chat-v3';
+const CACHE_NAME = 'quick-chat-v4';
 const APP_ASSETS = [
     './',
     './index.php',
+    './chat-modern.php',
+    './dashboard-modern.php',
     './assets/css/styles.css',
     './assets/css/enhanced-chat.css',
+    './assets/css/chat-modern.css',
+    './assets/css/dashboard-modern.css',
     './assets/js/config.js',
     './assets/js/utils.js',
     './assets/js/security.js',
     './assets/js/emoji.js',
     './assets/js/chat.js',
+    './assets/js/chat-modern.js',
+    './assets/js/dashboard-modern.js',
     './assets/js/app.js',
     './assets/js/integration.js',
+    './assets/images/default-avatar.png',
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'
 ];
