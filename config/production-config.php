@@ -541,10 +541,50 @@ class ProductionConfig {
             case 'json':
                 return json_encode($this->config, JSON_PRETTY_PRINT);
             case 'yaml':
-                return yaml_emit($this->config);
+                // Check if YAML extension is available
+                if (function_exists('yaml_emit')) {
+                    return yaml_emit($this->config);
+                } else {
+                    // Fallback to simple YAML-like format
+                    return $this->exportToSimpleYaml($this->config);
+                }
             case 'php':
             default:
                 return '<?php return ' . var_export($this->config, true) . ';';
+        }
+    }
+    
+    /**
+     * Export to simple YAML-like format as fallback
+     */
+    private function exportToSimpleYaml($data, $indent = 0) {
+        $yaml = '';
+        $indentStr = str_repeat('  ', $indent);
+        
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $yaml .= $indentStr . $key . ":\n";
+                $yaml .= $this->exportToSimpleYaml($value, $indent + 1);
+            } else {
+                $yaml .= $indentStr . $key . ': ' . $this->yamlValue($value) . "\n";
+            }
+        }
+        
+        return $yaml;
+    }
+    
+    /**
+     * Format value for YAML export
+     */
+    private function yamlValue($value) {
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        } elseif (is_null($value)) {
+            return 'null';
+        } elseif (is_numeric($value)) {
+            return $value;
+        } else {
+            return '"' . addslashes($value) . '"';
         }
     }
     
