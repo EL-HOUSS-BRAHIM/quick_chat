@@ -315,9 +315,9 @@ class Message {
     
     // Dashboard and statistics methods
     public function getUserMessageCount($userId) {
-        $sql = "SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND deleted_at IS NULL";
+        $sql = "SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND is_deleted = 0";
         $result = $this->db->fetch($sql, [$userId]);
-        return $result['count'] ?? 0;
+        return $result['count'];
     }
     
     public function getRecentMessages($userId, $limit = 10) {
@@ -332,11 +332,21 @@ class Message {
     }
     
     public function getTodayMessageCount() {
-        $sql = "SELECT COUNT(*) as count FROM messages 
-                WHERE DATE(created_at) = CURDATE()";
+        $sql = "SELECT COUNT(*) as count FROM messages WHERE DATE(created_at) = CURDATE() AND is_deleted = 0";
+        $result = $this->db->fetch($sql);
+        return $result['count'] ?? 0;
+    }
+    
+    public function getDirectMessages($userId1, $userId2, $limit = 50, $offset = 0) {
+        $sql = "SELECT m.*, u.username, u.display_name, u.avatar_url
+                FROM messages m
+                JOIN users u ON m.user_id = u.id
+                WHERE ((m.user_id = ? AND m.recipient_id = ?) OR (m.user_id = ? AND m.recipient_id = ?))
+                AND m.is_deleted = 0
+                ORDER BY m.created_at DESC
+                LIMIT ? OFFSET ?";
         
-        $result = $this->db->query($sql);
-        return $result[0]['count'] ?? 0;
+        return $this->db->fetchAll($sql, [$userId1, $userId2, $userId2, $userId1, $limit, $offset]);
     }
     
     private function processMessage($message) {
