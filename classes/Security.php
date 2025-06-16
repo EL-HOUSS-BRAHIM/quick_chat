@@ -313,5 +313,104 @@ class Security {
         
         return $data;
     }
+    
+    // Missing methods referenced in API files
+    public function validateRequest() {
+        // Validate HTTP method
+        $allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'];
+        if (!in_array($_SERVER['REQUEST_METHOD'], $allowedMethods)) {
+            throw new Exception('Invalid HTTP method');
+        }
+        
+        // Check for suspicious activity
+        $suspiciousCheck = $this->detectSuspiciousActivity();
+        if ($suspiciousCheck['suspicious']) {
+            throw new Exception('Suspicious activity detected');
+        }
+        
+        // Validate content type for POST/PUT requests
+        if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT'])) {
+            $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+            if (!empty($contentType) && 
+                !in_array($contentType, ['application/json', 'application/x-www-form-urlencoded', 'multipart/form-data'])) {
+                throw new Exception('Invalid content type');
+            }
+        }
+        
+        return true;
+    }
+    
+    public function verifyCSRFToken($token) {
+        return $this->validateCSRF($token);
+    }
+    
+    public function sendSecurityAlert($eventType, $eventData, $userId = null) {
+        $alertData = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'event_type' => $eventType,
+            'user_id' => $userId,
+            'event_data' => $eventData,
+            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
+        ];
+        
+        // Log to file
+        error_log("SECURITY ALERT: " . json_encode($alertData));
+        
+        // Store in database
+        $this->logSecurityEvent($eventType, $alertData);
+        
+        // In production, you could send email alerts, SMS, etc.
+        // For now, we'll just log it
+        
+        return true;
+    }
+    
+    public function generateCSRFToken() {
+        return $this->generateCSRF();
+    }
+    
+    public function isFileSecure($filePath) {
+        // Check if file exists
+        if (!file_exists($filePath)) {
+            return false;
+        }
+        
+        // Check file permissions
+        if (!is_readable($filePath)) {
+            return false;
+        }
+        
+        // Check if file is in allowed upload directory
+        $realPath = realpath($filePath);
+        $uploadPath = realpath(Config::getUploadPath());
+        
+        if (strpos($realPath, $uploadPath) !== 0) {
+            return false;
+        }
+        
+        // Check file size
+        $maxSize = Config::getMaxFileSize();
+        if (filesize($filePath) > $maxSize) {
+            return false;
+        }
+        
+        // Get file info
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $filePath);
+        finfo_close($finfo);
+        
+        // Check if mime type is allowed
+        $allowedTypes = [
+            'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+            'video/mp4', 'video/webm', 'video/quicktime',
+            'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4',
+            'application/pdf', 'text/plain',
+            'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ];
+        
+        return in_array($mimeType, $allowedTypes);
+    }
 }
 ?>
