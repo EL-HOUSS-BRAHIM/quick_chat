@@ -53,7 +53,7 @@ try {
 
         // Check if user has permission to view invite links
         $stmt = $db->prepare("SELECT g.created_by, gm.is_admin 
-                             FROM group_chats g
+                             FROM groups g
                              LEFT JOIN group_members gm ON g.id = gm.group_id AND gm.user_id = ?
                              WHERE g.id = ?");
         $stmt->execute([$userId, $groupId]);
