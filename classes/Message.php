@@ -425,7 +425,7 @@ class Message {
      */
     public function validateGroupMembership($userId, $groupId) {
         // Check if the group exists
-        $stmt = $this->db->prepare("SELECT id FROM groups WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT id FROM `groups` WHERE id = ?");
         $stmt->execute([$groupId]);
         if ($stmt->rowCount() === 0) {
             return false;
@@ -443,7 +443,7 @@ class Message {
         $stmt->execute([$groupId, $userId]);
         if ($stmt->rowCount() === 0) {
             // Check if the group is public, in which case they can send messages without being a member
-            $stmt = $this->db->prepare("SELECT is_public FROM groups WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT is_public FROM `groups` WHERE id = ?");
             $stmt->execute([$groupId]);
             $group = $stmt->fetch(PDO::FETCH_ASSOC);
             return $group && $group['is_public'];
@@ -496,7 +496,7 @@ class Message {
         $stmt->execute([$groupId, $creatorId]);
         
         // Return the created group
-        $stmt = $this->db->prepare("SELECT * FROM groups WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT * FROM `groups` WHERE id = ?");
         $stmt->execute([$groupId]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
@@ -512,7 +512,7 @@ class Message {
      */
     public function addGroupMember($groupId, $userId, $addedBy, $isAdmin = false) {
         // Validate the group exists
-        $stmt = $this->db->prepare("SELECT id, created_by FROM groups WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT id, created_by FROM `groups` WHERE id = ?");
         $stmt->execute([$groupId]);
         if ($stmt->rowCount() === 0) {
             throw new Exception("Group not found");
@@ -562,7 +562,7 @@ class Message {
      */
     public function removeGroupMember($groupId, $userId, $removedBy) {
         // Validate the group exists
-        $stmt = $this->db->prepare("SELECT id, created_by FROM groups WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT id, created_by FROM `groups` WHERE id = ?");
         $stmt->execute([$groupId]);
         if ($stmt->rowCount() === 0) {
             throw new Exception("Group not found");
@@ -707,7 +707,7 @@ class Message {
         $stmt->execute($params);
         
         // Return the updated group
-        $stmt = $this->db->prepare("SELECT * FROM groups WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT * FROM `groups` WHERE id = ?");
         $stmt->execute([$groupId]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
@@ -722,7 +722,7 @@ class Message {
         $stmt = $this->db->prepare("
             SELECT g.*, gm.is_admin, 
                    (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count
-            FROM groups g
+            FROM `groups` g
             JOIN group_members gm ON g.id = gm.group_id
             WHERE gm.user_id = ?
             ORDER BY g.updated_at DESC
@@ -740,7 +740,7 @@ class Message {
         $stmt = $this->db->prepare("
             SELECT g.*, 
                    (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count
-            FROM groups g
+            FROM `groups` g
             WHERE g.is_public = 1
             ORDER BY g.updated_at DESC
         ");
@@ -1187,7 +1187,7 @@ class Message {
         $stmt->execute([$invite['id']]);
         
         // Get group details
-        $sql = "SELECT * FROM groups WHERE id = ?";
+        $sql = "SELECT * FROM `groups` WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$invite['group_id']]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
