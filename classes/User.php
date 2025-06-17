@@ -218,11 +218,11 @@ class User {
         
         // Invalidate all sessions except current
         $currentSessionId = $_SESSION['session_id'] ?? null;
-        $sql = "DELETE FROM sessions WHERE user_id = ?";
+        $sql = "DELETE FROM user_sessions WHERE user_id = ?";
         $params = [$userId];
         
         if ($currentSessionId) {
-            $sql .= " AND id != ?";
+            $sql .= " AND session_id != ?";
             $params[] = $currentSessionId;
         }
         
@@ -338,20 +338,45 @@ class User {
     // Rate limiting methods
     public function isRateLimited($userId, $action = 'login', $maxAttempts = 5, $timeWindow = 300) {
         $sql = "SELECT COUNT(*) as attempts FROM audit_logs 
-                WHERE user_id = ? AND action = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? SECOND)";
+                WHERE user_id = ? AND event_type = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? SECOND)";
         
         $result = $this->db->fetch($sql, [$userId, $action, $timeWindow]);
         return $result['attempts'] >= $maxAttempts;
     }
     
     public function recordFailedLogin($identifier, $reason = 'invalid_credentials') {
-        // Record failed login attempt for rate limiting
-        $sql = "INSERT INTO failed_login_attempts (identifier, reason, ip_address, user_agent) 
-                VALUES (?, ?, ?, ?)";
+        // Record failed login attempt in audit logs
+        $sql = "INSERT INTO audit_logs (event_type, event_data, ip_address, user_agent, created_at) 
+                VALUES (?, ?, ?, ?, NOW())";
+        
+        $eventData = json_encode([
+            'identifier' => $identifier,
+            'reason' => $reason,
+            'login_attempt' => true
+        ]);
         
         $this->db->query($sql, [
-            $identifier,
-            $reason,
+            'user_login_failed',
+            $eventData,
+            $_SERVER['REMOTE_ADDR'] ?? '',
+            $_SERVER['HTTP_USER_AGENT'] ?? ''
+        ]);
+    }
+    
+    public function recordSuccessfulLogin($userId, $username) {
+        // Record successful login in audit logs
+        $sql = "INSERT INTO audit_logs (user_id, event_type, event_data, ip_address, user_agent, created_at) 
+                VALUES (?, ?, ?, ?, ?, NOW())";
+        
+        $eventData = json_encode([
+            'username' => $username,
+            'login_successful' => true
+        ]);
+        
+        $this->db->query($sql, [
+            $userId,
+            'user_login_success',
+            $eventData,
             $_SERVER['REMOTE_ADDR'] ?? '',
             $_SERVER['HTTP_USER_AGENT'] ?? ''
         ]);
@@ -444,7 +469,7 @@ class User {
     }
     
     private function logAuditEvent($userId, $action, $details = []) {
-        $sql = "INSERT INTO audit_logs (user_id, action, details, ip_address, user_agent, created_at) 
+        $sql = "INSERT INTO audit_logs (user_id, event_type, event_data, ip_address, user_agent, created_at) 
                 VALUES (?, ?, ?, ?, ?, NOW())";
         
         $this->db->query($sql, [
