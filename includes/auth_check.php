@@ -101,7 +101,9 @@ class AuthChecker {
         $_SESSION['login_time'] = time();
         
         if ($userData) {
-            $_SESSION['user_data'] = $userData;
+            foreach ($userData as $key => $value) {
+                $_SESSION[$key] = $value;
+            }
         }
         
         // Update last login time
