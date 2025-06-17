@@ -28,6 +28,7 @@ if ($targetUserId) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="assets/css/modern-chat.css" rel="stylesheet">
+    <link href="assets/css/group-chat.css" rel="stylesheet">
 </head>
 <body class="<?php echo $pageClass; ?>">
     <div class="chat-app" id="chatApp">
@@ -46,6 +47,12 @@ if ($targetUserId) {
                     </div>
                 </div>
                 <div class="header-actions">
+                    <button class="action-btn" onclick="chatApp.showNewGroupModal()">
+                        <i class="fas fa-users"></i>
+                    </button>
+                    <button class="action-btn" onclick="showNewChatModal()" title="New Chat">
+                        <i class="fas fa-plus"></i>
+                    </button>
                     <button class="action-btn" onclick="showSettings()" title="Settings">
                         <i class="fas fa-cog"></i>
                     </button>
@@ -221,8 +228,7 @@ if ($targetUserId) {
                                     placeholder="Type a message..." 
                                     rows="1" 
                                     autocomplete="off"
-                                    onkeydown="handleKeyDown(event)"
-                                    oninput="handleInput(event)"></textarea>
+                                    oninput="window.handleInput(event)"></textarea>
                         </div>
                         <button type="submit" class="send-btn" id="sendBtn" disabled>
                             <i class="fas fa-paper-plane"></i>
@@ -298,18 +304,100 @@ if ($targetUserId) {
     </div>
 
     <!-- Scripts -->
+    <meta name="csrf-token" content="<?php 
+        require_once __DIR__ . '/classes/Security.php';
+        $security = new Security();
+        echo $security->generateCSRF();
+    ?>">
     <script src="assets/js/emoji.js"></script>
     <script src="assets/js/modern-chat.js"></script>
     <script>
-        // Initialize chat app
-        const chatApp = new ModernChatApp({
-            currentUserId: <?php echo $currentUser['id']; ?>,
-            targetUserId: <?php echo $targetUserId ?? 'null'; ?>,
-            apiBase: 'api/'
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize chat app
+            const chatApp = new ModernChatApp({
+                currentUserId: <?php echo $currentUser['id']; ?>,
+                targetUserId: <?php echo $targetUserId ?? 'null'; ?>,
+                apiBase: 'api/',
+                csrfToken: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            });
+            
+            // Make chatApp globally available
+            window.chatApp = chatApp;
+            
+            // Define global functions for inline event handlers
+            window.handleKeyDown = function(event) {
+                if (window.chatApp && typeof window.chatApp.handleKeyDown === 'function') {
+                    window.chatApp.handleKeyDown(event);
+                }
+            };
+            
+            window.handleInput = function(event) {
+                if (window.chatApp && typeof window.chatApp.handleInputChange === 'function') {
+                    window.chatApp.handleInputChange(event);
+                }
+            };
+            
+            window.showChatInfo = function() {
+                console.log('Show chat info clicked');
+                // Implement chat info functionality
+            };
+            
+            window.toggleNotifications = function() {
+                console.log('Toggle notifications clicked');
+                // Implement notification toggle functionality
+            };
+            
+            window.showSidebar = function() {
+                console.log('Show sidebar clicked');
+                // Implement sidebar show functionality
+            };
+            
+            window.selectFile = function(type) {
+                console.log('Select file clicked:', type);
+                const fileInput = document.getElementById('fileInput');
+                if (fileInput) {
+                    fileInput.click();
+                }
+            };
+            
+            window.startCall = function(type) {
+                console.log('Start call clicked:', type);
+                // Implement call functionality
+                if (window.chatApp && typeof window.chatApp.startCall === 'function') {
+                    window.chatApp.startCall(type);
+                }
+            };
+            
+            window.closeNewChatModal = function() {
+                if (window.chatApp && typeof window.chatApp.closeNewChatModal === 'function') {
+                    window.chatApp.closeNewChatModal();
+                }
+            };
+            
+            window.closeModal = function(event) {
+                if (event && event.target.classList.contains('modal')) {
+                    if (window.chatApp && typeof window.chatApp.closeModal === 'function') {
+                        window.chatApp.closeModal();
+                    }
+                }
+            };
+            
+            window.showNewChatModal = function() {
+                if (window.chatApp && typeof window.chatApp.showNewChatModal === 'function') {
+                    window.chatApp.showNewChatModal();
+                } else {
+                    console.error('showNewChatModal function not available on chatApp');
+                }
+            };
+            
+            // Start the app
+            chatApp.init().then(() => {
+                console.log('Chat app fully initialized');
+            }).catch((error) => {
+                console.error('Failed to initialize chat app:', error);
+            });
         });
-        
-        // Start the app
-        chatApp.init();
     </script>
 </body>
 </html>
