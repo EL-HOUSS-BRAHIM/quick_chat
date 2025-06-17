@@ -293,7 +293,7 @@ class User {
     }
     
     public function getTotalUserCount() {
-        $sql = "SELECT COUNT(*) as count FROM users WHERE status = 'active'";
+        $sql = "SELECT COUNT(*) as count FROM users";
         $result = $this->db->query($sql);
         $row = $result->fetch();
         return $row['count'] ?? 0;
@@ -495,7 +495,7 @@ class User {
     // Missing methods referenced in API files
     public function searchUsers($query, $limit = 20) {
         $query = '%' . $query . '%';
-        $sql = "SELECT id, username, display_name, email, avatar_url, status, last_seen 
+        $sql = "SELECT id, username, display_name, email, avatar, status, last_seen 
                 FROM users 
                 WHERE (username LIKE ? OR display_name LIKE ? OR email LIKE ?) 
                 AND is_active = 1
@@ -512,7 +512,7 @@ class User {
                     u.display_name,
                     u.created_at,
                     u.last_seen,
-                    u.status,
+                    u.is_online,
                     COUNT(DISTINCT m.id) as message_count,
                     COUNT(DISTINCT s.id) as session_count
                 FROM users u
@@ -525,17 +525,15 @@ class User {
     }
     
     public function updateUserStatus($userId, $status) {
-        $validStatuses = ['online', 'away', 'busy', 'invisible'];
-        if (!in_array($status, $validStatuses)) {
-            throw new Exception("Invalid status");
-        }
+        // Map status to boolean for is_online field
+        $isOnline = ($status === 'online') ? 1 : 0;
         
-        $sql = "UPDATE users SET status = ?, last_seen = NOW() WHERE id = ?";
-        return $this->db->query($sql, [$status, $userId]);
+        $sql = "UPDATE users SET is_online = ?, last_seen = NOW() WHERE id = ?";
+        return $this->db->query($sql, [$isOnline, $userId]);
     }
     
     public function updateUserProfile($userId, $data) {
-        $allowedFields = ['display_name', 'email', 'bio', 'avatar_url'];
+        $allowedFields = ['display_name', 'email', 'bio', 'avatar'];
         $updates = [];
         $params = [];
         
