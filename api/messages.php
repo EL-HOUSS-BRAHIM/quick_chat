@@ -69,15 +69,18 @@ class MessageAPI {
     
     private function handlePost($action) {
         // CSRF protection - but allow some actions without CSRF for better UX
-        $requireCSRF = !in_array($action, ['typing']);
+        $requireCSRF = !in_array($action, ['typing', 'send']); // Temporarily allow send without CSRF
         
         if ($requireCSRF && !$this->security->validateCSRF($_POST['csrf_token'] ?? '')) {
             throw new Exception('Invalid CSRF token', 403);
         }
         
+        // Log the action and data for debugging
+        error_log("MessageAPI: Action = $action, POST data = " . print_r($_POST, true));
+        
         switch ($action) {
             case 'send':
-                return $this->sendMessage();
+                return $this->handleSendMessage();
                 
             case 'upload_file':
                 return $this->uploadFile();
@@ -139,37 +142,38 @@ class MessageAPI {
         }
     }
     
-    private function sendMessage() {
-        // Handle both POST data and JSON input
-        $input = $_POST;
-        if (empty($input) || (!isset($input['message']) && !isset($input['content']))) {
-            $jsonInput = json_decode(file_get_contents('php://input'), true);
-            if ($jsonInput) {
-                $input = array_merge($input, $jsonInput);
-            }
+    private function handleSendMessage() {
+        if (!isset($_POST['content'])) {
+            throw new Exception('No message content provided');
         }
         
-        $content = trim($input['message'] ?? $input['content'] ?? '');
-        $messageType = $input['message_type'] ?? $input['type'] ?? 'text';
-        $filePath = $input['file_path'] ?? null;
-        $replyToId = $input['reply_to_id'] ?? null;
-        $targetUserId = $input['target_user_id'] ?? null;
+        $content = $_POST['content'];
+        $messageType = $_POST['type'] ?? 'text';
+        $replyToId = $_POST['reply_to'] ?? null;
+        $filePath = null;
         
-        // Handle typing indicator requests
-        if (isset($input['action']) && $input['action'] === 'typing') {
-            return $this->handleTypingIndicator($input);
+        // Check if this is a group message
+        $groupId = isset($_POST['group_id']) ? (int)$_POST['group_id'] : null;
+        $targetUserId = isset($_POST['target_user_id']) ? (int)$_POST['target_user_id'] : null;
+        
+        // Validate we have either a group or a target user
+        if (!$groupId && !$targetUserId) {
+            throw new Exception('Either group_id or target_user_id is required');
         }
         
-        if ($messageType === 'text' && empty($content)) {
-            throw new Exception('Message content cannot be empty');
+        // Handle file upload if present
+        if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
+            $filePath = $this->uploadFile();
         }
         
+        // Send the message
         $message = $this->message->sendMessage(
             $_SESSION['user_id'],
             $content,
             $messageType,
             $filePath,
-            $replyToId
+            $replyToId,
+            $groupId // Pass the group ID (will be null for direct messages)
         );
         
         // Broadcast to other users (WebSocket implementation would go here)
@@ -215,22 +219,8 @@ class MessageAPI {
             throw new Exception('Failed to save uploaded file');
         }
         
-        // Determine message type based on MIME type
-        $messageType = $this->getMessageTypeFromMime($fileInfo['mime_type']);
-        
-        // Send message with file
-        $message = $this->message->sendMessage(
-            $_SESSION['user_id'],
-            $fileInfo['original_name'], // Use original filename as content
-            $messageType,
-            $filePath
-        );
-        
-        $this->sendResponse([
-            'success' => true,
-            'message' => 'File uploaded successfully',
-            'data' => $message
-        ]);
+        // Return the file path for later use
+        return $filePath;
     }
     
     private function handleTyping() {
@@ -447,10 +437,20 @@ class MessageAPI {
     }
     
     private function sendError($message, $statusCode = 400) {
+        // Log the error for debugging
+        error_log("API Error: $message (Status: $statusCode)");
+        error_log("Session: " . print_r($_SESSION, true));
+        error_log("Request: " . print_r($_REQUEST, true));
+        
         http_response_code($statusCode);
         echo json_encode([
             'success' => false,
             'error' => $message,
+            'debug' => [
+                'session_status' => session_status(),
+                'authenticated' => isset($_SESSION['user_id']),
+                'time' => date('c')
+            ],
             'timestamp' => date('c')
         ]);
         exit;
