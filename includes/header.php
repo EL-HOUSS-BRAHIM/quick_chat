@@ -83,7 +83,7 @@
         <div class="nav-user">
             <?php if (isset($currentUser)): ?>
                 <div class="user-info">
-                    <img src="<?php echo htmlspecialchars($currentUser['avatar_url'] ?? 'assets/images/default-avatar.png'); ?>" 
+                    <img src="<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/default-avatar.png'); ?>" 
                          alt="<?php echo htmlspecialchars($currentUser['display_name'] ?? $currentUser['username']); ?>" 
                          class="user-avatar">
                     <span class="username"><?php echo htmlspecialchars($currentUser['display_name'] ?? $currentUser['username']); ?></span>
