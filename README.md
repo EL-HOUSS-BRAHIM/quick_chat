@@ -5,7 +5,7 @@
   
   **A modern, secure, and accessible real-time messaging platform**
   
-  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![License: GNU](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/GNU)
   [![PHP Version](https://img.shields.io/badge/PHP-8.0%2B-blue.svg)](https://php.net/)
   [![MySQL](https://img.shields.io/badge/MySQL-8.0%2B-orange.svg)](https://mysql.com/)
 </div>
