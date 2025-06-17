@@ -26,7 +26,7 @@ if (!$inviteCode) {
 $sql = "SELECT gi.*, g.name as group_name, g.description, g.avatar, 
                u.username as creator_username, u.display_name as creator_display_name
         FROM group_invite_links gi
-        JOIN group_chats g ON gi.group_id = g.id
+        JOIN groups g ON gi.group_id = g.id
         JOIN users u ON g.created_by = u.id
         WHERE gi.invite_code = ?";
 $stmt = $db->prepare($sql);
