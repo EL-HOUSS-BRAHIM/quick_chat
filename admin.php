@@ -24,7 +24,7 @@ $stats = [
     'online_users' => $db->fetch("SELECT COUNT(*) as count FROM users WHERE is_online = 1")['count'],
     'total_messages' => $db->fetch("SELECT COUNT(*) as count FROM messages")['count'],
     'messages_today' => $db->fetch("SELECT COUNT(*) as count FROM messages WHERE DATE(created_at) = CURDATE()")['count'],
-    'total_sessions' => $db->fetch("SELECT COUNT(*) as count FROM sessions WHERE expires_at > NOW()")['count']
+    'total_sessions' => $db->fetch("SELECT COUNT(*) as count FROM user_sessions WHERE expires_at > NOW()")['count']
 ];
 
 // Get recent users
