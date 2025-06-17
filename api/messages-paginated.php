@@ -128,7 +128,7 @@ try {
             m.edited_at,
             m.created_at,
             u.username,
-            u.avatar_url,
+            u.avatar,
             CASE WHEN m.user_id = ? THEN true ELSE false END as is_own_message,
             (SELECT COUNT(*) FROM message_reactions mr WHERE mr.message_id = m.id) as reaction_count
         FROM messages m
