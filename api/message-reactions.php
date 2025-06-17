@@ -83,7 +83,7 @@ try {
         parse_str(file_get_contents("php://input"), $delete_vars);
         
         // Validate CSRF token
-        if (!$security->validateCSRFToken($delete_vars['csrf_token'] ?? '')) {
+        if (!$security->validateCSRF($delete_vars['csrf_token'] ?? '')) {
             http_response_code(403);
             echo json_encode(['error' => 'Invalid CSRF token']);
             exit;
