@@ -289,7 +289,7 @@ class ModernChatApp {
             formData.append('file', file);
         }
         
-        formData.append('csrf_token', this.csrfToken);
+        formData.append('csrf_token', this.getCSRFToken());
         
         // Set the appropriate ID based on whether this is a group or direct message
         if (this.currentGroupId) {
@@ -395,7 +395,6 @@ class ModernChatApp {
                 </span>
             `).join('')}
         </div>`;
-    }
     }
     
     renderMessageContent(message) {
@@ -912,6 +911,10 @@ class ModernChatApp {
         return div.innerHTML;
     }
     
+    getCSRFToken() {
+        return this.csrfToken;
+    }
+    
     debounce(func, wait) {
         clearTimeout(this.debounceTimeout);
         this.debounceTimeout = setTimeout(func, wait);
@@ -937,6 +940,7 @@ class ModernChatApp {
         formData.append('name', name);
         formData.append('description', description);
         formData.append('is_public', isPublic ? '1' : '0');
+        formData.append('csrf_token', this.getCSRFToken());
         
         // Handle avatar if provided
         if (this.newGroupAvatar) {
@@ -945,7 +949,8 @@ class ModernChatApp {
         
         const response = await fetch(`${this.apiBase}groups.php`, {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'same-origin'
         });
         
         if (!response.ok) {
@@ -977,15 +982,33 @@ class ModernChatApp {
     }
     
     async addUserToGroup(groupId, userId, isAdmin = false) {
+        // First, log the CSRF token to console for debugging
+        const csrfToken = this.getCSRFToken();
+        console.log('CSRF Token:', csrfToken);
+        
+        // Log the current session state
+        console.log('Current session status:', document.cookie ? 'Cookies present' : 'No cookies');
+        
         const formData = new FormData();
         formData.append('action', 'add_member');
         formData.append('group_id', groupId);
         formData.append('user_id', userId);
         formData.append('is_admin', isAdmin ? '1' : '0');
+        formData.append('csrf_token', csrfToken);
+        
+        // Log form data for debugging
+        console.log('Form data for group member addition:');
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
         
         const response = await fetch(`${this.apiBase}groups.php`, {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRF-Token': csrfToken // Add token as a header as well
+            }
         });
         
         if (!response.ok) {
@@ -1001,10 +1024,12 @@ class ModernChatApp {
         data.append('action', 'remove_member');
         data.append('group_id', groupId);
         data.append('user_id', userId);
+        data.append('csrf_token', this.getCSRFToken());
         
         const response = await fetch(`${this.apiBase}groups.php`, {
             method: 'DELETE',
-            body: data
+            body: data,
+            credentials: 'same-origin'
         });
         
         if (!response.ok) {
@@ -1021,10 +1046,12 @@ class ModernChatApp {
         formData.append('group_id', groupId);
         formData.append('user_id', userId);
         formData.append('reason', reason);
+        formData.append('csrf_token', this.getCSRFToken());
         
         const response = await fetch(`${this.apiBase}groups.php`, {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'same-origin'
         });
         
         if (!response.ok) {
@@ -1042,10 +1069,12 @@ class ModernChatApp {
         if (settings.name) data.append('name', settings.name);
         if (settings.description) data.append('description', settings.description);
         if (settings.isPublic !== undefined) data.append('is_public', settings.isPublic ? '1' : '0');
+        data.append('csrf_token', this.getCSRFToken());
         
         const response = await fetch(`${this.apiBase}groups.php`, {
             method: 'PUT',
-            body: data
+            body: data,
+            credentials: 'same-origin'
         });
         
         if (!response.ok) {
@@ -1534,7 +1563,8 @@ class ModernChatApp {
             
             const response = await fetch(`${this.apiBase}message-reactions.php`, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'same-origin'
             });
             
             if (!response.ok) {
