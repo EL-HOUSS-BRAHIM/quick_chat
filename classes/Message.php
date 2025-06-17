@@ -475,7 +475,7 @@ class Message {
         
         // Create group
         $stmt = $this->db->prepare("
-            INSERT INTO groups (name, description, created_by, is_public, avatar)
+            INSERT INTO `groups` (name, description, created_by, is_public, avatar)
             VALUES (?, ?, ?, ?, ?)
         ");
         $stmt->execute([
@@ -700,7 +700,7 @@ class Message {
         // Update the group
         $params[] = $groupId;
         $stmt = $this->db->prepare("
-            UPDATE groups 
+            UPDATE `groups` 
             SET " . implode(', ', $updateFields) . "
             WHERE id = ?
         ");
