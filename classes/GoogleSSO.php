@@ -152,10 +152,12 @@ class GoogleSSO {
             // Create session
             $sessionData = $user->createSession($userId, 'google_sso');
             
-            // Set session variables
-            $_SESSION['user_id'] = $userId;
-            $_SESSION['session_id'] = $sessionData['session_id'];
-            $_SESSION['login_method'] = 'google_sso';
+            // Use AuthChecker to properly log in the user
+            require_once __DIR__ . '/../includes/auth_check.php';
+            AuthChecker::login($userId, [
+                'session_id' => $sessionData['session_id'],
+                'login_method' => 'google_sso'
+            ]);
             
             // Log successful login
             error_log("Google SSO login successful for user ID: " . $userId);
