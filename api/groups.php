@@ -1,4 +1,9 @@
 <?php
+// Start the session first to ensure CSRF token access
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../classes/Message.php';
 require_once __DIR__ . '/../classes/Security.php';
@@ -18,6 +23,35 @@ class GroupChatAPI {
         if (!isset($_SESSION['user_id'])) {
             $this->sendError('Unauthorized', 401);
             return;
+        }
+        
+        // For POST, PUT, DELETE methods, validate CSRF token
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $csrfToken = isset($_POST['csrf_token']) ? $_POST['csrf_token'] : 
+                         (isset($_REQUEST['csrf_token']) ? $_REQUEST['csrf_token'] : null);
+            
+            // Try to get from header if not in POST/REQUEST
+            if ($csrfToken === null) {
+                $headers = getallheaders();
+                if (isset($headers['X-CSRF-Token'])) {
+                    $csrfToken = $headers['X-CSRF-Token'];
+                }
+            }
+            
+            // If we can't find a token, try to get it from the request body for PUT/DELETE
+            if ($csrfToken === null && ($_SERVER['REQUEST_METHOD'] === 'PUT' || $_SERVER['REQUEST_METHOD'] === 'DELETE')) {
+                parse_str(file_get_contents('php://input'), $putParams);
+                $csrfToken = isset($putParams['csrf_token']) ? $putParams['csrf_token'] : null;
+            }
+            
+            // Debug logging
+            error_log("Request CSRF: " . ($csrfToken ?? 'NULL'));
+            error_log("Session CSRF: " . ($_SESSION['csrf_token'] ?? 'NULL'));
+            
+            if ($csrfToken === null || !$this->security->validateCSRF($csrfToken)) {
+                $this->sendError('Invalid or missing CSRF token', 401);
+                return;
+            }
         }
         
         $method = $_SERVER['REQUEST_METHOD'];
