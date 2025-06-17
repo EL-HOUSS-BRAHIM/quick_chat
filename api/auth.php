@@ -140,9 +140,12 @@ class AuthAPI {
             throw $e;
         }
         
-        $_SESSION['user_id'] = $result['user_id'];
-        $_SESSION['username'] = $result['username'];
-        $_SESSION['session_id'] = $result['session_id'];
+        // Use AuthChecker to properly log in the user
+        require_once __DIR__ . '/../includes/auth_check.php';
+        AuthChecker::login($result['user_id'], [
+            'username' => $result['username'],
+            'session_id' => $result['session_id']
+        ]);
         
         error_log('Session set - User ID: ' . $_SESSION['user_id'] . ', Session ID: ' . $_SESSION['session_id']);
         
