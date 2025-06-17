@@ -205,7 +205,7 @@ class Security {
         // You could also store this in the database
         $db = Database::getInstance();
         $db->query(
-            "INSERT INTO audit_logs (action, details, ip_address, user_agent) VALUES (?, ?, ?, ?)",
+            "INSERT INTO audit_logs (event_type, event_data, ip_address, user_agent) VALUES (?, ?, ?, ?)",
             [
                 'security_event_' . $event,
                 json_encode($details),
@@ -226,7 +226,7 @@ class Security {
         // Check for multiple failed logins from same IP
         $failedLogins = $db->fetch(
             "SELECT COUNT(*) as count FROM audit_logs 
-             WHERE action = 'user_login_failed' 
+             WHERE event_type = 'user_login_failed' 
              AND ip_address = ? 
              AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)",
             [$ip]
@@ -240,7 +240,7 @@ class Security {
         // Check for rapid session creation
         if ($userId) {
             $recentSessions = $db->fetch(
-                "SELECT COUNT(*) as count FROM sessions 
+                "SELECT COUNT(*) as count FROM user_sessions 
                  WHERE user_id = ? 
                  AND created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE)",
                 [$userId]
