@@ -84,7 +84,7 @@ Copy `config/config.sample.php` to `config/config.php` and update:
 
 ## License
 
-This project is open source and available under the MIT License.
+This project is open source and available under the GNU License.
 
 ## Support
 
