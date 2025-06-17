@@ -6,15 +6,21 @@ class ModernChatApp {
         this.currentUserId = options.currentUserId;
         this.targetUserId = options.targetUserId;
         this.apiBase = options.apiBase || 'api/';
+        this.csrfToken = options.csrfToken || '';
         
         // State
         this.messages = [];
         this.onlineUsers = [];
         this.conversations = [];
         this.currentConversation = null;
+        this.currentGroupId = null; // Add tracking for group conversations
+        this.lastMessageId = 0;
         this.isTyping = false;
         this.typingTimeout = null;
         this.lastMessageTime = 0;
+        this.loadingHistory = false;
+        this.noMoreHistory = false;
+        this.messageLimit = 20;
         
         // Settings
         this.settings = {
@@ -92,9 +98,11 @@ class ModernChatApp {
             this.applyTheme();
             
             console.log('Modern Chat App initialized successfully');
+            return true;
         } catch (error) {
             console.error('Failed to initialize chat app:', error);
             this.showError('Failed to initialize chat application');
+            throw error;
         }
     }
     
@@ -184,7 +192,9 @@ class ModernChatApp {
     
     async loadConversations() {
         try {
-            const response = await fetch(`${this.apiBase}messages.php?action=conversations`);
+            const response = await fetch(`${this.apiBase}messages.php?action=conversations`, {
+                credentials: 'same-origin'
+            });
             const data = await response.json();
             
             if (data.success) {
@@ -198,7 +208,9 @@ class ModernChatApp {
     
     async loadOnlineUsers() {
         try {
-            const response = await fetch(`${this.apiBase}users.php?action=online`);
+            const response = await fetch(`${this.apiBase}users.php?action=online`, {
+                credentials: 'same-origin'
+            });
             const data = await response.json();
             
             if (data.success) {
@@ -220,7 +232,9 @@ class ModernChatApp {
                 ? `${this.apiBase}messages.php?action=get&target_user_id=${userId}`
                 : `${this.apiBase}messages.php?action=get`;
                 
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                credentials: 'same-origin'
+            });
             const data = await response.json();
             
             if (data.success) {
@@ -237,58 +251,84 @@ class ModernChatApp {
         }
     }
     
-    async sendMessage(content, type = 'text') {
-        if (!content.trim()) {
-            this.showError('Message cannot be empty');
-            return;
+    async sendMessage(content, type = 'text', replyToId = null, file = null) {
+        if (!content.trim() && !file) return;
+        
+        // Add to UI immediately for better UX
+        const tempId = 'temp_' + Date.now();
+        this.addMessageToUI({
+            id: tempId,
+            sender_id: this.currentUserId,
+            content: content.trim(),
+            type: type,
+            created_at: new Date().toISOString(),
+            is_read: true,
+            sender: { 
+                username: 'You',
+                display_name: 'You'
+            },
+            temp: true
+        });
+        
+        // Clear input
+        this.elements.messageInput.value = '';
+        this.elements.messageInput.style.height = 'auto';
+        this.updateSendButton();
+        
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('action', 'send');
+        formData.append('content', content.trim());
+        formData.append('type', type);
+        
+        if (replyToId) {
+            formData.append('reply_to', replyToId);
         }
         
-        try {
-            const formData = new FormData();
-            formData.append('action', 'send');
-            formData.append('content', content.trim());
-            formData.append('type', type);
-            
-            if (this.currentConversation) {
-                formData.append('target_user_id', this.currentConversation);
-            }
-            
-            const response = await fetch(`${this.apiBase}messages.php`, {
-                method: 'POST',
-                body: formData
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Clear input
-                this.elements.messageInput.value = '';
-                this.updateSendButton();
-                
-                // Add message to UI immediately (optimistic update)
-                const message = {
-                    id: 'temp_' + Date.now(),
-                    content: content,
-                    type: type,
-                    user_id: this.currentUserId,
-                    created_at: new Date().toISOString(),
-                    is_own: true
-                };
-                
-                this.messages.push(message);
-                this.renderMessages();
-                this.scrollToBottom();
-                
-                // Stop typing indicator
-                this.stopTyping();
-                
-            } else {
-                throw new Error(data.message || 'Failed to send message');
-            }
-        } catch (error) {
-            console.error('Failed to send message:', error);
-            this.showError('Failed to send message');
+        if (file) {
+            formData.append('file', file);
         }
+        
+        formData.append('csrf_token', this.csrfToken);
+        
+        // Set the appropriate ID based on whether this is a group or direct message
+        if (this.currentGroupId) {
+            formData.append('group_id', this.currentGroupId);
+        } else if (this.currentConversation) {
+            formData.append('target_user_id', this.currentConversation);
+        }
+        
+        // Debug logging
+        console.log('Sending message with data:', {
+            action: 'send',
+            content: content.trim(),
+            type: type,
+            csrf_token: this.csrfToken ? 'present' : 'missing',
+            target_user_id: this.currentConversation,
+            group_id: this.currentGroupId
+        });
+        
+        const response = await fetch(`${this.apiBase}messages.php`, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+        
+        // Debug response
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Response error text:', errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Replace the temporary message with the real one
+        this.replaceTemporaryMessage(tempId, data.data);
+        
+        return data;
     }
     
     renderMessages() {
@@ -302,9 +342,19 @@ class ModernChatApp {
         const isOwn = message.user_id == this.currentUserId;
         const messageTime = new Date(message.created_at);
         const timeString = messageTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const isGroupMessage = message.group_id || this.currentGroupId;
+        
+        // Data attributes for read receipts
+        let dataAttributes = `data-message-id="${message.id}"`;
+        
+        if (isGroupMessage) {
+            dataAttributes += ` data-group-id="${message.group_id || this.currentGroupId}"`;
+        } else {
+            dataAttributes += ` data-sender-id="${message.user_id}"`;
+        }
         
         return `
-            <div class="message ${isOwn ? 'own' : ''}" data-message-id="${message.id}">
+            <div class="message ${isOwn ? 'own' : ''}" ${dataAttributes}>
                 ${!isOwn ? `<img src="${message.avatar || 'assets/images/default-avatar.svg'}" alt="${message.username}" class="message-avatar">` : ''}
                 <div class="message-content">
                     ${!isOwn ? `
@@ -315,12 +365,37 @@ class ModernChatApp {
                     ` : ''}
                     <div class="message-bubble">
                         ${this.renderMessageContent(message)}
-                        ${isOwn ? `<div class="message-time" style="font-size: 10px; opacity: 0.7; margin-top: 4px;">${timeString}</div>` : ''}
+                        ${message.reactions && message.reactions.length > 0 ? this.renderMessageReactions(message.reactions) : ''}
+                        <div class="message-footer">
+                            ${isOwn ? `<div class="message-time" style="font-size: 10px; opacity: 0.7;">${timeString}</div>` : ''}
+                            ${isOwn ? `<span class="read-status"></span>` : ''}
+                        </div>
+                    </div>
+                    <div class="message-actions">
+                        <button class="action-btn reaction-btn" onclick="chatApp.showReactionPicker(${message.id})">
+                            <i class="far fa-smile"></i>
+                        </button>
+                        <button class="action-btn reply-btn" onclick="chatApp.replyToMessage(${message.id})">
+                            <i class="fas fa-reply"></i>
+                        </button>
                     </div>
                 </div>
                 ${isOwn ? `<img src="${message.avatar || 'assets/images/default-avatar.svg'}" alt="You" class="message-avatar">` : ''}
             </div>
         `;
+    }
+    
+    renderMessageReactions(reactions) {
+        return `<div class="message-reactions">
+            ${reactions.map(reaction => `
+                <span class="reaction ${reaction.user_ids.includes(parseInt(this.currentUserId)) ? 'user-reacted' : ''}" 
+                      data-emoji="${reaction.emoji}" 
+                      onclick="chatApp.addReactionToMessage(${reaction.message_id}, '${reaction.emoji}', ${this.currentGroupId || 'null'})">
+                    ${reaction.emoji} <span class="count">${reaction.count}</span>
+                </span>
+            `).join('')}
+        </div>`;
+    }
     }
     
     renderMessageContent(message) {
@@ -652,6 +727,13 @@ class ModernChatApp {
         this.closeNewChatModal();
     }
     
+    // Call functionality
+    startCall(type) {
+        console.log(`Starting ${type} call...`);
+        // Placeholder for call functionality
+        this.showError(`${type.charAt(0).toUpperCase() + type.slice(1)} calling is not yet implemented`);
+    }
+    
     // Search
     searchConversations(query) {
         // Implementation for searching conversations
@@ -665,7 +747,9 @@ class ModernChatApp {
         }
         
         try {
-            const response = await fetch(`${this.apiBase}users.php?action=search&q=${encodeURIComponent(query)}`);
+            const response = await fetch(`${this.apiBase}users.php?action=search&q=${encodeURIComponent(query)}`, {
+                credentials: 'same-origin'
+            });
             const data = await response.json();
             
             if (data.success) {
@@ -760,7 +844,9 @@ class ModernChatApp {
                 ? `${this.apiBase}messages.php?action=get&target_user_id=${this.currentConversation}&since=${this.lastMessageTime}`
                 : `${this.apiBase}messages.php?action=get&since=${this.lastMessageTime}`;
                 
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                credentials: 'same-origin'
+            });
             const data = await response.json();
             
             if (data.success && data.messages && data.messages.length > 0) {
@@ -843,24 +929,773 @@ class ModernChatApp {
         // Stop typing
         this.stopTyping();
     }
+    
+    // Add group chat methods
+    async createNewGroupChat(name, description, isPublic) {
+        const formData = new FormData();
+        formData.append('action', 'create');
+        formData.append('name', name);
+        formData.append('description', description);
+        formData.append('is_public', isPublic ? '1' : '0');
+        
+        // Handle avatar if provided
+        if (this.newGroupAvatar) {
+            formData.append('avatar', this.newGroupAvatar);
+        }
+        
+        const response = await fetch(`${this.apiBase}groups.php`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Add the new group to the conversations list
+        await this.loadConversations();
+        
+        // Open the new group conversation
+        this.openGroupChat(data.group.id);
+        
+        return data;
+    }
+    
+    async loadGroupMembers(groupId) {
+        const response = await fetch(`${this.apiBase}groups.php?action=members&group_id=${groupId}`);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        return data.members;
+    }
+    
+    async addUserToGroup(groupId, userId, isAdmin = false) {
+        const formData = new FormData();
+        formData.append('action', 'add_member');
+        formData.append('group_id', groupId);
+        formData.append('user_id', userId);
+        formData.append('is_admin', isAdmin ? '1' : '0');
+        
+        const response = await fetch(`${this.apiBase}groups.php`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        return await response.json();
+    }
+    
+    async removeUserFromGroup(groupId, userId) {
+        const data = new URLSearchParams();
+        data.append('action', 'remove_member');
+        data.append('group_id', groupId);
+        data.append('user_id', userId);
+        
+        const response = await fetch(`${this.apiBase}groups.php`, {
+            method: 'DELETE',
+            body: data
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        return await response.json();
+    }
+    
+    async banUserFromGroup(groupId, userId, reason = '') {
+        const formData = new FormData();
+        formData.append('action', 'ban_member');
+        formData.append('group_id', groupId);
+        formData.append('user_id', userId);
+        formData.append('reason', reason);
+        
+        const response = await fetch(`${this.apiBase}groups.php`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        return await response.json();
+    }
+    
+    async updateGroupSettings(groupId, settings) {
+        const data = new URLSearchParams();
+        data.append('group_id', groupId);
+        
+        if (settings.name) data.append('name', settings.name);
+        if (settings.description) data.append('description', settings.description);
+        if (settings.isPublic !== undefined) data.append('is_public', settings.isPublic ? '1' : '0');
+        
+        const response = await fetch(`${this.apiBase}groups.php`, {
+            method: 'PUT',
+            body: data
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        return await response.json();
+    }
+    
+    openGroupChat(groupId) {
+        this.currentGroupId = groupId;
+        this.currentConversation = null; // Clear the direct conversation
+        
+        // Find the group in our conversations
+        const group = this.conversations.find(c => c.is_group && c.group_id === groupId);
+        
+        if (group) {
+            this.openChatUI(group);
+            this.loadGroupMembers(groupId).then(members => {
+                this.updateGroupMembersList(members);
+            });
+        }
+    }
+    
+    updateGroupMembersList(members) {
+        // Check if we have the participants sidebar element
+        if (!document.getElementById('participantsList')) {
+            // Create it if it doesn't exist
+            const sidebarElement = document.createElement('div');
+            sidebarElement.id = 'participantsContainer';
+            sidebarElement.className = 'participants-sidebar';
+            sidebarElement.innerHTML = `
+                <div class="sidebar-header">
+                    <h3>Group Members</h3>
+                    <button id="addMemberBtn" class="action-btn"><i class="fas fa-user-plus"></i></button>
+                </div>
+                <div id="participantCount" class="participant-count"></div>
+                <div id="participantsList" class="participants-list"></div>
+            `;
+            
+            document.querySelector('.chat-container').appendChild(sidebarElement);
+            
+            // Add event listener for the add member button
+            document.getElementById('addMemberBtn').addEventListener('click', () => this.showAddMemberModal());
+        }
+        
+        // Update members list
+        const participantsList = document.getElementById('participantsList');
+        
+        if (participantsList) {
+            const isAdmin = members.some(m => m.user_id === this.currentUserId && m.is_admin);
+            
+            participantsList.innerHTML = members.map(member => `
+                <div class="participant-item" data-user-id="${member.id}">
+                    <div class="participant-avatar">
+                        <img src="${member.avatar || 'assets/images/default-avatar.svg'}" alt="${member.display_name}">
+                        <span class="status-indicator ${member.status}"></span>
+                    </div>
+                    <div class="participant-info">
+                        <div class="participant-name">${this.escapeHtml(member.display_name || member.username)}</div>
+                        ${member.is_admin ? '<span class="admin-badge">Admin</span>' : ''}
+                    </div>
+                    ${isAdmin && member.id !== this.currentUserId ? `
+                        <div class="participant-actions">
+                            <button class="action-btn" onclick="chatApp.showMemberActionsMenu(${member.id})">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+            
+            // Update the participant count
+            this.updateParticipantCount(members.length);
+        }
+    }
+    
+    updateParticipantCount(count) {
+        const participantElement = document.getElementById('participantCount');
+        if (participantElement) {
+            participantElement.textContent = `${count} member${count !== 1 ? 's' : ''}`;
+        }
+    }
+    
+    showAddMemberModal() {
+        // Create modal for adding members
+        const modalElement = document.createElement('div');
+        modalElement.id = 'addMemberModal';
+        modalElement.className = 'modal';
+        modalElement.onclick = (e) => {
+            if (e.target === modalElement) {
+                document.body.removeChild(modalElement);
+            }
+        };
+        
+        modalElement.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Add Member to Group</h3>
+                    <button class="close-btn" onclick="document.body.removeChild(document.getElementById('addMemberModal'))">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="search-container">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="userSearchInput" placeholder="Search users...">
+                    </div>
+                    <div id="userSearchResults" class="search-results"></div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modalElement);
+        
+        // Add event listener to search input
+        const searchInput = document.getElementById('userSearchInput');
+        searchInput.addEventListener('input', (e) => {
+            this.searchUsers(e.target.value);
+        });
+    }
+    
+    async searchUsers(query) {
+        if (!query.trim()) {
+            document.getElementById('userSearchResults').innerHTML = '';
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${this.apiBase}users.php?search=${encodeURIComponent(query)}`);
+            const data = await response.json();
+            
+            const resultsElement = document.getElementById('userSearchResults');
+            
+            if (data.users && data.users.length > 0) {
+                resultsElement.innerHTML = data.users.map(user => `
+                    <div class="search-result-item" data-user-id="${user.id}">
+                        <div class="user-avatar">
+                            <img src="${user.avatar || 'assets/images/default-avatar.svg'}" alt="${user.display_name || user.username}">
+                        </div>
+                        <div class="user-info">
+                            <div class="user-name">${this.escapeHtml(user.display_name || user.username)}</div>
+                            <div class="user-username">@${this.escapeHtml(user.username)}</div>
+                        </div>
+                        <button class="primary-btn add-user-btn" onclick="chatApp.addMemberToGroup(${user.id})">
+                            Add
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                resultsElement.innerHTML = '<div class="empty-state">No users found</div>';
+            }
+        } catch (error) {
+            console.error('Error searching users:', error);
+        }
+    }
+    
+    async addMemberToGroup(userId) {
+        try {
+            await this.addUserToGroup(this.currentGroupId, userId);
+            
+            // Reload the members list
+            const members = await this.loadGroupMembers(this.currentGroupId);
+            this.updateGroupMembersList(members);
+            
+            // Close the modal
+            const modal = document.getElementById('addMemberModal');
+            if (modal) {
+                document.body.removeChild(modal);
+            }
+            
+            this.showNotification('Member added successfully');
+        } catch (error) {
+            console.error('Error adding member:', error);
+            this.showError(error.message);
+        }
+    }
+    
+    showMemberActionsMenu(userId) {
+        // Close any existing menus
+        this.closeAllDropdowns();
+        
+        // Create the dropdown menu
+        const dropdown = document.createElement('div');
+        dropdown.className = 'dropdown-menu member-actions-menu';
+        dropdown.innerHTML = `
+            <ul>
+                <li onclick="chatApp.makeAdmin(${userId})">Make Admin</li>
+                <li onclick="chatApp.removeFromGroup(${userId})">Remove from Group</li>
+                <li class="danger" onclick="chatApp.banFromGroup(${userId})">Ban from Group</li>
+            </ul>
+        `;
+        
+        // Position and show the dropdown
+        const button = event.target.closest('.action-btn');
+        const rect = button.getBoundingClientRect();
+        dropdown.style.top = `${rect.bottom}px`;
+        dropdown.style.left = `${rect.left}px`;
+        
+        document.body.appendChild(dropdown);
+        
+        // Close when clicking outside
+        setTimeout(() => {
+            document.addEventListener('click', function closeDropdown(e) {
+                if (!dropdown.contains(e.target) && e.target !== button) {
+                    if (document.body.contains(dropdown)) {
+                        document.body.removeChild(dropdown);
+                    }
+                    document.removeEventListener('click', closeDropdown);
+                }
+            });
+        }, 0);
+    }
+    
+    async makeAdmin(userId) {
+        try {
+            await this.addUserToGroup(this.currentGroupId, userId, true);
+            
+            // Reload the members list
+            const members = await this.loadGroupMembers(this.currentGroupId);
+            this.updateGroupMembersList(members);
+            
+            this.closeAllDropdowns();
+            this.showNotification('User is now an admin');
+        } catch (error) {
+            console.error('Error making user an admin:', error);
+            this.showError(error.message);
+        }
+    }
+    
+    async removeFromGroup(userId) {
+        try {
+            await this.removeUserFromGroup(this.currentGroupId, userId);
+            
+            // Reload the members list
+            const members = await this.loadGroupMembers(this.currentGroupId);
+            this.updateGroupMembersList(members);
+            
+            this.closeAllDropdowns();
+            this.showNotification('User removed from group');
+        } catch (error) {
+            console.error('Error removing user from group:', error);
+            this.showError(error.message);
+        }
+    }
+    
+    async banFromGroup(userId) {
+        // Show confirmation dialog
+        if (confirm('Are you sure you want to ban this user from the group? They will not be able to rejoin.')) {
+            try {
+                await this.banUserFromGroup(this.currentGroupId, userId);
+                
+                // Reload the members list
+                const members = await this.loadGroupMembers(this.currentGroupId);
+                this.updateGroupMembersList(members);
+                
+                this.closeAllDropdowns();
+                this.showNotification('User banned from group');
+            } catch (error) {
+                console.error('Error banning user from group:', error);
+                this.showError(error.message);
+            }
+        }
+    }
+    
+    showNewGroupModal() {
+        // Create modal for creating a new group
+        const modalElement = document.createElement('div');
+        modalElement.id = 'newGroupModal';
+        modalElement.className = 'modal';
+        modalElement.onclick = (e) => {
+            if (e.target === modalElement) {
+                document.body.removeChild(modalElement);
+            }
+        };
+        
+        modalElement.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Create New Group</h3>
+                    <button class="close-btn" onclick="document.body.removeChild(document.getElementById('newGroupModal'))">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="newGroupForm">
+                        <div class="form-group">
+                            <label for="groupName">Group Name</label>
+                            <input type="text" id="groupName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="groupDescription">Description</label>
+                            <textarea id="groupDescription" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="groupIsPublic"> 
+                                Make this group public
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label for="groupAvatar">Group Avatar (Optional)</label>
+                            <input type="file" id="groupAvatar" accept="image/*">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="secondary-btn" onclick="document.body.removeChild(document.getElementById('newGroupModal'))">
+                                Cancel
+                            </button>
+                            <button type="submit" class="primary-btn">
+                                Create Group
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modalElement);
+        
+        // Add event listener to form
+        document.getElementById('newGroupForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('groupName').value;
+            const description = document.getElementById('groupDescription').value;
+            const isPublic = document.getElementById('groupIsPublic').checked;
+            const avatarInput = document.getElementById('groupAvatar');
+            
+            if (avatarInput.files.length > 0) {
+                this.newGroupAvatar = avatarInput.files[0];
+            }
+            
+            this.createNewGroupChat(name, description, isPublic)
+                .then(() => {
+                    document.body.removeChild(document.getElementById('newGroupModal'));
+                    this.showNotification('Group created successfully');
+                })
+                .catch(error => {
+                    console.error('Error creating group:', error);
+                    this.showError(error.message);
+                });
+        });
+    }
+    
+    showGroupSettings() {
+        // Find the current group
+        const group = this.conversations.find(c => c.is_group && c.group_id === this.currentGroupId);
+        
+        if (!group) {
+            return;
+        }
+        
+        // Create modal for group settings
+        const modalElement = document.createElement('div');
+        modalElement.id = 'groupSettingsModal';
+        modalElement.className = 'modal';
+        modalElement.onclick = (e) => {
+            if (e.target === modalElement) {
+                document.body.removeChild(modalElement);
+            }
+        };
+        
+        modalElement.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Group Settings</h3>
+                    <button class="close-btn" onclick="document.body.removeChild(document.getElementById('groupSettingsModal'))">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="groupSettingsForm">
+                        <div class="form-group">
+                            <label for="editGroupName">Group Name</label>
+                            <input type="text" id="editGroupName" value="${this.escapeHtml(group.name)}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editGroupDescription">Description</label>
+                            <textarea id="editGroupDescription" rows="3">${this.escapeHtml(group.description || '')}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="editGroupIsPublic" ${group.is_public ? 'checked' : ''}> 
+                                Make this group public
+                            </label>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="secondary-btn" onclick="document.body.removeChild(document.getElementById('groupSettingsModal'))">
+                                Cancel
+                            </button>
+                            <button type="submit" class="primary-btn">
+                                Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modalElement);
+        
+        // Add event listener to form
+        document.getElementById('groupSettingsForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('editGroupName').value;
+            const description = document.getElementById('editGroupDescription').value;
+            const isPublic = document.getElementById('editGroupIsPublic').checked;
+            
+            this.updateGroupSettings(this.currentGroupId, {
+                name,
+                description,
+                isPublic
+            })
+                .then(() => {
+                    document.body.removeChild(document.getElementById('groupSettingsModal'));
+                    this.showNotification('Group settings updated successfully');
+                    
+                    // Reload conversations to refresh the group info
+                    this.loadConversations();
+                })
+                .catch(error => {
+                    console.error('Error updating group settings:', error);
+                    this.showError(error.message);
+                });
+        });
+    }
+    
+    // Update existing methods to support group chats
+    updateChatHeader(conversation) {
+        if (!this.elements.chatHeader) return;
+        
+        const isGroup = conversation.is_group;
+        const avatar = conversation.avatar || 'assets/images/default-avatar.svg';
+        const name = this.escapeHtml(conversation.name);
+        const status = conversation.status || 'offline';
+        
+        // Add group settings button for group chats
+        const groupSettingsBtn = isGroup ? `
+            <button class="action-btn" onclick="chatApp.showGroupSettings()" title="Group Settings">
+                <i class="fas fa-cog"></i>
+            </button>
+        ` : '';
+        
+        this.elements.chatHeader.innerHTML = `
+            <div class="chat-avatar">
+                ${isGroup ? 
+                    '<div class="group-avatar"><i class="fas fa-users"></i></div>' :
+                    `<img src="${avatar}" alt="${name}">`
+                }
+            </div>
+            <div class="chat-user-info">
+                <div class="chat-user-name">${name}</div>
+                <div class="chat-user-status">
+                    ${isGroup ? 
+                        '<span class="group-type">' + (conversation.is_public ? 'Public Group' : 'Private Group') + '</span>' :
+                        `<span class="status-indicator ${status}"></span>
+                         <span class="status-text">${status === 'online' ? 'Online' : 'Offline'}</span>`
+                    }
+                </div>
+            </div>
+            <div class="chat-actions">
+                ${groupSettingsBtn}
+                <button class="action-btn" onclick="toggleChatInfo()" title="Info">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+                <button class="action-btn" onclick="toggleSearchMessages()" title="Search">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        `;
+    }
+    
+    // Add message reaction methods
+    async addReactionToMessage(messageId, emoji, groupId = null) {
+        try {
+            const formData = new FormData();
+            formData.append('message_id', messageId);
+            formData.append('emoji', emoji);
+            formData.append('csrf_token', this.getCSRFToken());
+            
+            if (groupId) {
+                formData.append('group_id', groupId);
+            }
+            
+            const response = await fetch(`${this.apiBase}message-reactions.php`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            const data = await response.json();
+            
+            // Update UI
+            this.updateMessageReactions(messageId, data.reactions);
+            
+            return data;
+        } catch (error) {
+            console.error('Error adding reaction:', error);
+            this.showError(error.message);
+        }
+    }
+    
+    async getMessageReactions(messageId) {
+        try {
+            const response = await fetch(`${this.apiBase}message-reactions.php?message_id=${messageId}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            const data = await response.json();
+            return data.reactions;
+        } catch (error) {
+            console.error('Error getting reactions:', error);
+            return [];
+        }
+    }
+    
+    updateMessageReactions(messageId, reactions) {
+        const messageElement = document.querySelector(`.message[data-message-id="${messageId}"]`);
+        if (!messageElement) return;
+        
+        // Find or create reactions container
+        let reactionsContainer = messageElement.querySelector('.message-reactions');
+        if (!reactionsContainer) {
+            reactionsContainer = document.createElement('div');
+            reactionsContainer.className = 'message-reactions';
+            const messageBubble = messageElement.querySelector('.message-bubble');
+            if (messageBubble) {
+                messageBubble.appendChild(reactionsContainer);
+            }
+        }
+        
+        // Clear existing reactions
+        reactionsContainer.innerHTML = '';
+        
+        // Add reactions
+        if (reactions && reactions.length > 0) {
+            reactions.forEach(reaction => {
+                const reactionElement = document.createElement('span');
+                reactionElement.className = 'reaction';
+                reactionElement.dataset.emoji = reaction.emoji;
+                
+                // Check if current user has reacted with this emoji
+                const hasReacted = reaction.user_ids.includes(parseInt(this.currentUserId));
+                if (hasReacted) {
+                    reactionElement.classList.add('user-reacted');
+                }
+                
+                reactionElement.innerHTML = `${reaction.emoji} <span class="count">${reaction.count}</span>`;
+                
+                // Add click handler for toggling reaction
+                reactionElement.addEventListener('click', () => {
+                    this.addReactionToMessage(messageId, reaction.emoji, this.currentGroupId);
+                });
+                
+                reactionsContainer.appendChild(reactionElement);
+            });
+        }
+    }
+    
+    showReactionPicker(messageId) {
+        // Create reaction picker
+        const pickerElement = document.createElement('div');
+        pickerElement.className = 'reaction-picker';
+        pickerElement.innerHTML = `
+            <div class="common-emojis">
+                <span data-emoji="👍">👍</span>
+                <span data-emoji="❤️">❤️</span>
+                <span data-emoji="😂">😂</span>
+                <span data-emoji="😮">😮</span>
+                <span data-emoji="😢">😢</span>
+                <span data-emoji="👏">👏</span>
+                <span data-emoji="🎉">🎉</span>
+                <span data-emoji="🔥">🔥</span>
+            </div>
+        `;
+        
+        // Position the picker
+        const messageElement = document.querySelector(`.message[data-message-id="${messageId}"]`);
+        if (messageElement) {
+            const rect = messageElement.getBoundingClientRect();
+            pickerElement.style.top = `${rect.top - 40}px`;
+            pickerElement.style.left = `${rect.left + 20}px`;
+            
+            document.body.appendChild(pickerElement);
+            
+            // Add click handlers for emojis
+            pickerElement.querySelectorAll('.common-emojis span').forEach(emojiElement => {
+                emojiElement.addEventListener('click', () => {
+                    this.addReactionToMessage(messageId, emojiElement.dataset.emoji, this.currentGroupId);
+                    document.body.removeChild(pickerElement);
+                });
+            });
+            
+            // Close when clicking outside
+            setTimeout(() => {
+                document.addEventListener('click', function closeReactionPicker(e) {
+                    if (!pickerElement.contains(e.target)) {
+                        if (document.body.contains(pickerElement)) {
+                            document.body.removeChild(pickerElement);
+                        }
+                        document.removeEventListener('click', closeReactionPicker);
+                    }
+                });
+            }, 0);
+        }
+    }
 }
 
 // Global functions for onclick handlers
 function toggleEmojiPicker() {
-    if (window.chatApp) {
+    if (window.chatApp && typeof window.chatApp.toggleEmojiPicker === 'function') {
         window.chatApp.toggleEmojiPicker();
+    } else {
+        console.error('toggleEmojiPicker function not available on chatApp');
     }
 }
 
 function showAttachMenu() {
-    if (window.chatApp) {
+    if (window.chatApp && typeof window.chatApp.showAttachMenu === 'function') {
         window.chatApp.showAttachMenu();
+    } else {
+        console.error('showAttachMenu function not available on chatApp');
     }
 }
 
 function showNewChatModal() {
-    if (window.chatApp) {
+    console.log('showNewChatModal called, checking chatApp...', window.chatApp);
+    if (window.chatApp && typeof window.chatApp.showNewChatModal === 'function') {
         window.chatApp.showNewChatModal();
+    } else {
+        console.error('showNewChatModal function not available on chatApp. Available methods:', 
+            window.chatApp ? Object.getOwnPropertyNames(Object.getPrototypeOf(window.chatApp)) : 'chatApp not available');
+        
+        // Fallback: try again after a short delay
+        setTimeout(() => {
+            if (window.chatApp && typeof window.chatApp.showNewChatModal === 'function') {
+                window.chatApp.showNewChatModal();
+            } else {
+                alert('Chat app is not ready yet. Please try again.');
+            }
+        }, 500);
     }
 }
 
