@@ -12,8 +12,22 @@ class Database {
         $this->connection = $this->createConnection();
     }
     
-    /**
-     * Create a new database connection
+    /**    public function cleanup() {
+        // Clean expired sessions
+        $this->query("DELETE FROM sessions WHERE expires_at < NOW()");
+        
+        // Clean expired user sessions
+        $this->query("DELETE FROM user_sessions WHERE expires_at < NOW()");
+        
+        // Clean old rate limit records (older than 1 hour)
+        $this->query("DELETE FROM rate_limits WHERE window_start < DATE_SUB(NOW(), INTERVAL 1 HOUR)");
+        
+        // Clean old audit logs (older than 90 days)
+        $this->query("DELETE FROM audit_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)");
+        
+        // Update offline status for users who haven't been seen in 5 minutes
+        $this->query("UPDATE users SET is_online = FALSE WHERE last_seen < DATE_SUB(NOW(), INTERVAL 5 MINUTE) AND is_online = TRUE");
+    }e a new database connection
      * @return PDO Database connection
      */
     private function createConnection() {
@@ -25,7 +39,7 @@ class Database {
                 PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . Config::getDbCharset(),
                 // Connection pooling optimizations
                 PDO::ATTR_PERSISTENT => true,
-                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => false,
+                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
                 PDO::ATTR_TIMEOUT => 30,
                 PDO::MYSQL_ATTR_COMPRESS => true
             ];
@@ -181,6 +195,15 @@ class Database {
         }
     }
     
+    public function exec($sql) {
+        try {
+            return $this->connection->exec($sql);
+        } catch (PDOException $e) {
+            error_log("Exec failed: " . $e->getMessage() . " SQL: " . $sql);
+            throw new Exception("Statement execution failed: " . $e->getMessage());
+        }
+    }
+    
     public function createTables() {
         $tables = [
             'users' => "
@@ -247,6 +270,26 @@ class Database {
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                     INDEX idx_user_id (user_id),
                     INDEX idx_expires_at (expires_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ",
+            
+            'user_sessions' => "
+                CREATE TABLE IF NOT EXISTS user_sessions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    session_id VARCHAR(128) NOT NULL UNIQUE,
+                    user_id INT NOT NULL,
+                    login_type VARCHAR(50) DEFAULT 'password',
+                    expires_at TIMESTAMP NOT NULL,
+                    ip_address VARCHAR(45) NOT NULL,
+                    user_agent TEXT,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    INDEX idx_user_id (user_id),
+                    INDEX idx_session_id (session_id),
+                    INDEX idx_expires_at (expires_at),
+                    INDEX idx_is_active (is_active)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ",
             
