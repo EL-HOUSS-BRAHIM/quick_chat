@@ -604,7 +604,7 @@ class Message {
      */
     public function banGroupMember($groupId, $userId, $bannedBy, $reason = '') {
         // Validate the group exists
-        $stmt = $this->db->prepare("SELECT id, created_by FROM groups WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT id, created_by FROM `groups` WHERE id = ?");
         $stmt->execute([$groupId]);
         if ($stmt->rowCount() === 0) {
             throw new Exception("Group not found");
@@ -1248,7 +1248,7 @@ class Message {
      */
     public function moderateGroupUser($groupId, $userId, $moderatorId, $actionType, $duration = null, $reason = null) {
         // Validate group
-        $sql = "SELECT id, created_by FROM groups WHERE id = ?";
+        $sql = "SELECT id, created_by FROM `groups` WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$groupId]);
         
