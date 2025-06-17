@@ -275,9 +275,16 @@ body {
 .user-avatar {
     width: 36px;
     height: 36px;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.user-avatar img {
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
     object-fit: cover;
-    position: relative;
+    display: block;
 }
 
 .user-info {
@@ -328,9 +335,16 @@ body {
 .chat-avatar {
     width: 40px;
     height: 40px;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.chat-avatar img {
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
     object-fit: cover;
-    position: relative;
+    display: block;
 }
 
 .group-avatar {
