@@ -344,6 +344,10 @@ class Security {
         return $this->validateCSRF($token);
     }
     
+    public function sanitizeFilename($filename) {
+        return $this->generateSecureFilename($filename);
+    }
+    
     public function sendSecurityAlert($eventType, $eventData, $userId = null) {
         $alertData = [
             'timestamp' => date('Y-m-d H:i:s'),
