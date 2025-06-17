@@ -13,9 +13,6 @@ class Database {
     }
     
     /**    public function cleanup() {
-        // Clean expired sessions
-        $this->query("DELETE FROM sessions WHERE expires_at < NOW()");
-        
         // Clean expired user sessions
         $this->query("DELETE FROM user_sessions WHERE expires_at < NOW()");
         
@@ -205,188 +202,31 @@ class Database {
     }
     
     public function createTables() {
-        $tables = [
-            'users' => "
-                CREATE TABLE IF NOT EXISTS users (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    username VARCHAR(50) UNIQUE NOT NULL,
-                    email VARCHAR(100) UNIQUE NOT NULL,
-                    password_hash VARCHAR(255) NOT NULL,
-                    avatar VARCHAR(255) DEFAULT NULL,
-                    display_name VARCHAR(100) NOT NULL,
-                    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    is_online BOOLEAN DEFAULT FALSE,
-                    email_verified BOOLEAN DEFAULT FALSE,
-                    verification_token VARCHAR(255) DEFAULT NULL,
-                    reset_token VARCHAR(255) DEFAULT NULL,
-                    reset_token_expires TIMESTAMP NULL,
-                    failed_login_attempts INT DEFAULT 0,
-                    locked_until TIMESTAMP NULL,
-                    google_id VARCHAR(255) DEFAULT NULL,
-                    google_email VARCHAR(255) DEFAULT NULL,
-                    google_name VARCHAR(255) DEFAULT NULL,
-                    google_picture VARCHAR(500) DEFAULT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    INDEX idx_username (username),
-                    INDEX idx_email (email),
-                    INDEX idx_last_seen (last_seen),
-                    INDEX idx_google_id (google_id)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ",
+        try {
+            // Instead of maintaining duplicate table definitions,
+            // use the comprehensive create_tables.php script
+            $scriptPath = __DIR__ . '/../scripts/create_tables.php';
             
-            'messages' => "
-                CREATE TABLE IF NOT EXISTS messages (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    content TEXT,
-                    message_type ENUM('text', 'image', 'video', 'audio', 'file') DEFAULT 'text',
-                    file_path VARCHAR(500) DEFAULT NULL,
-                    file_size INT DEFAULT NULL,
-                    file_type VARCHAR(100) DEFAULT NULL,
-                    is_encrypted BOOLEAN DEFAULT FALSE,
-                    reply_to_id INT DEFAULT NULL,
-                    edited_at TIMESTAMP NULL,
-                    deleted_at TIMESTAMP NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY (reply_to_id) REFERENCES messages(id) ON DELETE SET NULL,
-                    INDEX idx_user_id (user_id),
-                    INDEX idx_created_at (created_at),
-                    INDEX idx_reply_to (reply_to_id)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ",
-            
-            'sessions' => "
-                CREATE TABLE IF NOT EXISTS sessions (
-                    id VARCHAR(128) PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    ip_address VARCHAR(45) NOT NULL,
-                    user_agent TEXT,
-                    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    expires_at TIMESTAMP NOT NULL,
-                    is_remember_token BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    INDEX idx_user_id (user_id),
-                    INDEX idx_expires_at (expires_at)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ",
-            
-            'user_sessions' => "
-                CREATE TABLE IF NOT EXISTS user_sessions (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    session_id VARCHAR(128) NOT NULL UNIQUE,
-                    user_id INT NOT NULL,
-                    login_type VARCHAR(50) DEFAULT 'password',
-                    expires_at TIMESTAMP NOT NULL,
-                    ip_address VARCHAR(45) NOT NULL,
-                    user_agent TEXT,
-                    is_active BOOLEAN DEFAULT TRUE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    INDEX idx_user_id (user_id),
-                    INDEX idx_session_id (session_id),
-                    INDEX idx_expires_at (expires_at),
-                    INDEX idx_is_active (is_active)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ",
-            
-            'user_settings' => "
-                CREATE TABLE IF NOT EXISTS user_settings (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    setting_key VARCHAR(100) NOT NULL,
-                    setting_value TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    UNIQUE KEY unique_user_setting (user_id, setting_key),
-                    INDEX idx_user_id (user_id)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ",
-            
-            'file_uploads' => "
-                CREATE TABLE IF NOT EXISTS file_uploads (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    message_id INT DEFAULT NULL,
-                    group_id INT DEFAULT NULL,
-                    original_filename VARCHAR(255) NOT NULL,
-                    stored_filename VARCHAR(255) NOT NULL,
-                    file_path VARCHAR(500) NOT NULL,
-                    file_type VARCHAR(100) NOT NULL,
-                    file_size INT NOT NULL,
-                    file_hash VARCHAR(64) DEFAULT NULL,
-                    thumbnail_path VARCHAR(500) DEFAULT NULL,
-                    mime_type VARCHAR(100) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
-                    INDEX idx_user_id (user_id),
-                    INDEX idx_message_id (message_id),
-                    INDEX idx_file_hash (file_hash),
-                    INDEX idx_created_at (created_at)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ",
-            
-            'rate_limits' => "
-                CREATE TABLE IF NOT EXISTS rate_limits (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    identifier VARCHAR(255) NOT NULL,
-                    endpoint VARCHAR(100) NOT NULL,
-                    window_start TIMESTAMP NOT NULL,
-                    request_count INT DEFAULT 1,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_identifier_endpoint (identifier, endpoint),
-                    INDEX idx_window_start (window_start)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ",
-            
-            'message_reactions' => "
-                CREATE TABLE IF NOT EXISTS message_reactions (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    message_id INT NOT NULL,
-                    user_id INT NOT NULL,
-                    reaction VARCHAR(10) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    UNIQUE KEY unique_reaction (message_id, user_id, reaction),
-                    INDEX idx_message_id (message_id)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ",
-            
-            'audit_logs' => "
-                CREATE TABLE IF NOT EXISTS audit_logs (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT DEFAULT NULL,
-                    action VARCHAR(100) NOT NULL,
-                    details JSON DEFAULT NULL,
-                    ip_address VARCHAR(45) NOT NULL,
-                    user_agent TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-                    INDEX idx_user_id (user_id),
-                    INDEX idx_action (action),
-                    INDEX idx_created_at (created_at)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            "
-        ];
-        
-        foreach ($tables as $tableName => $sql) {
-            try {
-                $this->connection->exec($sql);
-                error_log("Table '$tableName' created successfully");
-            } catch (PDOException $e) {
-                error_log("Failed to create table '$tableName': " . $e->getMessage());
-                throw new Exception("Failed to create database tables");
+            if (!file_exists($scriptPath)) {
+                throw new Exception("Table creation script not found at: $scriptPath");
             }
+            
+            // Execute the script directly via include
+            // Pass a parameter to bypass interactive confirmation
+            global $argv;
+            $argv[1] = 'skip-confirmation';
+            
+            ob_start();
+            include $scriptPath;
+            $output = ob_get_clean();
+            
+            error_log("Tables created successfully via create_tables.php script");
+            
+            return true;
+        } catch (Exception $e) {
+            error_log("Failed to create database tables: " . $e->getMessage());
+            throw new Exception("Failed to create database tables: " . $e->getMessage());
         }
-        
-        return true;
     }
     
     public function cleanup() {
