@@ -234,7 +234,7 @@ class VirtualScrollMessaging {
         // Message content
         messageElement.innerHTML = `
             <div class="message-header">
-                <img src="${message.avatar_url || '/assets/images/default-avatar.png'}" 
+                <img src="${message.avatar || '/assets/images/default-avatar.png'}" 
                      alt="${message.username}" class="message-avatar" loading="lazy">
                 <span class="message-username">${this.escapeHtml(message.username)}</span>
                 <span class="message-time">${this.formatTime(message.created_at)}</span>
