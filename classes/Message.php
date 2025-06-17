@@ -235,7 +235,7 @@ class Message {
         }
         
         // Add or update reaction
-        $sql = "INSERT INTO message_reactions (message_id, user_id, reaction) 
+        $sql = "INSERT INTO message_reactions (message_id, user_id, emoji) 
                 VALUES (?, ?, ?) 
                 ON DUPLICATE KEY UPDATE created_at = NOW()";
         
@@ -245,7 +245,7 @@ class Message {
     }
     
     public function removeReaction($messageId, $userId, $reaction) {
-        $sql = "DELETE FROM message_reactions WHERE message_id = ? AND user_id = ? AND reaction = ?";
+        $sql = "DELETE FROM message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?";
         $this->db->query($sql, [$messageId, $userId, $reaction]);
         
         return $this->getMessageReactions($messageId);
@@ -404,7 +404,7 @@ class Message {
     }
     
     private function logMessageEvent($userId, $action, $details = []) {
-        $sql = "INSERT INTO audit_logs (user_id, action, details, ip_address, user_agent) 
+        $sql = "INSERT INTO audit_logs (user_id, event_type, event_data, ip_address, user_agent) 
                 VALUES (?, ?, ?, ?, ?)";
         
         $this->db->query($sql, [
@@ -425,7 +425,7 @@ class Message {
      */
     public function validateGroupMembership($userId, $groupId) {
         // Check if the group exists
-        $stmt = $this->db->prepare("SELECT id FROM group_chats WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT id FROM groups WHERE id = ?");
         $stmt->execute([$groupId]);
         if ($stmt->rowCount() === 0) {
             return false;
@@ -443,7 +443,7 @@ class Message {
         $stmt->execute([$groupId, $userId]);
         if ($stmt->rowCount() === 0) {
             // Check if the group is public, in which case they can send messages without being a member
-            $stmt = $this->db->prepare("SELECT is_public FROM group_chats WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT is_public FROM groups WHERE id = ?");
             $stmt->execute([$groupId]);
             $group = $stmt->fetch(PDO::FETCH_ASSOC);
             return $group && $group['is_public'];
@@ -475,7 +475,7 @@ class Message {
         
         // Create group
         $stmt = $this->db->prepare("
-            INSERT INTO group_chats (name, description, created_by, is_public, avatar)
+            INSERT INTO groups (name, description, created_by, is_public, avatar)
             VALUES (?, ?, ?, ?, ?)
         ");
         $stmt->execute([
@@ -496,7 +496,7 @@ class Message {
         $stmt->execute([$groupId, $creatorId]);
         
         // Return the created group
-        $stmt = $this->db->prepare("SELECT * FROM group_chats WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT * FROM groups WHERE id = ?");
         $stmt->execute([$groupId]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
@@ -512,7 +512,7 @@ class Message {
      */
     public function addGroupMember($groupId, $userId, $addedBy, $isAdmin = false) {
         // Validate the group exists
-        $stmt = $this->db->prepare("SELECT id, created_by FROM group_chats WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT id, created_by FROM groups WHERE id = ?");
         $stmt->execute([$groupId]);
         if ($stmt->rowCount() === 0) {
             throw new Exception("Group not found");
@@ -562,7 +562,7 @@ class Message {
      */
     public function removeGroupMember($groupId, $userId, $removedBy) {
         // Validate the group exists
-        $stmt = $this->db->prepare("SELECT id, created_by FROM group_chats WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT id, created_by FROM groups WHERE id = ?");
         $stmt->execute([$groupId]);
         if ($stmt->rowCount() === 0) {
             throw new Exception("Group not found");
@@ -604,7 +604,7 @@ class Message {
      */
     public function banGroupMember($groupId, $userId, $bannedBy, $reason = '') {
         // Validate the group exists
-        $stmt = $this->db->prepare("SELECT id, created_by FROM group_chats WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT id, created_by FROM groups WHERE id = ?");
         $stmt->execute([$groupId]);
         if ($stmt->rowCount() === 0) {
             throw new Exception("Group not found");
@@ -653,7 +653,7 @@ class Message {
      */
     public function updateGroupSettings($groupId, $userId, $settings) {
         // Validate the group exists
-        $stmt = $this->db->prepare("SELECT id, created_by FROM group_chats WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT id, created_by FROM groups WHERE id = ?");
         $stmt->execute([$groupId]);
         if ($stmt->rowCount() === 0) {
             throw new Exception("Group not found");
@@ -700,14 +700,14 @@ class Message {
         // Update the group
         $params[] = $groupId;
         $stmt = $this->db->prepare("
-            UPDATE group_chats 
+            UPDATE groups 
             SET " . implode(', ', $updateFields) . "
             WHERE id = ?
         ");
         $stmt->execute($params);
         
         // Return the updated group
-        $stmt = $this->db->prepare("SELECT * FROM group_chats WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT * FROM groups WHERE id = ?");
         $stmt->execute([$groupId]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
@@ -722,7 +722,7 @@ class Message {
         $stmt = $this->db->prepare("
             SELECT g.*, gm.is_admin, 
                    (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count
-            FROM group_chats g
+            FROM groups g
             JOIN group_members gm ON g.id = gm.group_id
             WHERE gm.user_id = ?
             ORDER BY g.updated_at DESC
@@ -740,7 +740,7 @@ class Message {
         $stmt = $this->db->prepare("
             SELECT g.*, 
                    (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count
-            FROM group_chats g
+            FROM groups g
             WHERE g.is_public = 1
             ORDER BY g.updated_at DESC
         ");
@@ -1085,7 +1085,7 @@ class Message {
      */
     public function createGroupInviteLink($groupId, $createdBy, $maxUses = null, $expiresAt = null) {
         // Validate group
-        $sql = "SELECT id, created_by FROM group_chats WHERE id = ?";
+        $sql = "SELECT id, created_by FROM groups WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$groupId]);
         
@@ -1187,7 +1187,7 @@ class Message {
         $stmt->execute([$invite['id']]);
         
         // Get group details
-        $sql = "SELECT * FROM group_chats WHERE id = ?";
+        $sql = "SELECT * FROM groups WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$invite['group_id']]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1248,7 +1248,7 @@ class Message {
      */
     public function moderateGroupUser($groupId, $userId, $moderatorId, $actionType, $duration = null, $reason = null) {
         // Validate group
-        $sql = "SELECT id, created_by FROM group_chats WHERE id = ?";
+        $sql = "SELECT id, created_by FROM groups WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$groupId]);
         
