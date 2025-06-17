@@ -155,9 +155,16 @@ class RealTimeFeatures {
                     const messageElement = entry.target;
                     const messageId = messageElement.dataset.messageId;
                     const senderId = messageElement.dataset.senderId;
+                    const groupId = messageElement.dataset.groupId;
                     
-                    if (messageId && senderId && !messageElement.dataset.read) {
-                        this.markMessageAsRead(messageId, senderId);
+                    if (messageId && !messageElement.dataset.read) {
+                        if (groupId) {
+                            // This is a group message
+                            this.markGroupMessageAsRead(messageId, groupId);
+                        } else if (senderId) {
+                            // This is a direct message
+                            this.markMessageAsRead(messageId, senderId);
+                        }
                         messageElement.dataset.read = 'true';
                     }
                 }
@@ -197,6 +204,66 @@ class RealTimeFeatures {
             }
         } catch (error) {
             console.error('Failed to mark message as read:', error);
+        }
+    }
+    
+    async markGroupMessageAsRead(messageId, groupId) {
+        try {
+            const formData = new FormData();
+            formData.append('message_id', messageId);
+            formData.append('group_id', groupId);
+            formData.append('csrf_token', this.getCSRFToken());
+            
+            const response = await fetch('/api/group-read-receipts.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                // Update UI to show read receipt
+                this.updateGroupReadReceiptDisplay(messageId, true);
+            }
+        } catch (error) {
+            console.error('Failed to mark group message as read:', error);
+        }
+    }
+    
+    async getGroupMessageReadReceipts(messageId, groupId) {
+        try {
+            const response = await fetch(`/api/group-read-receipts.php?message_id=${messageId}&group_id=${groupId}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                return data.read_receipts;
+            }
+            return [];
+        } catch (error) {
+            console.error('Failed to get group message read receipts:', error);
+            return [];
+        }
+    }
+    
+    updateGroupReadReceiptDisplay(messageId, isRead) {
+        const messageElement = document.querySelector(`.message-item[data-message-id="${messageId}"]`);
+        if (messageElement) {
+            if (isRead) {
+                messageElement.classList.add('read');
+                
+                // Add or update read indicator
+                let readIndicator = messageElement.querySelector('.read-indicator');
+                if (!readIndicator) {
+                    readIndicator = document.createElement('span');
+                    readIndicator.className = 'read-indicator';
+                    readIndicator.title = 'Read';
+                    readIndicator.innerHTML = '<i class="fas fa-check-double"></i>';
+                    
+                    const messageFooter = messageElement.querySelector('.message-footer');
+                    if (messageFooter) {
+                        messageFooter.appendChild(readIndicator);
+                    }
+                }
+            }
         }
     }
 
