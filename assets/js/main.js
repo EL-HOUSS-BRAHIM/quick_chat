@@ -13,6 +13,10 @@ import errorHandler from './core/error-handler.js';
 import themeManager from './core/theme-manager.js';
 import browserCompatibility from './core/browser-compatibility.js';
 
+// Import UI components
+import AccessibilityManager from './ui/accessibility.js';
+import UploadProgressManager from './ui/upload-progress.js';
+
 // Import API client
 import apiClient from './api/api-client.js';
 
