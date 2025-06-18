@@ -2,13 +2,15 @@
  * Progressive Web App (PWA) Manager
  * Handles service worker registration, offline functionality, and app installation
  */
+import { Workbox } from 'workbox-window';
+
 class PWAManager {
     constructor() {
-        this.serviceWorker = null;
+        this.workbox = null;
         this.isOnline = navigator.onLine;
         this.installPrompt = null;
         this.offlineQueue = [];
-        this.cacheVersion = 'v1.0.0';
+        this.cacheVersion = 'v3.0.0';
         
         this.init();
     }
@@ -28,23 +30,41 @@ class PWAManager {
         }
 
         try {
-            const registration = await navigator.serviceWorker.register('/sw.js', {
-                scope: '/'
+            // Use workbox-window for better service worker management
+            this.workbox = new Workbox('/sw.js', { scope: '/' });
+            
+            // Listen for new updates
+            this.workbox.addEventListener('waiting', (event) => {
+                console.log('A new service worker has installed, but it cannot activate until all tabs running the current version have been closed.');
+                this.showUpdateAvailable();
             });
-
-            this.serviceWorker = registration;
-
-            // Update service worker when new version is available
-            registration.addEventListener('updatefound', () => {
-                const newWorker = registration.installing;
+            
+            // Listen for service worker controlling the page
+            this.workbox.addEventListener('controlling', (event) => {
+                console.log('A new service worker has taken control of the page.');
+                window.location.reload();
+            });
+            
+            // Listen for service worker activation
+            this.workbox.addEventListener('activated', (event) => {
+                console.log('Service worker activated successfully');
                 
-                newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        this.showUpdateAvailable();
-                    }
-                });
+                // If there were offline resources to cache, claim clients and cache them
+                if (event.isUpdate) {
+                    console.log('Service worker updated');
+                } else {
+                    this.cacheEssentialResources();
+                }
             });
-
+            
+            // Listen for service worker installation errors
+            this.workbox.addEventListener('redundant', (event) => {
+                console.error('Service worker installation failed');
+            });
+            
+            // Register the service worker
+            const registration = await this.workbox.register();
+            
             // Listen for messages from service worker
             navigator.serviceWorker.addEventListener('message', (event) => {
                 this.handleServiceWorkerMessage(event.data);
@@ -519,11 +539,16 @@ class PWAManager {
 
     async updateApp() {
         try {
-            const registration = await navigator.serviceWorker.ready;
-            await registration.update();
-            
-            // Force reload to use new version
-            window.location.reload();
+            if (this.workbox) {
+                // Send message to service worker to skip waiting
+                this.workbox.messageSkipWaiting();
+            } else {
+                const registration = await navigator.serviceWorker.ready;
+                await registration.update();
+                
+                // Force reload to use new version
+                window.location.reload();
+            }
         } catch (error) {
             console.error('Failed to update app:', error);
         }
