@@ -71,8 +71,13 @@ class ThemeManager {
     this.setTheme(newTheme);
     
     // Show toast notification
-    if (window.utils && typeof window.utils.showToast === 'function') {
-      window.utils.showToast(`${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} theme activated`);
+    try {
+      const utils = require('./utils');
+      utils.showToast(`${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} theme activated`);
+    } catch (e) {
+      if (window.utils && typeof window.utils.showToast === 'function') {
+        window.utils.showToast(`${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} theme activated`);
+      }
     }
   }
 
