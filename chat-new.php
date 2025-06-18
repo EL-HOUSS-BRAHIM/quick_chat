@@ -29,6 +29,7 @@ if ($targetUserId) {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="assets/css/modern-chat.css" rel="stylesheet">
     <link href="assets/css/group-chat.css" rel="stylesheet">
+    <link href="assets/css/message-reactions.css" rel="stylesheet">
 </head>
 <body class="<?php echo $pageClass; ?>">
     <div class="chat-app" id="chatApp">
