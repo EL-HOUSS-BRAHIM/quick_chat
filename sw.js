@@ -1,36 +1,95 @@
 /**
  * Enhanced Service Worker
  * Provides offline functionality, caching, and background sync
- * Version: 2.0.0
+ * Version: 3.0.0
  */
 
-// Cache names with versioning
-const CACHE_NAMES = {
-    static: 'quick-chat-static-v2.0.0',
-    assets: 'quick-chat-assets-v2.0.0',
-    api: 'quick-chat-api-v2.0.0',
-    dynamic: 'quick-chat-dynamic-v2.0.0'
-};
+// Import Workbox from CDN
+importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.0.0/workbox-sw.js');
 
-// Cache expiration times (in milliseconds)
-const CACHE_EXPIRATION = {
-    api: 5 * 60 * 1000, // 5 minutes
-    dynamic: 7 * 24 * 60 * 60 * 1000 // 7 days
-};
+// Use workbox if available, otherwise fall back to manual implementation
+if (workbox) {
+  console.log(`Workbox is loaded`);
+  
+  // Workbox // Message handling
+self.addEventListener('message', (event) => {
+    console.log('Message received in service worker:', event.data);
+    
+    if (!event.data || !event.data.type) {
+        return;
+    }
+    
+    switch (event.data.type) {
+        case 'SKIP_WAITING':
+            self.skipWaiting();
+            break;
+            
+        case 'CACHE_URLS':
+            if (event.data.urls && Array.isArray(event.data.urls)) {
+                event.waitUntil(
+                    caches.open(CACHE_NAME).then((cache) => {
+                        return cache.addAll(event.data.urls);
+                    })
+                );
+            }
+            break;
+            
+        case 'CLEAR_CACHE':
+            event.waitUntil(
+                caches.keys().then((cacheNames) => {
+                    return Promise.all(
+                        cacheNames.map((cacheName) => {
+                            return caches.delete(cacheName);
+                        })
+                    );
+                })
+            );
+            break;
+    }
+});
 
-const OFFLINE_URL = '/offline.html';
+// Helper function to open IndexedDB
+async function openDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('quickChatOffline', 1);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            
+            if (!db.objectStoreNames.contains('failedRequests')) {
+                db.createObjectStore('failedRequests', { keyPath: 'id', autoIncrement: true });
+            }
+        };
+    });
+}nfiguration
+  workbox.setConfig({
+    debug: false
+  });
 
-// Files to cache immediately in static cache
-const STATIC_CACHE_URLS = [
-    '/',
-    '/offline.html',
-    '/index.php',
-    '/dashboard.php',
-    '/manifest.json',
-    '/assets/images/default-avatar.svg',
-    '/assets/images/icon-192.png',
-    '/assets/images/icon-512.png'
-];
+  const { precacheAndRoute } = workbox.precaching;
+  const { registerRoute } = workbox.routing;
+  const { CacheFirst, NetworkFirst, StaleWhileRevalidate } = workbox.strategies;
+  const { ExpirationPlugin } = workbox.expiration;
+  const { CacheableResponsePlugin } = workbox.cacheableResponse;
+
+  // Precache essential resources
+  precacheAndRoute([
+    { url: '/', revision: '3.0.0' },
+    { url: '/offline.html', revision: '3.0.0' },
+    { url: '/index.php', revision: '3.0.0' },
+    { url: '/dashboard.php', revision: '3.0.0' },
+    { url: '/manifest.json', revision: '3.0.0' },
+    { url: '/assets/images/default-avatar.svg', revision: '3.0.0' },
+    { url: '/assets/js/dist/app.bundle.js', revision: '3.0.0' },
+    { url: '/assets/js/dist/common.bundle.js', revision: '3.0.0' },
+    { url: '/assets/css/styles.css', revision: '3.0.0' },
+    { url: '/assets/images/icon-192.png', revision: '3.0.0' },
+    { url: '/assets/images/icon-512.png', revision: '3.0.0' }
+  ]);
+}
 
 // CSS and JS assets to cache in assets cache
 const ASSETS_CACHE_URLS = [
@@ -62,7 +121,6 @@ const ASSETS_CACHE_URLS = [
 const RUNTIME_CACHE_URLS = [
     '/assets/',
     '/uploads/'
-];
 ];
 
 self.addEventListener('install', (event) => {
