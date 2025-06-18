@@ -5,6 +5,7 @@ class ModernDashboard {
     constructor(options = {}) {
         this.currentUserId = options.currentUserId;
         this.apiBase = options.apiBase || 'api/';
+        this.csrfToken = options.csrfToken || '';
         
         // State
         this.currentSection = 'overview';
@@ -176,7 +177,8 @@ class ModernDashboard {
             // Load common data
             await Promise.all([
                 this.loadOnlineUsers(),
-                this.loadRecentActivity()
+                this.loadRecentActivity(),
+                this.loadGroups()
             ]);
             
         } catch (error) {
@@ -261,6 +263,20 @@ class ModernDashboard {
             }
         } catch (error) {
             console.error('Failed to load contacts:', error);
+        }
+    }
+    
+    async loadGroups() {
+        try {
+            const response = await fetch(`${this.apiBase}groups.php?action=list`);
+            const data = await response.json();
+            
+            if (data.groups) {
+                this.renderGroups(data.groups);
+            }
+        } catch (error) {
+            console.error('Error loading groups:', error);
+            this.showToast('Failed to load groups', 'error');
         }
     }
     
@@ -359,6 +375,44 @@ class ModernDashboard {
         `).join('');
         
         this.elements.contactsGrid.innerHTML = contactsHTML || '<div class="empty-state">No contacts yet</div>';
+    }
+    
+    renderGroups(groups) {
+        const groupsContainer = document.getElementById('groupsList');
+        if (!groupsContainer) return;
+        
+        groupsContainer.innerHTML = '';
+        
+        if (groups.length === 0) {
+            groupsContainer.innerHTML = '<div class="empty-state">No groups yet</div>';
+            return;
+        }
+        
+        groups.forEach(group => {
+            const groupElement = document.createElement('div');
+            groupElement.className = 'group-item';
+            groupElement.setAttribute('data-group-id', group.id);
+            
+            groupElement.innerHTML = `
+                <div class="group-avatar">
+                    <img src="${group.avatar || 'assets/images/default-group.svg'}" alt="${group.name}">
+                </div>
+                <div class="group-info">
+                    <h4>${group.name}</h4>
+                    <p>${group.member_count || 0} members</p>
+                </div>
+                <div class="group-actions">
+                    <button class="action-btn" title="Chat" onclick="window.location.href='chat-new.php?group=${group.id}'">
+                        <i class="fas fa-comments"></i>
+                    </button>
+                    <button class="action-btn" title="Invite" onclick="showInviteModal(${group.id})">
+                        <i class="fas fa-user-plus"></i>
+                    </button>
+                </div>
+            `;
+            
+            groupsContainer.appendChild(groupElement);
+        });
     }
     
     // Navigation
@@ -624,14 +678,72 @@ class ModernDashboard {
     showModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
-            modal.classList.add('show');
+            modal.classList.add('active');
         }
     }
     
     closeModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
-            modal.classList.remove('show');
+            modal.classList.remove('active');
+        }
+    }
+    
+    getCSRFToken() {
+        // If we have it stored as a property
+        if (this.csrfToken) {
+            return this.csrfToken;
+        }
+        
+        // Try to get from the meta tag
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        if (csrfMeta) {
+            return csrfMeta.getAttribute('content');
+        }
+        
+        // Try to get from a hidden input field
+        const csrfInput = document.querySelector('input[name="csrf_token"]');
+        if (csrfInput) {
+            return csrfInput.value;
+        }
+        if (this.csrfToken) {
+            return this.csrfToken;
+        }
+        
+        // Check if it's stored in sessionStorage
+        const token = sessionStorage.getItem('csrf_token');
+        if (token) {
+            return token;
+        }
+        
+        console.warn('CSRF token not found');
+        return '';
+    }
+    
+    showLoading(message = 'Loading...') {
+        // Create or get loading overlay
+        let loadingOverlay = document.getElementById('loadingOverlay');
+        
+        if (!loadingOverlay) {
+            loadingOverlay = document.createElement('div');
+            loadingOverlay.id = 'loadingOverlay';
+            loadingOverlay.className = 'loading-overlay';
+            loadingOverlay.innerHTML = `
+                <div class="loading-spinner"></div>
+                <div class="loading-message"></div>
+            `;
+            document.body.appendChild(loadingOverlay);
+        }
+        
+        // Set message and show
+        loadingOverlay.querySelector('.loading-message').textContent = message;
+        loadingOverlay.classList.add('active');
+    }
+    
+    hideLoading() {
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        if (loadingOverlay) {
+            loadingOverlay.classList.remove('active');
         }
     }
     
@@ -911,20 +1023,113 @@ function createGroup() {
         return;
     }
     
-    // Here you would normally create the group via API
-    // For now, just show success message
-    if (window.dashboard && window.dashboard.showToast) {
-        window.dashboard.showToast('Group created successfully!', 'success');
+    // Get the selected members
+    const selectedMembers = Array.from(document.querySelectorAll('.selected-member'))
+        .map(el => el.getAttribute('data-user-id'));
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('action', 'create');
+    formData.append('name', groupName);
+    formData.append('description', groupDescription || '');
+    formData.append('is_public', '0'); // Default to private group
+    
+    // Add CSRF token if available
+    if (window.dashboard && window.dashboard.getCSRFToken) {
+        formData.append('csrf_token', window.dashboard.getCSRFToken());
     }
     
-    closeModal('newGroupModal');
+    // Show loading indicator
+    if (window.dashboard && window.dashboard.showLoading) {
+        window.dashboard.showLoading('Creating group...');
+    }
+    
+    // Send API request
+    fetch('api/groups.php', {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to create group');
+        }
+        
+        // Close modal
+        closeModal('newGroupModal');
+        
+        // Show success message
+        if (window.dashboard && window.dashboard.showToast) {
+            window.dashboard.showToast('Group created successfully!', 'success');
+        }
+        
+        // Add members if there are any
+        if (selectedMembers.length > 0 && data.group && data.group.id) {
+            addMembersToGroup(data.group.id, selectedMembers);
+        }
+        
+        // Refresh groups list
+        if (window.dashboard && window.dashboard.loadGroups) {
+            window.dashboard.loadGroups();
+        }
+    })
+    .catch(error => {
+        console.error('Error creating group:', error);
+        if (window.dashboard && window.dashboard.showToast) {
+            window.dashboard.showToast('Failed to create group: ' + error.message, 'error');
+        }
+    })
+    .finally(() => {
+        // Hide loading indicator
+        if (window.dashboard && window.dashboard.hideLoading) {
+            window.dashboard.hideLoading();
+        }
+    });
 }
 
 function addMember(userId) {
     console.log('Add member:', userId);
-    // Implementation for adding member to group
-    if (window.dashboard && window.dashboard.showToast) {
-        window.dashboard.showToast('Member added to group!', 'success');
+    
+    // Get user details from the DOM
+    const userElement = document.querySelector(`.user-item[data-user-id="${userId}"]`);
+    if (!userElement) return;
+    
+    const userName = userElement.querySelector('.user-name')?.textContent || 'User';
+    const userAvatar = userElement.querySelector('img')?.src || 'assets/images/default-avatar.svg';
+    
+    // Check if user is already selected
+    const selectedContainer = document.getElementById('selectedMembers');
+    if (!selectedContainer) return;
+    
+    if (selectedContainer.querySelector(`[data-user-id="${userId}"]`)) {
+        // User already selected
+        return;
+    }
+    
+    // Create selected member element
+    const memberElement = document.createElement('div');
+    memberElement.className = 'selected-member';
+    memberElement.setAttribute('data-user-id', userId);
+    memberElement.innerHTML = `
+        <img src="${userAvatar}" alt="${userName}">
+        <span>${userName}</span>
+        <button onclick="removeMember(${userId})">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    // Add to selected members
+    selectedContainer.appendChild(memberElement);
+}
+
+function removeMember(userId) {
+    const selectedContainer = document.getElementById('selectedMembers');
+    if (!selectedContainer) return;
+    
+    const memberElement = selectedContainer.querySelector(`[data-user-id="${userId}"]`);
+    if (memberElement) {
+        memberElement.remove();
     }
 }
 
@@ -952,3 +1157,116 @@ function logout() {
 document.addEventListener('DOMContentLoaded', () => {
     // Dashboard will be initialized from the main script tag in the HTML
 });
+
+function closeModalOnOutsideClick(event, modalId) {
+    const modal = document.getElementById(modalId);
+    if (event.target === modal) {
+        closeModal(modalId);
+    }
+}
+
+function addMembersToGroup(groupId, memberIds) {
+    if (!groupId || !memberIds || memberIds.length === 0) return;
+    
+    let addedCount = 0;
+    let failedCount = 0;
+    
+    // Add each member one by one
+    const addMemberPromises = memberIds.map(userId => {
+        const formData = new FormData();
+        formData.append('action', 'add_member');
+        formData.append('group_id', groupId);
+        formData.append('user_id', userId);
+        formData.append('role', 'member'); // Regular member by default
+        
+        // Add CSRF token if available
+        if (window.dashboard && window.dashboard.getCSRFToken) {
+            formData.append('csrf_token', window.dashboard.getCSRFToken());
+        }
+        
+        return fetch('api/groups.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to add member');
+            }
+            
+            addedCount++;
+        })
+        .catch(error => {
+            console.error('Error adding member:', error);
+            failedCount++;
+        });
+    });
+    
+    // Wait for all add member requests to complete
+    Promise.all(addMemberPromises)
+    .then(() => {
+        if (addedCount > 0) {
+            if (window.dashboard && window.dashboard.showToast) {
+                window.dashboard.showToast(`Added ${addedCount} member(s) to the group`, 'success');
+            }
+        }
+        if (failedCount > 0) {
+            if (window.dashboard && window.dashboard.showToast) {
+                window.dashboard.showToast(`Failed to add ${failedCount} member(s)`, 'error');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error in addMembersToGroup:', error);
+    });
+}
+
+// Search members function for group creation
+function searchMembers() {
+    const query = document.getElementById('memberSearch').value.trim();
+    const resultsContainer = document.getElementById('memberResults');
+    
+    if (!query) {
+        resultsContainer.innerHTML = '';
+        return;
+    }
+    
+    // Show loading
+    resultsContainer.innerHTML = '<div class="loading">Searching...</div>';
+    
+    // Search users via API
+    fetch(`api/users.php?action=search&query=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            resultsContainer.innerHTML = '';
+            
+            if (!data.users || data.users.length === 0) {
+                resultsContainer.innerHTML = '<div class="no-results">No users found</div>';
+                return;
+            }
+            
+            data.users.forEach(user => {
+                const userElement = document.createElement('div');
+                userElement.className = 'user-item';
+                userElement.setAttribute('data-user-id', user.id);
+                userElement.innerHTML = `
+                    <div class="user-avatar">
+                        <img src="${user.avatar || 'assets/images/default-avatar.svg'}" alt="${user.display_name || user.username}">
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">${user.display_name || user.username}</span>
+                        <span class="user-status">${user.is_online ? 'Online' : 'Offline'}</span>
+                    </div>
+                    <button class="add-btn" onclick="addMember(${user.id})">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                `;
+                resultsContainer.appendChild(userElement);
+            });
+        })
+        .catch(error => {
+            console.error('Error searching users:', error);
+            resultsContainer.innerHTML = '<div class="error">Error searching users</div>';
+        });
+}
