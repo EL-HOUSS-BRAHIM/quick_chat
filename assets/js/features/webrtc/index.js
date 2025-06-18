@@ -14,6 +14,7 @@ import DeviceManager from './device-manager.js';
 import CallUI from './ui.js';
 import CallRecorder from './call-recorder.js';
 import ConnectionMonitor from './connection-monitor.js';
+import ConnectionPool from './connection-pool.js';
 
 class WebRTCModule {
   constructor(options = {}) {
