@@ -15,6 +15,9 @@ require_once __DIR__ . '/classes/User.php';
 $messageClass = new Message();
 $userClass = new User();
 
+// Get CSRF token
+$csrfToken = AuthChecker::getCSRFToken();
+
 // Get statistics
 $totalMessages = $messageClass->getUserMessageCount($currentUser['id']);
 $onlineUsers = $userClass->getOnlineUsers();
@@ -28,6 +31,7 @@ $totalUsers = $userClass->getTotalUserCount();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?php echo htmlspecialchars($csrfToken); ?>">
     <title><?php echo $pageTitle; ?></title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -61,8 +65,12 @@ $totalUsers = $userClass->getTotalUserCount();
                     <span>Messages</span>
                 </a>
                 <a href="#" class="menu-item" data-section="contacts">
-                    <i class="fas fa-users"></i>
+                    <i class="fas fa-address-book"></i>
                     <span>Contacts</span>
+                </a>
+                <a href="#" class="menu-item" data-section="groups">
+                    <i class="fas fa-users"></i>
+                    <span>Groups</span>
                 </a>
                 <a href="#" class="menu-item" data-section="settings">
                     <i class="fas fa-cog"></i>
@@ -344,6 +352,31 @@ $totalUsers = $userClass->getTotalUserCount();
                     </div>
                 </section>
 
+                <!-- Groups Section -->
+                <section class="content-section" id="groupsSection">
+                    <div class="section-header">
+                        <h2>My Groups</h2>
+                        <div class="section-actions">
+                            <button class="action-btn" onclick="showModal('newGroupModal')">
+                                <i class="fas fa-plus"></i> New Group
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="section-content">
+                        <div class="groups-container">
+                            <div class="groups-list" id="groupsList">
+                                <!-- Groups will be loaded here -->
+                                <div class="empty-state">
+                                    <i class="fas fa-users"></i>
+                                    <p>No groups yet</p>
+                                    <button class="primary-btn" onclick="showModal('newGroupModal')">Create Group</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Settings Section -->
                 <section class="content-section" id="settingsSection">
                     <div class="section-header">
@@ -449,7 +482,7 @@ $totalUsers = $userClass->getTotalUserCount();
     </div>
 
     <!-- Modals -->
-    <div class="modal" id="newGroupModal">
+    <div class="modal" id="newGroupModal" onclick="closeModalOnOutsideClick(event, 'newGroupModal')">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Create New Group</h3>
@@ -470,9 +503,10 @@ $totalUsers = $userClass->getTotalUserCount();
                     <div class="form-group">
                         <label>Add Members</label>
                         <div class="member-search">
-                            <input type="text" id="memberSearch" placeholder="Search users...">
+                            <input type="text" id="memberSearch" placeholder="Search users..." oninput="searchMembers()">
                             <div class="member-results" id="memberResults"></div>
                         </div>
+                        <div class="selected-members" id="selectedMembers"></div>
                     </div>
                 </form>
             </div>
@@ -489,7 +523,8 @@ $totalUsers = $userClass->getTotalUserCount();
         // Initialize dashboard
         const dashboard = new ModernDashboard({
             currentUserId: <?php echo $currentUser['id']; ?>,
-            apiBase: 'api/'
+            apiBase: 'api/',
+            csrfToken: '<?php echo htmlspecialchars($csrfToken); ?>'
         });
         
         dashboard.init();
