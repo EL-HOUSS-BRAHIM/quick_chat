@@ -1,9 +1,21 @@
 /**
- * Enhanced File Management System
- * Provides comprehensive file handling, organization, and media processing
+ * Enhanced File Management System - DEPRECATED
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./features/chat/file-uploader.js
  */
+
+// Import the new implementation
+import FileUploader from './features/chat/file-uploader.js';
+
+// Create a compatibility class that delegates to the new implementation
 class FileManagementSystem {
     constructor() {
+        console.warn('FileManagementSystem is deprecated. Please use FileUploader from features/chat/file-uploader.js instead.');
+        
+        // Create an instance of the new FileUploader class
+        this.fileUploader = new FileUploader();
+        
+        // For backward compatibility, set up file types
         this.fileTypes = {
             image: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'],
             video: ['mp4', 'webm', 'ogg', 'avi', 'mov'],
@@ -12,33 +24,6 @@ class FileManagementSystem {
             archive: ['zip', 'rar', '7z', 'tar', 'gz']
         };
         
-        this.compressionSettings = {
-            image: {
-                maxWidth: 1920,
-                maxHeight: 1080,
-                quality: 0.8
-            },
-            video: {
-                maxSize: 100 * 1024 * 1024, // 100MB
-                generateThumbnail: true
-            }
-        };
-
-        this.storageQuota = 1 * 1024 * 1024 * 1024; // 1GB default
-        this.duplicateFiles = new Map();
-        
-        this.init();
-    }
-
-    async init() {
-        this.setupFileOrganization();
-        this.setupMediaProcessing();
-        this.setupStorageManagement();
-        this.checkStorageQuota();
-    }
-
-    setupFileOrganization() {
-        // Create folder structure
         this.folderStructure = {
             images: '/uploads/images/',
             videos: '/uploads/videos/',
@@ -48,6 +33,50 @@ class FileManagementSystem {
             thumbnails: '/uploads/thumbnails/'
         };
     }
+    
+    // Proxy methods to the new implementation
+    async uploadFile(file, options = {}) {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        if (options.type) {
+            formData.append('type', options.type);
+        }
+        
+        if (options.folder) {
+            formData.append('folder', options.folder);
+        }
+        
+        return await this.fileUploader.uploadFile(formData);
+    }
+    
+    getFileType(fileName) {
+        const extension = fileName.split('.').pop().toLowerCase();
+        
+        for (const [type, extensions] of Object.entries(this.fileTypes)) {
+            if (extensions.includes(extension)) {
+                return type;
+            }
+        }
+        
+        return 'unknown';
+    }
+    
+    getUploadPath(fileType) {
+        switch(fileType) {
+            case 'image': return this.folderStructure.images;
+            case 'video': return this.folderStructure.videos;
+            case 'audio': return this.folderStructure.audio;
+            case 'document': return this.folderStructure.documents;
+            case 'avatar': return this.folderStructure.avatars;
+            default: return this.folderStructure.documents;
+        }
+    }
+}
+
+// Export for backward compatibility
+window.FileManagementSystem = FileManagementSystem;
+window.fileManager = new FileManagementSystem();
 
     getFileCategory(filename) {
         const extension = filename.split('.').pop().toLowerCase();
