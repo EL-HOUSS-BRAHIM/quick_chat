@@ -322,31 +322,49 @@ class ModernChatApp {
             
             // Update UI to show user info
             if (userId) {
-                const user = this.onlineUsers.find(u => u.id == userId);
+                // Find user in online users list or contacts
+                let user = this.onlineUsers.find(u => u.id == userId);
                 
-                // Update header
+                if (!user) {
+                    // Try to fetch user details
+                    const response = await fetch(`${this.apiBase}users.php?action=details&user_id=${userId}`, {
+                        credentials: 'same-origin'
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success && data.user) {
+                        user = data.user;
+                    }
+                }
+                
+                // Update header with user info
                 const header = document.querySelector('.chat-header');
                 if (header && user) {
                     header.innerHTML = `
                         <div class="chat-info">
+                            <button class="mobile-back-btn" onclick="window.showSidebar()">
+                                <i class="fas fa-arrow-left"></i>
+                            </button>
                             <div class="chat-avatar">
                                 <img src="${user.avatar || 'assets/images/default-avatar.svg'}" alt="${this.escapeHtml(user.display_name || user.username)}">
                                 <div class="status-indicator ${user.is_online ? 'online' : 'offline'}"></div>
                             </div>
                             <div class="chat-details">
-                                <h3>${this.escapeHtml(user.display_name || user.username)}</h3>
-                                <div class="chat-status">${user.is_online ? 'Online' : 'Offline'}</div>
+                                <h2>${this.escapeHtml(user.display_name || user.username)}</h2>
+                                <span class="status-text" id="userStatus">
+                                    ${user.is_online ? 'Online' : 'Last seen ' + this.formatLastSeen(user.last_seen || 'recently')}
+                                </span>
                             </div>
                         </div>
                         <div class="chat-actions">
-                            <button class="action-btn" onclick="window.showChatInfo()">
-                                <i class="fas fa-info-circle"></i>
-                            </button>
-                            <button class="action-btn" onclick="window.startCall('audio')">
+                            <button class="action-btn" onclick="window.startCall('audio')" title="Voice call">
                                 <i class="fas fa-phone"></i>
                             </button>
-                            <button class="action-btn" onclick="window.startCall('video')">
+                            <button class="action-btn" onclick="window.startCall('video')" title="Video call">
                                 <i class="fas fa-video"></i>
+                            </button>
+                            <button class="action-btn" onclick="window.showChatInfo()" title="Chat info">
+                                <i class="fas fa-info-circle"></i>
                             </button>
                         </div>
                     `;
@@ -404,64 +422,71 @@ class ModernChatApp {
             }
             
             // Clear input
-            this.elements.messageInput.value = '';
-            this.elements.messageInput.style.height = 'auto';
-            this.updateSendButton();
+            if (this.elements.messageInput) {
+                this.elements.messageInput.value = '';
+                this.elements.messageInput.style.height = 'auto';
+                this.updateSendButton();
+            }
         
-        // Prepare form data
-        const formData = new FormData();
-        formData.append('action', 'send');
-        formData.append('content', content.trim());
-        formData.append('type', type);
-        
-        if (replyToId) {
-            formData.append('reply_to', replyToId);
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('action', 'send');
+            formData.append('content', content.trim());
+            formData.append('type', type);
+            
+            if (replyToId) {
+                formData.append('reply_to', replyToId);
+            }
+            
+            if (file) {
+                formData.append('file', file);
+            }
+            
+            formData.append('csrf_token', this.getCSRFToken());
+            
+            // Set the appropriate ID based on whether this is a group or direct message
+            if (this.currentGroupId) {
+                formData.append('group_id', this.currentGroupId);
+            } else if (this.currentConversation) {
+                formData.append('target_user_id', this.currentConversation);
+            }
+            
+            // Debug logging
+            console.log('Sending message with data:', {
+                action: 'send',
+                content: content.trim(),
+                type: type,
+                csrf_token: this.csrfToken ? 'present' : 'missing',
+                target_user_id: this.currentConversation,
+                group_id: this.currentGroupId
+            });            const response = await fetch(`${this.apiBase}messages.php`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+            
+            // Debug response
+            console.log('Response status:', response.status);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response error text:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            const data = await response.json();
+            
+            // Replace the temporary message with the real one
+            if (data.data) {
+                this.replaceTemporaryMessage(tempId, data.data);
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('Error sending message:', error);
+            this.showError('Failed to send message');
+            throw error;
         }
-        
-        if (file) {
-            formData.append('file', file);
-        }
-        
-        formData.append('csrf_token', this.getCSRFToken());
-        
-        // Set the appropriate ID based on whether this is a group or direct message
-        if (this.currentGroupId) {
-            formData.append('group_id', this.currentGroupId);
-        } else if (this.currentConversation) {
-            formData.append('target_user_id', this.currentConversation);
-        }
-        
-        // Debug logging
-        console.log('Sending message with data:', {
-            action: 'send',
-            content: content.trim(),
-            type: type,
-            csrf_token: this.csrfToken ? 'present' : 'missing',
-            target_user_id: this.currentConversation,
-            group_id: this.currentGroupId
-        });
-        
-        const response = await fetch(`${this.apiBase}messages.php`, {
-            method: 'POST',
-            body: formData,
-            credentials: 'same-origin'
-        });
-        
-        // Debug response
-        console.log('Response status:', response.status);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Response error text:', errorText);
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-        
-        const data = await response.json();
-        
-        // Replace the temporary message with the real one
-        this.replaceTemporaryMessage(tempId, data.data);
-        
-        return data;
     }
     
     addMessageToUI(message) {
@@ -479,19 +504,28 @@ class ModernChatApp {
     }
     
     replaceTemporaryMessage(tempId, message) {
-        // Find the temporary message in our array and replace it
-        const index = this.messages.findIndex(m => m.id === tempId);
-        if (index !== -1) {
-            this.messages[index] = message;
-        }
-        
-        // Update the message in the UI
-        if (this.elements.messagesList) {
-            const tempElement = this.elements.messagesList.querySelector(`[data-message-id="${tempId}"]`);
-            if (tempElement) {
-                const messageHTML = this.renderMessage(message);
-                tempElement.outerHTML = messageHTML;
+        try {
+            if (!message) {
+                console.error('No message data provided to replaceTemporaryMessage');
+                return;
             }
+
+            // Find the temporary message in our array and replace it
+            const index = this.messages.findIndex(m => m.id === tempId);
+            if (index !== -1) {
+                this.messages[index] = message;
+            }
+            
+            // Update the message in the UI
+            if (this.elements.messagesList) {
+                const tempElement = this.elements.messagesList.querySelector(`[data-message-id="${tempId}"]`);
+                if (tempElement) {
+                    const messageHTML = this.renderMessage(message);
+                    tempElement.outerHTML = messageHTML;
+                }
+            }
+        } catch (error) {
+            console.error('Error replacing temporary message:', error);
         }
     }
     
@@ -503,10 +537,15 @@ class ModernChatApp {
     }
     
     renderMessage(message) {
-        const isOwn = message.user_id == this.currentUserId;
+        const isOwn = (message.user_id == this.currentUserId || message.sender_id == this.currentUserId);
         const messageTime = new Date(message.created_at);
         const timeString = messageTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const isGroupMessage = message.group_id || this.currentGroupId;
+        
+        // Handle username/display_name from different API response formats
+        const username = message.username || (message.sender ? message.sender.username : '');
+        const displayName = message.display_name || (message.sender ? message.sender.display_name : '') || username;
+        const avatar = message.avatar || (message.sender ? message.sender.avatar : null) || 'assets/images/default-avatar.svg';
         
         // Data attributes for read receipts
         let dataAttributes = `data-message-id="${message.id}"`;
@@ -514,7 +553,7 @@ class ModernChatApp {
         if (isGroupMessage) {
             dataAttributes += ` data-group-id="${message.group_id || this.currentGroupId}"`;
         } else {
-            dataAttributes += ` data-sender-id="${message.user_id}"`;
+            dataAttributes += ` data-sender-id="${message.user_id || message.sender_id}"`;
         }
         
         return `
@@ -1056,6 +1095,29 @@ class ModernChatApp {
         }
     }
     
+    formatLastSeen(timestamp) {
+        if (!timestamp || timestamp === 'recently') return 'recently';
+        
+        try {
+            const date = new Date(timestamp);
+            
+            // Check if date is valid
+            if (isNaN(date.getTime())) return 'recently';
+            
+            // Format as "June 18, 2:30 PM"
+            return date.toLocaleString([], {
+                month: 'long',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+        } catch (e) {
+            console.error('Error formatting timestamp:', e);
+            return 'recently';
+        }
+    }
+    
     // Window Events
     onWindowFocus() {
         // Resume polling
@@ -1388,10 +1450,10 @@ class ModernChatApp {
     }
     
     showNewGroupModal() {
+        console.log('Showing new group modal');
         const modal = document.getElementById('newGroupModal');
         if (modal) {
             modal.style.display = 'flex';
-            modal.classList.add('active');
             
             // Clear previous values
             const groupNameInput = document.getElementById('groupName');
