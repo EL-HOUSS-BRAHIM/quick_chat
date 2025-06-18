@@ -421,7 +421,7 @@ if ($targetUserId) {
             </div>
             <div class="modal-footer">
                 <button type="button" class="secondary-btn" onclick="closeNewGroupModal()">Cancel</button>
-                <button type="button" class="primary-btn" onclick="createNewGroup()">Create Group</button>
+                <button type="button" class="primary-btn" id="createGroupBtn">Create Group</button>
             </div>
         </div>
     </div>
@@ -488,6 +488,72 @@ if ($targetUserId) {
             
             // Make chatApp globally available
             window.chatApp = chatApp;
+
+            // Setup event listeners for the new group modal
+            const newGroupModal = document.getElementById('newGroupModal');
+            const createGroupBtn = document.getElementById('createGroupBtn');
+            
+            if (createGroupBtn) {
+                createGroupBtn.addEventListener('click', async function() {
+                    try {
+                        // Get form values
+                        const name = document.getElementById('groupName').value.trim();
+                        const description = document.getElementById('groupDescription').value.trim();
+                        const isPublic = document.getElementById('groupVisibility').value === '1';
+                        
+                        if (!name) {
+                            alert('Group name is required');
+                            return;
+                        }
+                        
+                        console.log('Creating group with data:', {
+                            name, 
+                            description, 
+                            isPublic
+                        });
+                        
+                        // Create the group
+                        const formData = new FormData();
+                        formData.append('action', 'create');
+                        formData.append('name', name);
+                        formData.append('description', description);
+                        formData.append('is_public', isPublic ? '1' : '0');
+                        formData.append('csrf_token', chatApp.getCSRFToken());
+                        
+                        // Add group avatar if selected
+                        const avatarInput = document.getElementById('groupAvatarInput');
+                        if (avatarInput && avatarInput.files && avatarInput.files[0]) {
+                            formData.append('avatar', avatarInput.files[0]);
+                        }
+                        
+                        const response = await fetch('api/groups.php', {
+                            method: 'POST',
+                            body: formData,
+                            credentials: 'same-origin'
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (!data.success) {
+                            throw new Error(data.error || 'Failed to create group');
+                        }
+                        
+                        alert('Group created successfully!');
+                        
+                        // Close the modal
+                        if (newGroupModal) {
+                            newGroupModal.style.display = 'none';
+                        }
+                        
+                        // Reload the page to see the new group
+                        window.location.reload();
+                        
+                    } catch (error) {
+                        console.error('Error creating group:', error);
+                        alert('Failed to create group: ' + error.message);
+                    }
+                });
+            }
             
             // Define global functions for inline event handlers
             window.handleKeyDown = function(event) {
