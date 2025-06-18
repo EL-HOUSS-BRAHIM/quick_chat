@@ -1,6 +1,7 @@
 /**
  * WebRTC Connection Monitor
  * Monitors connection quality for WebRTC calls
+ * Enhanced with dynamic media adaptation for different network conditions
  */
 
 import eventBus from '../../core/event-bus.js';
@@ -27,11 +28,19 @@ class ConnectionMonitor {
         medium: 0.05,   // 5%
         poor: 0.10      // 10%
       },
+      adaptiveSettings: {
+        enabled: true,
+        probeInterval: 15000, // 15 seconds between network probes
+        recoveryInterval: 30000, // 30 seconds before trying to restore quality
+        maxDowngrades: 3 // Maximum number of quality downgrade steps
+      },
       ...options
     };
     
     this.monitors = new Map(); // userId -> monitor data
     this.qualityHistory = new Map(); // userId -> quality history
+    this.mediaAdaptationState = new Map(); // userId -> adaptation state
+    this.networkTrends = new Map(); // userId -> network trend analysis
   }
   
   /**
@@ -60,7 +69,9 @@ class ConnectionMonitor {
         },
         connection: {
           rtt: 0,
-          timestamp: 0
+          timestamp: 0,
+          networkType: null,
+          effectiveBandwidth: 0
         },
         lastStats: null
       }
@@ -71,6 +82,23 @@ class ConnectionMonitor {
       overall: [],
       audio: [],
       video: []
+    });
+    
+    // Initialize media adaptation state
+    this.mediaAdaptationState.set(userId, {
+      currentVideoQuality: 'high',
+      currentAudioQuality: 'high',
+      downgradeCount: 0,
+      lastAdaptationTime: Date.now(),
+      lastUpgradeAttempt: Date.now(),
+      adaptationLocked: false
+    });
+    
+    // Initialize network trends
+    this.networkTrends.set(userId, {
+      samples: [],
+      trendDirection: 'stable',
+      lastProbeTime: Date.now()
     });
     
     // Start monitoring interval
@@ -112,429 +140,612 @@ class ConnectionMonitor {
    * Collect WebRTC stats
    */
   async collectStats(userId, monitor) {
+    if (!monitor.peerConnection || monitor.peerConnection.connectionState === 'closed') {
+      this.stopMonitoring(userId);
+      return;
+    }
+
     try {
-      const pc = monitor.peerConnection;
+      const stats = await monitor.peerConnection.getStats();
+      const parsed = this.parseStats(stats);
       
-      if (!pc || pc.connectionState !== 'connected') {
-        return;
+      // Update monitor stats
+      if (parsed.audio) {
+        monitor.stats.audio = { ...parsed.audio };
       }
       
-      // Get stats report
-      const stats = await pc.getStats();
+      if (parsed.video) {
+        monitor.stats.video = { ...parsed.video };
+      }
       
-      // Process stats report
-      this.processStats(userId, monitor, stats);
+      if (parsed.connection) {
+        monitor.stats.connection = { ...parsed.connection };
+      }
       
+      // Store previous stats
+      monitor.stats.lastStats = stats;
+      
+      // Update quality history
+      this.updateQualityHistory(userId, parsed);
+      
+      // Analyze connection quality
+      const quality = this.analyzeConnectionQuality(userId);
+      
+      // Apply adaptive media settings if enabled
+      if (this.config.adaptiveSettings.enabled) {
+        this.adaptMediaQuality(userId, quality);
+      }
+      
+      // Emit quality update event
+      eventBus.emit('webrtc:quality', {
+        userId,
+        quality
+      });
     } catch (error) {
       console.error('Error collecting WebRTC stats:', error);
     }
   }
   
   /**
-   * Process WebRTC stats
+   * Stop monitoring connection quality for a peer
    */
-  processStats(userId, monitor, stats) {
-    const now = Date.now();
-    let audioInbound = null;
-    let videoInbound = null;
-    let candidatePair = null;
-    
-    // Find relevant stats
-    stats.forEach(stat => {
-      // Inbound RTP audio
-      if (stat.type === 'inbound-rtp' && stat.kind === 'audio') {
-        audioInbound = stat;
-      }
+  stopMonitoring(userId) {
+    const monitor = this.monitors.get(userId);
+    if (monitor && monitor.intervalId) {
+      clearInterval(monitor.intervalId);
+      this.monitors.delete(userId);
+      this.qualityHistory.delete(userId);
+      this.mediaAdaptationState.delete(userId);
+      this.networkTrends.delete(userId);
       
-      // Inbound RTP video
-      if (stat.type === 'inbound-rtp' && stat.kind === 'video') {
-        videoInbound = stat;
-      }
-      
-      // Active candidate pair
-      if (stat.type === 'candidate-pair' && stat.state === 'succeeded') {
-        candidatePair = stat;
-      }
-    });
-    
-    // Calculate audio stats
-    if (audioInbound) {
-      const lastAudioStats = monitor.stats.lastStats ? 
-                           monitor.stats.lastStats.get(audioInbound.id) : null;
-      
-      if (lastAudioStats) {
-        const timeDiff = audioInbound.timestamp - lastAudioStats.timestamp;
-        const bytesDiff = audioInbound.bytesReceived - lastAudioStats.bytesReceived;
-        
-        if (timeDiff > 0) {
-          // Calculate bitrate (bits per second)
-          const bitrate = (bytesDiff * 8) / (timeDiff / 1000);
-          
-          // Calculate packet loss
-          let packetLoss = 0;
-          if (audioInbound.packetsLost !== undefined && 
-              lastAudioStats.packetsLost !== undefined) {
-            const packetsLostDiff = audioInbound.packetsLost - lastAudioStats.packetsLost;
-            const packetsReceivedDiff = 
-              (audioInbound.packetsReceived - lastAudioStats.packetsReceived) + packetsLostDiff;
-              
-            if (packetsReceivedDiff > 0) {
-              packetLoss = packetsLostDiff / packetsReceivedDiff;
-            }
-          }
-          
-          // Update audio stats
-          monitor.stats.audio = {
-            bitrate,
-            packetLoss,
-            jitter: audioInbound.jitter * 1000, // Convert to ms
-            timestamp: now
-          };
-        }
-      }
+      console.log('Stopped monitoring connection with', userId);
     }
-    
-    // Calculate video stats
-    if (videoInbound) {
-      const lastVideoStats = monitor.stats.lastStats ? 
-                           monitor.stats.lastStats.get(videoInbound.id) : null;
-      
-      if (lastVideoStats) {
-        const timeDiff = videoInbound.timestamp - lastVideoStats.timestamp;
-        const bytesDiff = videoInbound.bytesReceived - lastVideoStats.bytesReceived;
-        
-        if (timeDiff > 0) {
-          // Calculate bitrate (bits per second)
-          const bitrate = (bytesDiff * 8) / (timeDiff / 1000);
-          
-          // Calculate packet loss
-          let packetLoss = 0;
-          if (videoInbound.packetsLost !== undefined && 
-              lastVideoStats.packetsLost !== undefined) {
-            const packetsLostDiff = videoInbound.packetsLost - lastVideoStats.packetsLost;
-            const packetsReceivedDiff = 
-              (videoInbound.packetsReceived - lastVideoStats.packetsReceived) + packetsLostDiff;
-              
-            if (packetsReceivedDiff > 0) {
-              packetLoss = packetsLostDiff / packetsReceivedDiff;
-            }
-          }
-          
-          // Calculate framerate
-          let framerate = 0;
-          if (videoInbound.framesDecoded !== undefined && 
-              lastVideoStats.framesDecoded !== undefined) {
-            const framesDiff = videoInbound.framesDecoded - lastVideoStats.framesDecoded;
-            framerate = framesDiff / (timeDiff / 1000);
-          }
-          
-          // Update video stats
-          monitor.stats.video = {
-            bitrate,
-            packetLoss,
-            framerate,
-            timestamp: now
-          };
-        }
-      }
-    }
-    
-    // Calculate connection stats
-    if (candidatePair) {
-      // Round-trip time
-      if (candidatePair.currentRoundTripTime !== undefined) {
-        monitor.stats.connection = {
-          rtt: candidatePair.currentRoundTripTime * 1000, // Convert to ms
-          timestamp: now
-        };
-      }
-    }
-    
-    // Store stats for next comparison
-    monitor.stats.lastStats = stats;
-    
-    // Evaluate connection quality
-    this.evaluateConnectionQuality(userId, monitor.stats);
   }
   
   /**
-   * Evaluate connection quality based on stats
+   * Parse raw WebRTC stats data
    */
-  evaluateConnectionQuality(userId, stats) {
-    // Evaluate audio quality
-    const audioQuality = this.evaluateAudioQuality(stats.audio);
-    
-    // Evaluate video quality
-    const videoQuality = this.evaluateVideoQuality(stats.video);
-    
-    // Calculate overall quality
-    const overallQuality = this.calculateOverallQuality(audioQuality, videoQuality, stats.connection);
-    
-    // Store in quality history
-    const history = this.qualityHistory.get(userId);
-    
-    if (history) {
-      // Add to history (keep limited size)
-      history.overall.push(overallQuality);
-      history.audio.push(audioQuality);
-      history.video.push(videoQuality);
-      
-      // Limit history size
-      if (history.overall.length > this.config.statsHistorySize) {
-        history.overall.shift();
-        history.audio.shift();
-        history.video.shift();
-      }
-    }
-    
-    // Emit quality event
-    eventBus.emit('webrtc:quality', {
-      userId,
-      quality: {
-        overall: overallQuality,
-        audio: audioQuality,
-        video: videoQuality
+  parseStats(stats) {
+    const result = {
+      audio: {
+        bitrate: 0,
+        packetLoss: 0,
+        jitter: 0,
+        timestamp: Date.now()
       },
-      stats
-    });
+      video: {
+        bitrate: 0,
+        packetLoss: 0,
+        framerate: 0,
+        timestamp: Date.now()
+      },
+      connection: {
+        rtt: 0,
+        timestamp: Date.now(),
+        networkType: this.detectNetworkType(),
+        effectiveBandwidth: 0
+      }
+    };
     
-    // Update state
-    state.set(`webrtc.quality.${userId}`, {
-      overall: overallQuality,
-      audio: audioQuality,
-      video: videoQuality,
-      stats
-    });
-  }
-  
-  /**
-   * Evaluate audio quality
-   */
-  evaluateAudioQuality(audioStats) {
-    if (!audioStats || audioStats.timestamp === 0) {
-      return { score: 0, level: 'unknown', issues: [] };
-    }
+    let audioBytesSent = 0;
+    let videoByteSent = 0;
+    let audioBytesReceived = 0;
+    let videoBytesReceived = 0;
+    let lastAudioTimestamp = 0;
+    let lastVideoTimestamp = 0;
     
-    const issues = [];
-    let score = 10; // Start with perfect score
-    
-    // Check bitrate
-    const audioBitrate = audioStats.bitrate;
-    const thresholds = this.config.bitrateThresholds.audio;
-    
-    if (audioBitrate < thresholds.low) {
-      score -= 3;
-      issues.push('low-audio-bitrate');
-    } else if (audioBitrate < thresholds.medium) {
-      score -= 1;
-      issues.push('medium-audio-bitrate');
-    }
-    
-    // Check packet loss
-    const packetLoss = audioStats.packetLoss;
-    
-    if (packetLoss > this.config.packetLossThresholds.poor) {
-      score -= 4;
-      issues.push('high-audio-packet-loss');
-    } else if (packetLoss > this.config.packetLossThresholds.medium) {
-      score -= 2;
-      issues.push('medium-audio-packet-loss');
-    } else if (packetLoss > this.config.packetLossThresholds.good) {
-      score -= 1;
-      issues.push('low-audio-packet-loss');
-    }
-    
-    // Check jitter
-    const jitter = audioStats.jitter;
-    
-    if (jitter > 50) { // 50ms is high jitter
-      score -= 2;
-      issues.push('high-audio-jitter');
-    } else if (jitter > 20) { // 20ms is medium jitter
-      score -= 1;
-      issues.push('medium-audio-jitter');
-    }
-    
-    // Ensure score is within bounds
-    score = Math.max(1, Math.min(10, score));
-    
-    // Determine quality level
-    let level = 'excellent';
-    
-    if (score <= 3) {
-      level = 'poor';
-    } else if (score <= 6) {
-      level = 'fair';
-    } else if (score <= 8) {
-      level = 'good';
-    }
-    
-    return { score, level, issues };
-  }
-  
-  /**
-   * Evaluate video quality
-   */
-  evaluateVideoQuality(videoStats) {
-    if (!videoStats || videoStats.timestamp === 0) {
-      return { score: 0, level: 'unknown', issues: [] };
-    }
-    
-    const issues = [];
-    let score = 10; // Start with perfect score
-    
-    // Check bitrate
-    const videoBitrate = videoStats.bitrate;
-    const thresholds = this.config.bitrateThresholds.video;
-    
-    if (videoBitrate < thresholds.low) {
-      score -= 4;
-      issues.push('low-video-bitrate');
-    } else if (videoBitrate < thresholds.medium) {
-      score -= 2;
-      issues.push('medium-video-bitrate');
-    } else if (videoBitrate < thresholds.high) {
-      score -= 1;
-      issues.push('reduced-video-bitrate');
-    }
-    
-    // Check packet loss
-    const packetLoss = videoStats.packetLoss;
-    
-    if (packetLoss > this.config.packetLossThresholds.poor) {
-      score -= 3;
-      issues.push('high-video-packet-loss');
-    } else if (packetLoss > this.config.packetLossThresholds.medium) {
-      score -= 2;
-      issues.push('medium-video-packet-loss');
-    } else if (packetLoss > this.config.packetLossThresholds.good) {
-      score -= 1;
-      issues.push('low-video-packet-loss');
-    }
-    
-    // Check framerate
-    const framerate = videoStats.framerate;
-    
-    if (framerate < 10) {
-      score -= 3;
-      issues.push('low-framerate');
-    } else if (framerate < 20) {
-      score -= 1;
-      issues.push('medium-framerate');
-    }
-    
-    // Ensure score is within bounds
-    score = Math.max(1, Math.min(10, score));
-    
-    // Determine quality level
-    let level = 'excellent';
-    
-    if (score <= 3) {
-      level = 'poor';
-    } else if (score <= 6) {
-      level = 'fair';
-    } else if (score <= 8) {
-      level = 'good';
-    }
-    
-    return { score, level, issues };
-  }
-  
-  /**
-   * Calculate overall connection quality
-   */
-  calculateOverallQuality(audioQuality, videoQuality, connectionStats) {
-    const issues = [...audioQuality.issues, ...videoQuality.issues];
-    
-    // Start with weighted average of audio and video scores
-    // Audio is weighted more heavily since it's more important for communication
-    let score = 0;
-    let validScores = 0;
-    
-    if (audioQuality.score > 0) {
-      score += audioQuality.score * 0.6; // 60% weight for audio
-      validScores++;
-    }
-    
-    if (videoQuality.score > 0) {
-      score += videoQuality.score * 0.4; // 40% weight for video
-      validScores++;
-    }
-    
-    // If we have no valid scores, return unknown
-    if (validScores === 0) {
-      return { score: 0, level: 'unknown', issues };
-    }
-    
-    // Normalize score
-    score = score / validScores;
-    
-    // Adjust score based on RTT
-    if (connectionStats && connectionStats.rtt > 0) {
-      const rtt = connectionStats.rtt;
+    stats.forEach(stat => {
+      // Handle outbound RTP stats
+      if (stat.type === 'outbound-rtp') {
+        if (stat.mediaType === 'audio') {
+          const lastStats = this.getLastOutboundStats('audio');
+          
+          if (lastStats && lastStats.bytesSent) {
+            const timeDiff = stat.timestamp - lastStats.timestamp;
+            if (timeDiff > 0) {
+              const bytesDiff = stat.bytesSent - lastStats.bytesSent;
+              result.audio.bitrate = (bytesDiff * 8 * 1000) / timeDiff;
+            }
+          }
+          
+          audioBytesSent = stat.bytesSent;
+          lastAudioTimestamp = stat.timestamp;
+        } else if (stat.mediaType === 'video') {
+          const lastStats = this.getLastOutboundStats('video');
+          
+          if (lastStats && lastStats.bytesSent) {
+            const timeDiff = stat.timestamp - lastStats.timestamp;
+            if (timeDiff > 0) {
+              const bytesDiff = stat.bytesSent - lastStats.bytesSent;
+              result.video.bitrate = (bytesDiff * 8 * 1000) / timeDiff;
+              
+              if (stat.framesPerSecond) {
+                result.video.framerate = stat.framesPerSecond;
+              } else if (stat.framesSent && lastStats.framesSent) {
+                const framesDiff = stat.framesSent - lastStats.framesSent;
+                result.video.framerate = (framesDiff * 1000) / timeDiff;
+              }
+            }
+          }
+          
+          videoByteSent = stat.bytesSent;
+          lastVideoTimestamp = stat.timestamp;
+        }
+      }
       
-      if (rtt > 300) { // 300ms is very high RTT
-        score -= 2;
-        issues.push('high-latency');
-      } else if (rtt > 150) { // 150ms is high RTT
-        score -= 1;
-        issues.push('medium-latency');
+      // Handle inbound RTP stats
+      if (stat.type === 'inbound-rtp') {
+        if (stat.mediaType === 'audio') {
+          if (stat.jitter) {
+            result.audio.jitter = stat.jitter * 1000; // Convert to ms
+          }
+          
+          if (stat.packetsLost !== undefined && stat.packetsReceived) {
+            const totalPackets = stat.packetsLost + stat.packetsReceived;
+            if (totalPackets > 0) {
+              result.audio.packetLoss = stat.packetsLost / totalPackets;
+            }
+          }
+          
+          audioBytesReceived = stat.bytesReceived;
+        } else if (stat.mediaType === 'video') {
+          if (stat.jitter) {
+            result.video.jitter = stat.jitter * 1000; // Convert to ms
+          }
+          
+          if (stat.packetsLost !== undefined && stat.packetsReceived) {
+            const totalPackets = stat.packetsLost + stat.packetsReceived;
+            if (totalPackets > 0) {
+              result.video.packetLoss = stat.packetsLost / totalPackets;
+            }
+          }
+          
+          videoBytesReceived = stat.bytesReceived;
+        }
+      }
+      
+      // Handle remote inbound RTP stats (RTT)
+      if (stat.type === 'remote-inbound-rtp') {
+        if (stat.roundTripTime) {
+          result.connection.rtt = stat.roundTripTime * 1000; // Convert to ms
+        }
+      }
+      
+      // Calculate effective bandwidth based on send and receive rates
+      const totalBytesSent = audioBytesSent + videoByteSent;
+      const totalBytesReceived = audioBytesReceived + videoBytesReceived;
+      const totalBytes = totalBytesSent + totalBytesReceived;
+      const timeDiff = Math.max(lastAudioTimestamp, lastVideoTimestamp) - Math.min(lastAudioTimestamp, lastVideoTimestamp);
+      
+      if (timeDiff > 0 && totalBytes > 0) {
+        result.connection.effectiveBandwidth = (totalBytes * 8 * 1000) / timeDiff;
+      }
+    });
+    
+    return result;
+  }
+  
+  /**
+   * Get last outbound stats for a specific media type
+   */
+  getLastOutboundStats(mediaType) {
+    // Implementation depends on how you store the previous stats
+    return null; // Replace with actual implementation
+  }
+  
+  /**
+   * Update quality history for a peer
+   */
+  updateQualityHistory(userId, stats) {
+    const history = this.qualityHistory.get(userId);
+    if (!history) return;
+    
+    // Add new quality measurements
+    history.audio.push({
+      bitrate: stats.audio.bitrate,
+      packetLoss: stats.audio.packetLoss,
+      jitter: stats.audio.jitter,
+      timestamp: stats.audio.timestamp
+    });
+    
+    history.video.push({
+      bitrate: stats.video.bitrate,
+      packetLoss: stats.video.packetLoss,
+      framerate: stats.video.framerate,
+      timestamp: stats.video.timestamp
+    });
+    
+    history.overall.push({
+      rtt: stats.connection.rtt,
+      networkType: stats.connection.networkType,
+      effectiveBandwidth: stats.connection.effectiveBandwidth,
+      timestamp: stats.connection.timestamp
+    });
+    
+    // Limit history size
+    if (history.audio.length > this.config.statsHistorySize) {
+      history.audio.shift();
+    }
+    
+    if (history.video.length > this.config.statsHistorySize) {
+      history.video.shift();
+    }
+    
+    if (history.overall.length > this.config.statsHistorySize) {
+      history.overall.shift();
+    }
+  }
+  
+  /**
+   * Analyze connection quality based on collected stats
+   */
+  analyzeConnectionQuality(userId) {
+    const history = this.qualityHistory.get(userId);
+    if (!history || history.overall.length === 0) {
+      return { score: 5, label: 'unknown' }; // Middle score as default
+    }
+    
+    // Calculate average values
+    const audioStats = this.calculateAverageStats(history.audio);
+    const videoStats = this.calculateAverageStats(history.video);
+    const overallStats = this.calculateAverageStats(history.overall);
+    
+    // Calculate quality scores (0-10 scale, 10 being best)
+    const audioScore = this.calculateAudioScore(audioStats);
+    const videoScore = this.calculateVideoScore(videoStats);
+    const connectionScore = this.calculateConnectionScore(overallStats);
+    
+    // Calculate overall score with weighted average
+    const overallScore = (audioScore * 0.3) + (videoScore * 0.4) + (connectionScore * 0.3);
+    
+    // Map score to label
+    let label;
+    if (overallScore >= 8) {
+      label = 'excellent';
+    } else if (overallScore >= 6) {
+      label = 'good';
+    } else if (overallScore >= 4) {
+      label = 'fair';
+    } else if (overallScore >= 2) {
+      label = 'poor';
+    } else {
+      label = 'critical';
+    }
+    
+    // Update network trend analysis
+    this.updateNetworkTrend(userId, overallScore);
+    
+    return {
+      overall: {
+        score: overallScore,
+        label
+      },
+      audio: {
+        score: audioScore,
+        stats: audioStats
+      },
+      video: {
+        score: videoScore,
+        stats: videoStats
+      },
+      connection: {
+        score: connectionScore,
+        stats: overallStats
+      },
+      trend: this.networkTrends.get(userId).trendDirection
+    };
+  }
+  
+  /**
+   * Calculate average stats from history
+   */
+  calculateAverageStats(statsHistory) {
+    if (statsHistory.length === 0) return {};
+    
+    const result = {};
+    const keys = Object.keys(statsHistory[0]).filter(key => key !== 'timestamp');
+    
+    for (const key of keys) {
+      const sum = statsHistory.reduce((acc, stat) => acc + (stat[key] || 0), 0);
+      result[key] = sum / statsHistory.length;
+    }
+    
+    return result;
+  }
+  
+  /**
+   * Calculate audio quality score
+   */
+  calculateAudioScore(stats) {
+    let score = 10;
+    
+    // Penalize for high packet loss
+    if (stats.packetLoss > this.config.packetLossThresholds.poor) {
+      score -= 4;
+    } else if (stats.packetLoss > this.config.packetLossThresholds.medium) {
+      score -= 2;
+    } else if (stats.packetLoss > this.config.packetLossThresholds.good) {
+      score -= 1;
+    }
+    
+    // Penalize for high jitter
+    if (stats.jitter > 50) { // 50ms is high jitter
+      score -= 3;
+    } else if (stats.jitter > 30) {
+      score -= 2;
+    } else if (stats.jitter > 15) {
+      score -= 1;
+    }
+    
+    // Penalize for low bitrate
+    if (stats.bitrate < this.config.bitrateThresholds.audio.low) {
+      score -= 3;
+    } else if (stats.bitrate < this.config.bitrateThresholds.audio.medium) {
+      score -= 1;
+    }
+    
+    return Math.max(0, Math.min(10, score));
+  }
+  
+  /**
+   * Calculate video quality score
+   */
+  calculateVideoScore(stats) {
+    let score = 10;
+    
+    // Penalize for high packet loss
+    if (stats.packetLoss > this.config.packetLossThresholds.poor) {
+      score -= 4;
+    } else if (stats.packetLoss > this.config.packetLossThresholds.medium) {
+      score -= 2;
+    } else if (stats.packetLoss > this.config.packetLossThresholds.good) {
+      score -= 1;
+    }
+    
+    // Penalize for low framerate
+    if (stats.framerate < 10) {
+      score -= 4;
+    } else if (stats.framerate < 15) {
+      score -= 3;
+    } else if (stats.framerate < 24) {
+      score -= 1;
+    }
+    
+    // Penalize for low bitrate
+    if (stats.bitrate < this.config.bitrateThresholds.video.low) {
+      score -= 4;
+    } else if (stats.bitrate < this.config.bitrateThresholds.video.medium) {
+      score -= 2;
+    } else if (stats.bitrate < this.config.bitrateThresholds.video.high) {
+      score -= 1;
+    }
+    
+    return Math.max(0, Math.min(10, score));
+  }
+  
+  /**
+   * Calculate connection quality score
+   */
+  calculateConnectionScore(stats) {
+    let score = 10;
+    
+    // Penalize for high RTT
+    if (stats.rtt > 300) { // 300ms is very high latency
+      score -= 4;
+    } else if (stats.rtt > 200) {
+      score -= 3;
+    } else if (stats.rtt > 100) {
+      score -= 2;
+    } else if (stats.rtt > 50) {
+      score -= 1;
+    }
+    
+    // Penalize for low bandwidth
+    if (stats.effectiveBandwidth < 500000) { // 500 kbps
+      score -= 4;
+    } else if (stats.effectiveBandwidth < 1000000) { // 1 Mbps
+      score -= 3;
+    } else if (stats.effectiveBandwidth < 2000000) { // 2 Mbps
+      score -= 2;
+    } else if (stats.effectiveBandwidth < 5000000) { // 5 Mbps
+      score -= 1;
+    }
+    
+    return Math.max(0, Math.min(10, score));
+  }
+  
+  /**
+   * Update network trend analysis
+   */
+  updateNetworkTrend(userId, currentScore) {
+    const trend = this.networkTrends.get(userId);
+    if (!trend) return;
+    
+    // Add sample to trend analysis
+    trend.samples.push({
+      score: currentScore,
+      timestamp: Date.now()
+    });
+    
+    // Keep only recent samples (last minute)
+    const now = Date.now();
+    trend.samples = trend.samples.filter(sample => (now - sample.timestamp) < 60000);
+    
+    // Need at least 3 samples to determine trend
+    if (trend.samples.length < 3) return;
+    
+    // Calculate trend direction
+    const recentSamples = trend.samples.slice(-3);
+    let improving = 0;
+    let degrading = 0;
+    
+    for (let i = 1; i < recentSamples.length; i++) {
+      const diff = recentSamples[i].score - recentSamples[i-1].score;
+      if (diff > 0.5) improving++;
+      else if (diff < -0.5) degrading++;
+    }
+    
+    if (improving > degrading) {
+      trend.trendDirection = 'improving';
+    } else if (degrading > improving) {
+      trend.trendDirection = 'degrading';
+    } else {
+      trend.trendDirection = 'stable';
+    }
+  }
+  
+  /**
+   * Adapt media quality based on network conditions
+   */
+  adaptMediaQuality(userId, quality) {
+    const adaptState = this.mediaAdaptationState.get(userId);
+    if (!adaptState) return;
+    
+    const now = Date.now();
+    
+    // If adaptation is locked, check if we can unlock it
+    if (adaptState.adaptationLocked) {
+      const lockDuration = now - adaptState.lastAdaptationTime;
+      if (lockDuration < 5000) { // 5 second lock minimum
+        return;
+      }
+      adaptState.adaptationLocked = false;
+    }
+    
+    // Check if we need to degrade quality
+    if (quality.overall.score < 4 && adaptState.downgradeCount < this.config.adaptiveSettings.maxDowngrades) {
+      this.degradeMediaQuality(userId, quality);
+      adaptState.lastAdaptationTime = now;
+      adaptState.adaptationLocked = true;
+    }
+    // Check if we can try to improve quality
+    else if (quality.overall.score > 7 && adaptState.downgradeCount > 0) {
+      const timeSinceLastUpgrade = now - adaptState.lastUpgradeAttempt;
+      if (timeSinceLastUpgrade > this.config.adaptiveSettings.recoveryInterval) {
+        this.upgradeMediaQuality(userId, quality);
+        adaptState.lastUpgradeAttempt = now;
+        adaptState.adaptationLocked = true;
       }
     }
+  }
+  
+  /**
+   * Degrade media quality to adapt to poor network conditions
+   */
+  degradeMediaQuality(userId, quality) {
+    const adaptState = this.mediaAdaptationState.get(userId);
+    if (!adaptState) return;
     
-    // Ensure score is within bounds
-    score = Math.max(1, Math.min(10, score));
+    // Increment downgrade count
+    adaptState.downgradeCount++;
     
-    // Determine quality level
-    let level = 'excellent';
+    let videoConstraints;
     
-    if (score <= 3) {
-      level = 'poor';
-    } else if (score <= 6) {
-      level = 'fair';
-    } else if (score <= 8) {
-      level = 'good';
+    // Apply different strategies based on current quality level and issues
+    if (adaptState.currentVideoQuality === 'high' && quality.video.score < 5) {
+      // Downgrade from high to medium
+      adaptState.currentVideoQuality = 'medium';
+      videoConstraints = {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        frameRate: { max: 24, ideal: 20 }
+      };
+    } else if (adaptState.currentVideoQuality === 'medium' && quality.video.score < 4) {
+      // Downgrade from medium to low
+      adaptState.currentVideoQuality = 'low';
+      videoConstraints = {
+        width: { ideal: 320 },
+        height: { ideal: 240 },
+        frameRate: { max: 15, ideal: 12 }
+      };
+    } else if (adaptState.currentVideoQuality === 'low' && quality.video.score < 3) {
+      // Extremely poor conditions - consider turning off video
+      eventBus.emit('webrtc:adaptation', {
+        userId,
+        action: 'disable-video',
+        reason: 'Critical network conditions detected'
+      });
+      return;
     }
     
-    return { score, level, issues };
+    if (videoConstraints) {
+      // Apply new constraints
+      eventBus.emit('webrtc:adaptation', {
+        userId,
+        action: 'adjust-constraints',
+        constraints: {
+          video: videoConstraints,
+          // We could also adjust audio if needed
+          audio: adaptState.currentAudioQuality === 'high' ? 
+            { channelCount: 1, autoGainControl: true, echoCancellation: true, noiseSuppression: true } : 
+            undefined
+        },
+        reason: `Network quality is ${quality.overall.label} (score: ${quality.overall.score.toFixed(1)})`
+      });
+      
+      console.log(`Adapted media quality for ${userId}: downgraded to ${adaptState.currentVideoQuality}`);
+    }
   }
   
   /**
-   * Track ICE connection state changes
+   * Upgrade media quality when network conditions improve
    */
-  trackIceConnectionState(userId, state) {
-    console.log(`ICE connection state for ${userId}: ${state}`);
+  upgradeMediaQuality(userId, quality) {
+    const adaptState = this.mediaAdaptationState.get(userId);
+    if (!adaptState) return;
     
-    // Emit ICE connection state event
-    eventBus.emit('webrtc:iceConnectionState', {
-      userId,
-      state
-    });
-  }
-  
-  /**
-   * Get current connection quality for a user
-   */
-  getConnectionQuality(userId) {
-    const history = this.qualityHistory.get(userId);
+    let videoConstraints;
     
-    if (!history || history.overall.length === 0) {
-      return { score: 0, level: 'unknown', issues: [] };
+    // Attempt to upgrade based on current level
+    if (adaptState.currentVideoQuality === 'low' && quality.overall.score > 6) {
+      // Upgrade from low to medium
+      adaptState.currentVideoQuality = 'medium';
+      videoConstraints = {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        frameRate: { max: 24, ideal: 20 }
+      };
+      adaptState.downgradeCount--;
+    } else if (adaptState.currentVideoQuality === 'medium' && quality.overall.score > 8) {
+      // Upgrade from medium to high
+      adaptState.currentVideoQuality = 'high';
+      videoConstraints = {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { max: 30, ideal: 30 }
+      };
+      adaptState.downgradeCount--;
     }
     
-    // Return the most recent quality measurement
-    return history.overall[history.overall.length - 1];
+    if (videoConstraints) {
+      // Apply new constraints
+      eventBus.emit('webrtc:adaptation', {
+        userId,
+        action: 'adjust-constraints',
+        constraints: {
+          video: videoConstraints,
+          // Also restore audio quality if needed
+          audio: adaptState.currentAudioQuality !== 'high' ? 
+            { channelCount: 2, autoGainControl: true, echoCancellation: true, noiseSuppression: true } : 
+            undefined
+        },
+        reason: `Network quality improved to ${quality.overall.label} (score: ${quality.overall.score.toFixed(1)})`
+      });
+      
+      console.log(`Adapted media quality for ${userId}: upgraded to ${adaptState.currentVideoQuality}`);
+    }
   }
   
   /**
-   * Get quality history for a user
+   * Detect current network type
    */
-  getQualityHistory(userId) {
-    return this.qualityHistory.get(userId) || {
-      overall: [],
-      audio: [],
-      video: []
-    };
+  detectNetworkType() {
+    // Use navigator.connection if available (Network Information API)
+    if (navigator.connection && navigator.connection.type) {
+      return navigator.connection.type;
+    }
+    
+    return 'unknown';
   }
 }
 
