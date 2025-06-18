@@ -53,7 +53,7 @@ if (isset($_POST['join']) && isset($_SESSION['user_id']) && !isset($error)) {
         $group = $message->useGroupInviteLink($inviteCode, $_SESSION['user_id']);
         
         // Redirect to the group chat
-        header("Location: chat-new.php?group=" . $group['id']);
+        header("Location: chat.php?group=" . $group['id']);
         exit;
     } catch (Exception $e) {
         $error = $e->getMessage();
