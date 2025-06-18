@@ -1,102 +1,104 @@
 /**
  * Chat Module
- * Central file for chat functionality
+ * Handles chat functionality, real-time messaging and UI
+ * Enhanced with optimized WebSocket connection management
  */
 
 import app from '../../core/app.js';
 import eventBus from '../../core/event-bus.js';
 import apiClient from '../../api/api-client.js';
+import errorHandler from '../../core/error-handler.js';
+import { state } from '../../core/state.js';
 import utils from '../../core/utils.js';
-import MessageRenderer from './message-renderer.js';
-import EmojiPicker from './emoji-picker.js';
-import FileUploader from './file-uploader.js';
-import MessageStore from './message-store.js';
+import WebSocketManager from '../../core/websocket-manager.js';
 import ChatUI from './ui.js';
-import ChatReactions from './reactions.js';
-import ChatReplies from './replies.js';
-import VoiceRecorder from './recording.js';
-import ChatSettings from './settings.js';
-import GroupInfo from './group-info.js';
-import MessageEditor from './editor.js';
+import MessageStore from './message-store.js';
 
 class ChatModule {
   constructor(options = {}) {
     // Configuration
     this.config = {
-      currentUserId: null,
-      targetUserId: null,
-      groupId: null,
-      chatType: 'private', // 'private' or 'group'
-      messageLimit: 50,
-      typingTimeout: 3000,
-      pollInterval: 5000,
+      chatType: options.chatType || 'private', // 'private' or 'group'
+      targetUserId: options.targetUserId || null,
+      groupId: options.groupId || null,
+      currentUserId: app.getCurrentUserId(),
+      container: options.container || document.getElementById('chat-container'),
+      messageLimit: options.messageLimit || 50,
+      loadMoreIncrement: options.loadMoreIncrement || 20,
+      typingIndicatorTimeout: options.typingIndicatorTimeout || 3000,
       ...options
     };
     
     // State
     this.state = {
-      isTyping: false,
-      typingTimeout: null,
-      replyingTo: null,
-      editingMessage: null,
-      loadingHistory: false,
-      noMoreHistory: false,
+      isInitialized: false,
+      connectionStatus: 'disconnected',
       lastMessageId: 0,
       lastMessageTime: 0,
-      connectionStatus: 'connecting'
+      isTyping: false,
+      lastTypingTime: 0,
+      typingUsers: new Set(),
+      isLoadingMessages: false,
+      hasMoreMessages: true,
+      typingTimeout: null,
+      reconnectTimeout: null
     };
     
-    // Components
-    this.messageStore = new MessageStore();
-    this.messageRenderer = new MessageRenderer();
-    this.emojiPicker = new EmojiPicker();
-    this.fileUploader = new FileUploader();
-    this.reactions = new ChatReactions();
-    this.replies = new ChatReplies();
-    this.voiceRecorder = new VoiceRecorder();
-    this.settings = new ChatSettings();
-    this.groupInfo = new GroupInfo();
-    this.editor = new MessageEditor();
-    this.ui = new ChatUI(this);
+    // Sub-modules
+    this.ui = new ChatUI(this.config);
+    this.messageStore = new MessageStore(this.config);
+    this.wsManager = new WebSocketManager({
+      reconnectDelay: 2000,
+      heartbeatInterval: 30000,
+      debug: this.config.debug || false,
+      batchingEnabled: true
+    });
     
-    // Polling interval
-    this.pollingInterval = null;
+    // Initialize chat module
+    this.init();
   }
-
+  
   /**
-   * Initialize chat module
+   * Initialize the chat module
    */
   async init() {
     try {
-      // Get current user
-      const user = app.core.state.getState('user');
-      if (user) {
-        this.config.currentUserId = user.id;
-      }
-      
-      // Setup UI
-      this.ui.init();
-      
-      // Set up event listeners
-      this.setupEventListeners();
+      // Initialize UI
+      await this.ui.initialize();
       
       // Load initial messages
       await this.loadInitialMessages();
       
-      // Start polling for new messages
-      this.startPolling();
+      // Setup event listeners
+      this.setupEventListeners();
       
       // Connect to WebSocket if available
       this.connectWebSocket();
       
-      // Emit initialized event
-      eventBus.emit('chat:initialized', this.config);
+      this.state.isInitialized = true;
+      console.log('Chat module initialized successfully');
+      
+      // Emit ready event
+      eventBus.emit('chat:ready');
+      
+      return true;
     } catch (error) {
-      console.error('Error initializing chat module:', error);
-      app.core.errorHandler.handleError(error);
+      errorHandler.handleError('Failed to initialize chat module', error);
+      
+      // Show error in UI
+      this.ui.showError('Failed to initialize chat. Please refresh the page.');
+      
+      // Emit error event
+      eventBus.emit('chat:error', {
+        type: 'initialization',
+        message: 'Failed to initialize chat module',
+        error
+      });
+      
+      return false;
     }
   }
-
+  
   /**
    * Set up event listeners
    */
@@ -365,7 +367,7 @@ class ChatModule {
     // Set timeout to clear typing state
     this.state.typingTimeout = setTimeout(() => {
       this.state.isTyping = false;
-    }, this.config.typingTimeout);
+    }, this.config.typingIndicatorTimeout);
   }
 
   /**
@@ -444,95 +446,104 @@ class ChatModule {
    * Connect to WebSocket for real-time updates
    */
   connectWebSocket() {
-    // Implement WebSocket connection
+    // Set up WebSocket URL
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
     
-    try {
-      this.socket = new WebSocket(wsUrl);
-      
-      this.socket.onopen = () => {
-        console.log('WebSocket connection established');
+    // Initialize WebSocket manager
+    this.wsManager.init(wsUrl, utils.storage.get('auth_token'), this.config.currentUserId)
+      .then(() => {
         this.state.connectionStatus = 'connected';
         this.ui.updateConnectionStatus('connected');
         
-        // Send authentication
-        const authToken = utils.storage.get('auth_token');
-        if (authToken) {
-          this.socket.send(JSON.stringify({
-            type: 'auth',
-            token: authToken
-          }));
+        // Subscribe to appropriate chat channel
+        if (this.config.chatType === 'private') {
+          this.wsManager.subscribe('private_chat', { user_id: this.config.targetUserId });
+        } else {
+          this.wsManager.subscribe('group_chat', { group_id: this.config.groupId });
         }
         
-        // Subscribe to chat
-        const subscriptionData = this.config.chatType === 'private' 
-          ? { type: 'subscribe', chat: 'private', user_id: this.config.targetUserId }
-          : { type: 'subscribe', chat: 'group', group_id: this.config.groupId };
-        
-        this.socket.send(JSON.stringify(subscriptionData));
-      };
-      
-      this.socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          switch (data.type) {
-            case 'message':
-              if (data.message.sender_id !== this.config.currentUserId) {
-                this.messageStore.addMessage(data.message);
-                this.ui.renderNewMessages([data.message]);
-                this.state.lastMessageId = Math.max(data.message.id, this.state.lastMessageId);
-                this.state.lastMessageTime = Math.max(new Date(data.message.created_at).getTime(), this.state.lastMessageTime);
-              }
-              break;
-              
-            case 'typing':
-              if (data.user_id !== this.config.currentUserId) {
-                this.ui.showUserTyping(data.user_id);
-              }
-              break;
-              
-            case 'read_receipt':
-              this.ui.updateReadReceipts(data.user_id, data.timestamp);
-              break;
-          }
-        } catch (error) {
-          console.error('Error processing WebSocket message:', error);
-        }
-      };
-      
-      this.socket.onclose = () => {
-        console.log('WebSocket connection closed');
-        this.state.connectionStatus = 'disconnected';
-        this.ui.updateConnectionStatus('disconnected');
-        
-        // Try to reconnect if closed unexpectedly
-        if (app.core.state.getState('isOnline')) {
-          setTimeout(() => this.connectWebSocket(), 3000);
-        }
-      };
-      
-      this.socket.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        // Set up message handlers
+        this.setupMessageHandlers();
+      })
+      .catch(error => {
+        console.error('Failed to connect WebSocket:', error);
         this.state.connectionStatus = 'error';
         this.ui.updateConnectionStatus('error');
-      };
-    } catch (error) {
-      console.error('Failed to connect to WebSocket:', error);
-      this.state.connectionStatus = 'error';
-      this.ui.updateConnectionStatus('error');
-    }
+      });
+    
+    // Listen for WebSocket status changes
+    eventBus.on('websocket:status-change', (data) => {
+      this.state.connectionStatus = data.status;
+      this.ui.updateConnectionStatus(data.status);
+      
+      if (data.status === 'connected') {
+        // Mark messages as read when reconnecting
+        this.markMessagesAsRead();
+      }
+    });
   }
-
+  
+  /**
+   * Set up WebSocket message handlers
+   */
+  setupMessageHandlers() {
+    // Handle new messages
+    this.wsManager.registerHandler('message', (data) => {
+      if (data.message.sender_id !== this.config.currentUserId) {
+        this.messageStore.addMessage(data.message);
+        this.ui.renderNewMessages([data.message]);
+        this.state.lastMessageId = Math.max(data.message.id, this.state.lastMessageId);
+        this.state.lastMessageTime = Math.max(new Date(data.message.created_at).getTime(), this.state.lastMessageTime);
+        
+        // Mark as read if chat is visible
+        if (document.visibilityState === 'visible') {
+          this.markMessagesAsRead();
+        }
+      }
+    });
+    
+    // Handle typing indicators
+    this.wsManager.registerHandler('typing', (data) => {
+      if (data.user_id !== this.config.currentUserId) {
+        this.ui.showUserTyping(data.user_id);
+        
+        // Add to typing users set
+        this.state.typingUsers.add(data.user_id);
+        
+        // Remove after timeout
+        setTimeout(() => {
+          this.state.typingUsers.delete(data.user_id);
+          if (this.state.typingUsers.size === 0) {
+            this.ui.hideTypingIndicator();
+          }
+        }, this.config.typingIndicatorTimeout);
+      }
+    });
+    
+    // Handle read receipts
+    this.wsManager.registerHandler('read_receipt', (data) => {
+      this.ui.updateReadReceipts(data.user_id, data.timestamp);
+    });
+    
+    // Handle message edited
+    this.wsManager.registerHandler('message_edited', (data) => {
+      this.messageStore.updateMessage(data.message_id, data.message);
+      this.ui.updateMessage(data.message_id, data.message);
+    });
+    
+    // Handle message deleted
+    this.wsManager.registerHandler('message_deleted', (data) => {
+      this.messageStore.removeMessage(data.message_id);
+      this.ui.removeMessage(data.message_id);
+    });
+  }
+  
   /**
    * Disconnect WebSocket
    */
   disconnectWebSocket() {
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
-    }
+    this.wsManager.disconnect();
   }
 
   /**
