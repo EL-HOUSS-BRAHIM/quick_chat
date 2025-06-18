@@ -1,103 +1,22 @@
 /**
- * Admin Configuration Panel
- * Provides interface for managing system-wide settings
+ * Admin Configuration Panel - DEPRECATED
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./features/admin/config-manager.js
  */
-class AdminConfigPanel {
+
+// Import the new implementation
+import ConfigManager from './features/admin/config-manager.js';
+
+// Create a compatibility class that extends the new implementation
+class AdminConfigPanel extends ConfigManager {
     constructor() {
-        this.settings = {
-            fileUpload: {
-                maxSizeBytes: 50 * 1024 * 1024, // 50MB default
-                allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'text/plain'],
-                maxFiles: 10
-            },
-            messages: {
-                retentionDays: 365,
-                maxLength: 5000,
-                enableReactions: true,
-                enableEditing: true
-            },
-            users: {
-                allowRegistration: true,
-                requireEmailVerification: false,
-                maxUsernameLength: 50,
-                minPasswordLength: 8
-            },
-            notifications: {
-                enableEmailNotifications: true,
-                smtpHost: '',
-                smtpPort: 587,
-                smtpUsername: '',
-                smtpPassword: ''
-            }
-        };
-        
-        this.init();
+        super();
+        console.warn('AdminConfigPanel is deprecated. Please use ConfigManager from features/admin/config-manager.js instead.');
     }
+}
 
-    init() {
-        this.loadCurrentSettings();
-        this.setupEventListeners();
-    }
-
-    async loadCurrentSettings() {
-        try {
-            const response = await fetch('/api/admin.php?action=get_config', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': this.getCSRFToken()
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    this.settings = { ...this.settings, ...data.settings };
-                    this.updateUI();
-                }
-            }
-        } catch (error) {
-            console.error('Failed to load settings:', error);
-        }
-    }
-
-    setupEventListeners() {
-        // Save settings button
-        document.addEventListener('click', (e) => {
-            if (e.target.matches('.save-config-btn')) {
-                this.saveSettings();
-            }
-        });
-
-        // Reset to defaults
-        document.addEventListener('click', (e) => {
-            if (e.target.matches('.reset-config-btn')) {
-                this.resetToDefaults();
-            }
-        });
-
-        // File type management
-        document.addEventListener('click', (e) => {
-            if (e.target.matches('.add-file-type-btn')) {
-                this.addFileType();
-            }
-            if (e.target.matches('.remove-file-type-btn')) {
-                this.removeFileType(e.target.dataset.type);
-            }
-        });
-    }
-
-    updateUI() {
-        // File upload settings
-        const maxSizeInput = document.getElementById('maxFileSize');
-        if (maxSizeInput) {
-            maxSizeInput.value = Math.round(this.settings.fileUpload.maxSizeBytes / (1024 * 1024));
-        }
-
-        const maxFilesInput = document.getElementById('maxFiles');
-        if (maxFilesInput) {
-            maxFilesInput.value = this.settings.fileUpload.maxFiles;
-        }
+// Export for backward compatibility
+window.AdminConfigPanel = AdminConfigPanel;
 
         // Message settings
         const retentionInput = document.getElementById('messageRetention');
