@@ -24,7 +24,7 @@ import webrtcModule from './features/webrtc/index.js';
 import adminModule from './features/admin/index.js';
 
 // Import compatibility layer
-import { initChatCompatibility } from './chat-compatibility.js';
+import { initChatCompatibility } from './core/chat-compatibility.js';
 
 /**
  * Initialize the application
