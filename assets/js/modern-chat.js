@@ -315,6 +315,40 @@ class ModernChatApp {
         try {
             this.hideWelcomeScreen();
             this.currentConversation = userId;
+            this.currentGroupId = null; // Clear any group chat
+            
+            // Update UI to show user info
+            if (userId) {
+                const user = this.onlineUsers.find(u => u.id == userId);
+                
+                // Update header
+                const header = document.querySelector('.chat-header');
+                if (header && user) {
+                    header.innerHTML = `
+                        <div class="chat-info">
+                            <div class="chat-avatar">
+                                <img src="${user.avatar || 'assets/images/default-avatar.svg'}" alt="${this.escapeHtml(user.display_name || user.username)}">
+                                <div class="status-indicator ${user.is_online ? 'online' : 'offline'}"></div>
+                            </div>
+                            <div class="chat-details">
+                                <h3>${this.escapeHtml(user.display_name || user.username)}</h3>
+                                <div class="chat-status">${user.is_online ? 'Online' : 'Offline'}</div>
+                            </div>
+                        </div>
+                        <div class="chat-actions">
+                            <button class="action-btn" onclick="window.showChatInfo()">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                            <button class="action-btn" onclick="window.startCall('audio')">
+                                <i class="fas fa-phone"></i>
+                            </button>
+                            <button class="action-btn" onclick="window.startCall('video')">
+                                <i class="fas fa-video"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+            }
             
             const url = userId 
                 ? `${this.apiBase}messages.php?action=get&target_user_id=${userId}`
@@ -417,6 +451,37 @@ class ModernChatApp {
         this.replaceTemporaryMessage(tempId, data.data);
         
         return data;
+    }
+    
+    addMessageToUI(message) {
+        // Add the message to our internal array
+        this.messages.push(message);
+        
+        // Render this single message in the UI
+        if (this.elements.messagesList) {
+            const messageHTML = this.renderMessage(message);
+            this.elements.messagesList.insertAdjacentHTML('beforeend', messageHTML);
+            
+            // Scroll to the new message
+            this.scrollToBottom();
+        }
+    }
+    
+    replaceTemporaryMessage(tempId, message) {
+        // Find the temporary message in our array and replace it
+        const index = this.messages.findIndex(m => m.id === tempId);
+        if (index !== -1) {
+            this.messages[index] = message;
+        }
+        
+        // Update the message in the UI
+        if (this.elements.messagesList) {
+            const tempElement = this.elements.messagesList.querySelector(`[data-message-id="${tempId}"]`);
+            if (tempElement) {
+                const messageHTML = this.renderMessage(message);
+                tempElement.outerHTML = messageHTML;
+            }
+        }
     }
     
     renderMessages() {
@@ -1057,80 +1122,79 @@ class ModernChatApp {
         return data;
     }
     
-    async loadGroups() {
+    async createNewGroup() {
         try {
-            const response = await fetch(`${this.apiBase}groups.php?action=list`);
-            const data = await response.json();
+            // Get form values
+            const name = document.getElementById('groupName').value.trim();
+            const description = document.getElementById('groupDescription').value.trim();
+            const isPublic = document.getElementById('groupVisibility').value === '1';
             
-            if (data.groups) {
-                // Update the groups list in the sidebar
-                this.renderGroupsList(data.groups);
-                
-                // Also add groups to conversations for consistent handling
-                data.groups.forEach(group => {
-                    // Find existing group in conversations or add it
-                    const existingIndex = this.conversations.findIndex(c => 
-                        c.is_group && c.group_id === group.id);
-                        
-                    if (existingIndex >= 0) {
-                        // Update existing entry
-                        this.conversations[existingIndex] = {
-                            ...this.conversations[existingIndex],
-                            ...group,
-                            is_group: true,
-                            group_id: group.id
-                        };
-                    } else {
-                        // Add new group to conversations
-                        this.conversations.push({
-                            ...group,
-                            is_group: true,
-                            group_id: group.id,
-                            display_name: group.name,
-                            avatar: group.avatar || 'assets/images/default-group.svg'
-                        });
-                    }
-                });
+            if (!name) {
+                this.showNotification('Group name is required', 'error');
+                return;
             }
-        } catch (error) {
-            console.error('Error loading groups:', error);
-            this.showNotification('Failed to load groups', 'error');
-        }
-    }
-    
-    renderGroupsList(groups) {
-        const groupsContainer = document.getElementById('groupsList');
-        
-        if (!groupsContainer) return;
-        
-        // Clear existing groups
-        groupsContainer.innerHTML = '';
-        
-        if (groups.length === 0) {
-            groupsContainer.innerHTML = '<div class="no-groups">No groups yet</div>';
-            return;
-        }
-        
-        groups.forEach(group => {
-            const groupElement = document.createElement('div');
-            groupElement.className = 'chat-item group-chat-item';
-            groupElement.setAttribute('data-group-id', group.id);
-            groupElement.innerHTML = `
-                <div class="chat-avatar group-avatar">
-                    <img src="${group.avatar || 'assets/images/default-group.svg'}" alt="${group.name}">
-                </div>
-                <div class="chat-info">
-                    <div class="chat-name">${group.name}</div>
-                    <div class="chat-preview">${group.member_count || 0} members</div>
-                </div>
-            `;
             
-            groupElement.addEventListener('click', () => {
-                this.openGroupChat(group.id);
+            // Get the selected member IDs
+            const selectedMembersContainer = document.getElementById('selectedMembers');
+            const memberElements = selectedMembersContainer ? selectedMembersContainer.querySelectorAll('.selected-member') : [];
+            const memberIds = Array.from(memberElements).map(el => el.dataset.userId);
+            
+            console.log('Creating group with data:', {
+                name, 
+                description, 
+                isPublic, 
+                memberIds
             });
             
-            groupsContainer.appendChild(groupElement);
-        });
+            // Create the group
+            const formData = new FormData();
+            formData.append('action', 'create');
+            formData.append('name', name);
+            formData.append('description', description);
+            formData.append('is_public', isPublic ? '1' : '0');
+            formData.append('csrf_token', this.getCSRFToken());
+            
+            // Add group avatar if selected
+            const avatarInput = document.getElementById('groupAvatarInput');
+            if (avatarInput && avatarInput.files && avatarInput.files[0]) {
+                formData.append('avatar', avatarInput.files[0]);
+            }
+            
+            const response = await fetch(`${this.apiBase}groups.php`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to create group');
+            }
+            
+            // Add selected members to the group
+            const groupId = data.group.id;
+            
+            // Add members to the group if any were selected
+            if (memberIds.length > 0) {
+                await Promise.all(memberIds.map(userId => 
+                    this.addUserToGroup(groupId, userId)
+                ));
+            }
+            
+            this.showNotification('Group created successfully!', 'success');
+            
+            // Close the modal
+            this.closeNewGroupModal();
+            
+            // Refresh groups list and open the new group
+            await this.loadGroups();
+            this.openGroupChat(groupId);
+            
+        } catch (error) {
+            console.error('Error creating group:', error);
+            this.showNotification('Failed to create group: ' + error.message, 'error');
+        }
     }
     
     async loadGroupMembers(groupId) {
@@ -1315,24 +1379,36 @@ class ModernChatApp {
     showNewGroupModal() {
         const modal = document.getElementById('newGroupModal');
         if (modal) {
+            modal.style.display = 'flex';
             modal.classList.add('active');
             
             // Clear previous values
-            document.getElementById('groupName').value = '';
-            document.getElementById('groupDescription').value = '';
-            document.getElementById('groupVisibility').value = '0';
-            document.getElementById('groupAvatarInput').value = '';
-            document.getElementById('groupAvatarPreview').innerHTML = '<i class="fas fa-users"></i>';
+            const groupNameInput = document.getElementById('groupName');
+            const groupDescInput = document.getElementById('groupDescription');
+            const groupVisibilityInput = document.getElementById('groupVisibility');
+            const groupAvatarInput = document.getElementById('groupAvatarInput');
+            const groupAvatarPreview = document.getElementById('groupAvatarPreview');
+            
+            if (groupNameInput) groupNameInput.value = '';
+            if (groupDescInput) groupDescInput.value = '';
+            if (groupVisibilityInput) groupVisibilityInput.value = '0';
+            if (groupAvatarInput) groupAvatarInput.value = '';
+            if (groupAvatarPreview) groupAvatarPreview.innerHTML = '<i class="fas fa-users"></i>';
             
             // Load contacts for member selection
             this.loadContactsForGroupCreation();
+        } else {
+            console.error('New group modal element not found');
         }
     }
     
     closeNewGroupModal() {
         const modal = document.getElementById('newGroupModal');
         if (modal) {
+            modal.style.display = 'none';
             modal.classList.remove('active');
+        } else {
+            console.error('New group modal element not found');
         }
     }
     
@@ -1443,30 +1519,41 @@ class ModernChatApp {
     
     async createNewGroup() {
         try {
-            const groupName = document.getElementById('groupName').value.trim();
-            const groupDescription = document.getElementById('groupDescription').value.trim();
+            // Get form values
+            const name = document.getElementById('groupName').value.trim();
+            const description = document.getElementById('groupDescription').value.trim();
             const isPublic = document.getElementById('groupVisibility').value === '1';
-            const avatarInput = document.getElementById('groupAvatarInput');
             
-            if (!groupName) {
+            if (!name) {
                 this.showNotification('Group name is required', 'error');
                 return;
             }
             
+            // Get the selected member IDs
+            const selectedMembersContainer = document.getElementById('selectedMembers');
+            const memberElements = selectedMembersContainer ? selectedMembersContainer.querySelectorAll('.selected-member') : [];
+            const memberIds = Array.from(memberElements).map(el => el.dataset.userId);
+            
+            console.log('Creating group with data:', {
+                name, 
+                description, 
+                isPublic, 
+                memberIds
+            });
+            
+            // Create the group
             const formData = new FormData();
             formData.append('action', 'create');
-            formData.append('name', groupName);
-            formData.append('description', groupDescription);
+            formData.append('name', name);
+            formData.append('description', description);
             formData.append('is_public', isPublic ? '1' : '0');
             formData.append('csrf_token', this.getCSRFToken());
             
-            // Add avatar if selected
-            if (avatarInput.files.length > 0) {
+            // Add group avatar if selected
+            const avatarInput = document.getElementById('groupAvatarInput');
+            if (avatarInput && avatarInput.files && avatarInput.files[0]) {
                 formData.append('avatar', avatarInput.files[0]);
             }
-            
-            // Show loading state
-            this.showLoading('Creating group...');
             
             const response = await fetch(`${this.apiBase}groups.php`, {
                 method: 'POST',
@@ -1480,155 +1567,120 @@ class ModernChatApp {
                 throw new Error(data.error || 'Failed to create group');
             }
             
-            // Close modal and show success
-            this.closeNewGroupModal();
-            this.showNotification('Group created successfully', 'success');
+            // Add selected members to the group
+            const groupId = data.group.id;
             
-            // Refresh groups list
-            await this.loadGroups();
-            
-            // Navigate to the new group chat
-            if (data.group && data.group.id) {
-                this.openGroupChat(data.group.id);
+            // Add members to the group if any were selected
+            if (memberIds.length > 0) {
+                await Promise.all(memberIds.map(userId => 
+                    this.addUserToGroup(groupId, userId)
+                ));
             }
+            
+            this.showNotification('Group created successfully!', 'success');
+            
+            // Close the modal
+            this.closeNewGroupModal();
+            
+            // Refresh groups list and open the new group
+            await this.loadGroups();
+            this.openGroupChat(groupId);
             
         } catch (error) {
             console.error('Error creating group:', error);
             this.showNotification('Failed to create group: ' + error.message, 'error');
-        } finally {
-            this.hideLoading();
         }
     }
     
-    toggleGroupInfo() {
-        const groupInfoSidebar = document.getElementById('groupInfoSidebar');
-        
-        if (groupInfoSidebar) {
-            if (groupInfoSidebar.classList.contains('active')) {
-                groupInfoSidebar.classList.remove('active');
-            } else {
-                groupInfoSidebar.classList.add('active');
+    async openGroupChat(groupId) {
+        try {
+            this.hideWelcomeScreen();
+            this.currentGroupId = groupId;
+            this.currentConversation = null;  // Clear any direct conversation
+            
+            // Update UI to show group info
+            const group = this.conversations.find(c => c.is_group && c.group_id === groupId);
+            
+            if (!group) {
+                // Try to fetch group details
+                const response = await fetch(`${this.apiBase}groups.php?action=details&group_id=${groupId}`, {
+                    credentials: 'same-origin'
+                });
                 
-                // Load group details and members if in a group chat
-                if (this.currentGroupId) {
-                    this.loadGroupDetails(this.currentGroupId);
+                const data = await response.json();
+                
+                if (!data.success || !data.group) {
+                    throw new Error('Group not found');
+                }
+                
+                // Update conversations with the new group
+                const groupInfo = data.group;
+                this.conversations.push({
+                    is_group: true,
+                    group_id: groupInfo.id,
+                    name: groupInfo.name,
+                    avatar: groupInfo.avatar || 'assets/images/default-group.svg',
+                    last_message: null,
+                    unread_count: 0,
+                    created_at: groupInfo.created_at,
+                    created_by: groupInfo.created_by,
+                    member_count: groupInfo.member_count || 0
+                });
+            }
+            
+            // Update header
+            const header = document.querySelector('.chat-header');
+            if (header) {
+                const groupInfo = group || this.conversations.find(c => c.is_group && c.group_id === groupId);
+                
+                if (groupInfo) {
+                    header.innerHTML = `
+                        <div class="chat-info">
+                            <div class="chat-avatar">
+                                <img src="${groupInfo.avatar || 'assets/images/default-group.svg'}" alt="${this.escapeHtml(groupInfo.name)}">
+                            </div>
+                            <div class="chat-details">
+                                <h3>${this.escapeHtml(groupInfo.name)}</h3>
+                                <div class="chat-status">${groupInfo.member_count || 0} members</div>
+                            </div>
+                        </div>
+                        <div class="chat-actions">
+                            <button class="action-btn" onclick="chatApp.toggleGroupInfo()">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                            <button class="action-btn" onclick="chatApp.startCall('audio')">
+                                <i class="fas fa-phone"></i>
+                            </button>
+                            <button class="action-btn" onclick="chatApp.startCall('video')">
+                                <i class="fas fa-video"></i>
+                            </button>
+                        </div>
+                    `;
                 }
             }
-        }
-    }
-    
-    async loadGroupDetails(groupId) {
-        try {
-            // Get group details
-            const groupResponse = await fetch(`${this.apiBase}groups.php?action=details&group_id=${groupId}`);
-            const groupData = await groupResponse.json();
             
-            if (!groupData.group) {
-                throw new Error('Group not found');
-            }
-            
-            // Update the group info sidebar
-            const groupInfo = groupData.group;
-            
-            // Update avatar
-            const groupInfoAvatar = document.getElementById('groupInfoAvatar');
-            if (groupInfoAvatar) {
-                const avatarImg = groupInfoAvatar.querySelector('img');
-                if (avatarImg) {
-                    avatarImg.src = groupInfo.avatar || 'assets/images/default-group.svg';
-                    avatarImg.alt = groupInfo.name;
-                }
-            }
-            
-            // Update name and meta information
-            const groupInfoName = document.getElementById('groupInfoName');
-            if (groupInfoName) {
-                groupInfoName.textContent = groupInfo.name;
-            }
-            
-            const groupInfoMemberCount = document.getElementById('groupInfoMemberCount');
-            if (groupInfoMemberCount) {
-                groupInfoMemberCount.textContent = `${groupInfo.member_count || 0} members`;
-            }
-            
-            const groupInfoCreatedAt = document.getElementById('groupInfoCreatedAt');
-            if (groupInfoCreatedAt) {
-                groupInfoCreatedAt.textContent = `Created ${this.formatDate(groupInfo.created_at)}`;
-            }
-            
-            // Update description
-            const groupInfoDescription = document.getElementById('groupInfoDescription');
-            if (groupInfoDescription) {
-                groupInfoDescription.textContent = groupInfo.description || 'No description available';
-            }
-            
-            // Load and update members list
-            const members = await this.loadGroupMembers(groupId);
-            this.updateGroupMembersList(members);
-            
-        } catch (error) {
-            console.error('Error loading group details:', error);
-            this.showNotification('Failed to load group details: ' + error.message, 'error');
-        }
-    }
-    
-    formatDate(dateString) {
-        if (!dateString) return 'Unknown';
-        
-        const date = new Date(dateString);
-        return date.toLocaleDateString(undefined, { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
-        });
-    }
-    
-    formatLastSeen(dateString) {
-        if (!dateString) return 'a while ago';
-        
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMins / 60);
-        const diffDays = Math.floor(diffHours / 24);
-        
-        if (diffMins < 1) return 'just now';
-        if (diffMins < 60) return `${diffMins} min ago`;
-        if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-        if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-        
-        return date.toLocaleDateString();
-    }
-    
-    async addUserToGroup(groupId, userId, isAdmin = false) {
-        try {
-            if (!groupId || !userId) return;
-            
-            const formData = new FormData();
-            formData.append('action', 'add_member');
-            formData.append('group_id', groupId);
-            formData.append('user_id', userId);
-            formData.append('role', isAdmin ? 'admin' : 'member');
-            formData.append('csrf_token', this.getCSRFToken());
-            
-            const response = await fetch(`${this.apiBase}groups.php`, {
-                method: 'POST',
-                body: formData,
+            // Load group messages
+            const url = `${this.apiBase}messages.php?action=get&group_id=${groupId}`;
+            const response = await fetch(url, {
                 credentials: 'same-origin'
             });
             
             const data = await response.json();
             
-            if (!data.success) {
-                throw new Error(data.error || 'Failed to add member to group');
+            if (data.success) {
+                this.messages = data.messages || [];
+                this.renderMessages();
+                this.scrollToBottom();
+                this.updateLastMessageTime();
+                
+                // Load group members for the info panel
+                this.loadGroupMembers(groupId);
+            } else {
+                throw new Error(data.message || 'Failed to load messages');
             }
-            
-            return true;
         } catch (error) {
-            console.error('Error adding user to group:', error);
-            this.showNotification('Failed to add user to group: ' + error.message, 'error');
-            throw error;
+            console.error('Failed to open group chat:', error);
+            this.showNotification('Failed to open group chat: ' + error.message, 'error');
         }
     }
 }
