@@ -277,9 +277,12 @@ class ModernChatApp {
     }
     
     renderGroupsList(groups) {
-        const groupsContainer = document.getElementById('groupsList');
+        const groupsContainer = document.getElementById('groupList');
         
-        if (!groupsContainer) return;
+        if (!groupsContainer) {
+            console.error('Group list container not found');
+            return;
+        }
         
         // Clear existing groups
         groupsContainer.innerHTML = '';
@@ -376,26 +379,34 @@ class ModernChatApp {
     async sendMessage(content, type = 'text', replyToId = null, file = null) {
         if (!content.trim() && !file) return;
         
-        // Add to UI immediately for better UX
-        const tempId = 'temp_' + Date.now();
-        this.addMessageToUI({
-            id: tempId,
-            sender_id: this.currentUserId,
-            content: content.trim(),
-            type: type,
-            created_at: new Date().toISOString(),
-            is_read: true,
-            sender: { 
+        try {
+            // Add to UI immediately for better UX
+            const tempId = 'temp_' + Date.now();
+            const tempMessage = {
+                id: tempId,
+                user_id: this.currentUserId,
+                content: content.trim(),
+                type: type,
+                created_at: new Date().toISOString(),
+                is_read: true,
                 username: 'You',
-                display_name: 'You'
-            },
-            temp: true
-        });
-        
-        // Clear input
-        this.elements.messageInput.value = '';
-        this.elements.messageInput.style.height = 'auto';
-        this.updateSendButton();
+                display_name: 'You',
+                avatar: document.querySelector('.profile-avatar img')?.src || 'assets/images/default-avatar.svg',
+                temp: true
+            };
+
+            // Add the message to our internal array and render it
+            this.messages.push(tempMessage);
+            if (this.elements.messagesList) {
+                const messageHTML = this.renderMessage(tempMessage);
+                this.elements.messagesList.insertAdjacentHTML('beforeend', messageHTML);
+                this.scrollToBottom();
+            }
+            
+            // Clear input
+            this.elements.messageInput.value = '';
+            this.elements.messageInput.style.height = 'auto';
+            this.updateSendButton();
         
         // Prepare form data
         const formData = new FormData();
