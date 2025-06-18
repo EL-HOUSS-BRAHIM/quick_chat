@@ -1,8 +1,10 @@
 /**
  * Progressive Web App (PWA) Manager
  * Handles service worker registration, offline functionality, and app installation
+ * Enhanced with improved push notification system - Updated 2025-06-19
  */
 import { Workbox } from 'workbox-window';
+import performanceMonitor from './core/performance-monitor.js';
 
 class PWAManager {
     constructor() {
@@ -11,6 +13,18 @@ class PWAManager {
         this.installPrompt = null;
         this.offlineQueue = [];
         this.cacheVersion = 'v3.0.0';
+        this.pushSubscription = null;
+        this.notificationPermission = null;
+        this.notificationQueue = [];
+        this.notificationClickHandlers = new Map();
+        this.notificationCloseHandlers = new Map();
+        this.notificationShowCount = 0;
+        this.lastNotificationTime = 0;
+        this.maxNotificationsPerMinute = 10;
+        this.notificationGroups = new Map();
+        this.tokenRefreshTimeout = null;
+        this.pushRetryQueue = [];
+        this.performanceMonitor = performanceMonitor;
         
         this.init();
     }
@@ -21,6 +35,22 @@ class PWAManager {
         this.setupOfflineHandling();
         this.setupNetworkStatusMonitoring();
         this.setupBackgroundSync();
+        
+        // Initialize the enhanced notification service
+        this.initializeNotificationService();
+    }
+    
+    async initializeNotificationService() {
+        // Dynamically import the notification service
+        try {
+            const NotificationService = (await import('./core/notification-service.js')).default;
+            this.notificationService = new NotificationService(this);
+            console.log('Enhanced notification service initialized');
+        } catch (error) {
+            console.error('Failed to initialize notification service:', error);
+            // Fall back to basic notification setup
+            this.setupNotifications();
+        }
     }
 
     async setupServiceWorker() {
@@ -313,86 +343,34 @@ class PWAManager {
         }
     }
 
-    // Offline queue management
-    queueForOffline(request) {
-        this.offlineQueue.push({
-            id: Date.now() + '_' + Math.random(),
-            request: request,
-            timestamp: Date.now(),
-            retryCount: 0
-        });
-
-        this.saveOfflineQueue();
-        this.showToast('Message queued for sending', 'info');
-    }
-
-    async processOfflineQueue() {
-        if (this.offlineQueue.length === 0) return;
-
-        console.log(`Processing ${this.offlineQueue.length} offline requests`);
-
-        const queue = [...this.offlineQueue];
-        this.offlineQueue = [];
-
-        for (const item of queue) {
-            try {
-                await this.retryRequest(item.request);
-                console.log('Offline request processed successfully');
-            } catch (error) {
-                console.error('Failed to process offline request:', error);
-                
-                // Re-queue if retry count is low
-                if (item.retryCount < 3) {
-                    item.retryCount++;
-                    this.offlineQueue.push(item);
-                }
-            }
-        }
-
-        this.saveOfflineQueue();
-
-        if (this.offlineQueue.length === 0) {
-            this.showToast('All messages sent successfully', 'success');
-        }
-    }
-
-    async retryRequest(requestData) {
-        const { url, method, body, headers } = requestData;
-        
-        const response = await fetch(url, {
-            method: method,
-            body: body,
-            headers: headers
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        return response;
-    }
-
-    saveOfflineQueue() {
-        try {
-            localStorage.setItem('offlineQueue', JSON.stringify(this.offlineQueue));
-        } catch (error) {
-            console.error('Failed to save offline queue:', error);
-        }
-    }
-
-    loadOfflineQueue() {
-        try {
-            const saved = localStorage.getItem('offlineQueue');
-            if (saved) {
-                this.offlineQueue = JSON.parse(saved);
-            }
-        } catch (error) {
-            console.error('Failed to load offline queue:', error);
-            this.offlineQueue = [];
-        }
-    }
-
     // Push notification handling
+    async setupNotifications() {
+        // Check if notifications are supported
+        if (!('Notification' in window)) {
+            console.warn('Notifications not supported in this browser');
+            return;
+        }
+        
+        // Get current permission state
+        this.notificationPermission = Notification.permission;
+        
+        // Set up notification click and close event listeners
+        if (navigator.serviceWorker.controller) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data.type === 'NOTIFICATION_CLICK') {
+                    this.handleNotificationClick(event.data);
+                } else if (event.data.type === 'NOTIFICATION_CLOSE') {
+                    this.handleNotificationClose(event.data);
+                }
+            });
+        }
+        
+        // Try to subscribe to push notifications if permission is granted
+        if (this.notificationPermission === 'granted') {
+            this.setupPushNotifications();
+        }
+    }
+
     async setupPushNotifications() {
         if (!('PushManager' in window)) {
             console.warn('Push notifications not supported');
@@ -400,118 +378,585 @@ class PWAManager {
         }
 
         try {
-            const permission = await Notification.requestPermission();
-            
-            if (permission !== 'granted') {
-                console.log('Push notification permission denied');
-                return false;
+            // Make sure we have permission
+            if (this.notificationPermission !== 'granted') {
+                const permission = await Notification.requestPermission();
+                this.notificationPermission = permission;
+                
+                if (permission !== 'granted') {
+                    console.log('Push notification permission denied');
+                    return false;
+                }
             }
 
+            // Get service worker registration
             const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: this.getVapidKey()
-            });
+            
+            // Get existing subscription
+            let subscription = await registration.pushManager.getSubscription();
+            
+            // If no subscription exists, create one
+            if (!subscription) {
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: this.urlBase64ToUint8Array(this.getVapidKey())
+                });
+            }
+            
+            // Store subscription
+            this.pushSubscription = subscription;
 
             // Send subscription to server
             await this.sendSubscriptionToServer(subscription);
+            
+            // Set up token refresh (every week)
+            this.setupTokenRefresh();
+            
+            // Process any queued notifications
+            this.processNotificationQueue();
             
             console.log('Push notifications enabled');
             return true;
         } catch (error) {
             console.error('Failed to setup push notifications:', error);
+            
+            // Queue for retry
+            this.pushRetryQueue.push({
+                type: 'setup',
+                timestamp: Date.now()
+            });
+            
+            // Try again later
+            setTimeout(() => {
+                if (this.pushRetryQueue.length > 0) {
+                    this.retryPushSetup();
+                }
+            }, 60000); // Try again in 1 minute
+            
+            return false;
+        }
+    }
+    
+    /**
+     * Retry push notification setup
+     */
+    async retryPushSetup() {
+        // Don't retry if too many attempts
+        if (this.pushRetryQueue.length > 5) {
+            console.warn('Too many push notification setup retries, giving up');
+            this.pushRetryQueue = [];
+            return;
+        }
+        
+        console.log('Retrying push notification setup');
+        
+        try {
+            const success = await this.setupPushNotifications();
+            if (success) {
+                this.pushRetryQueue = [];
+            }
+        } catch (error) {
+            console.error('Retry push setup failed:', error);
+        }
+    }
+
+    /**
+     * Setup periodic token refresh
+     */
+    setupTokenRefresh() {
+        // Clear any existing refresh timeout
+        if (this.tokenRefreshTimeout) {
+            clearTimeout(this.tokenRefreshTimeout);
+        }
+        
+        // Refresh subscription token weekly to prevent expiration
+        this.tokenRefreshTimeout = setTimeout(async () => {
+            try {
+                await this.refreshPushSubscription();
+            } catch (error) {
+                console.error('Failed to refresh push subscription:', error);
+            } finally {
+                // Set up next refresh regardless of success/failure
+                this.setupTokenRefresh();
+            }
+        }, 7 * 24 * 60 * 60 * 1000); // 7 days
+    }
+    
+    /**
+     * Refresh push subscription
+     */
+    async refreshPushSubscription() {
+        console.log('Refreshing push subscription');
+        
+        try {
+            // Get service worker registration
+            const registration = await navigator.serviceWorker.ready;
+            
+            // Get existing subscription
+            const oldSubscription = await registration.pushManager.getSubscription();
+            
+            // Unsubscribe from old subscription
+            if (oldSubscription) {
+                await oldSubscription.unsubscribe();
+            }
+            
+            // Create new subscription
+            const newSubscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: this.urlBase64ToUint8Array(this.getVapidKey())
+            });
+            
+            // Store new subscription
+            this.pushSubscription = newSubscription;
+            
+            // Send new subscription to server
+            await this.sendSubscriptionToServer(newSubscription);
+            
+            console.log('Push subscription refreshed');
+            return true;
+        } catch (error) {
+            console.error('Failed to refresh push subscription:', error);
+            
+            // Queue for retry
+            this.pushRetryQueue.push({
+                type: 'refresh',
+                timestamp: Date.now()
+            });
+            
             return false;
         }
     }
 
     getVapidKey() {
         // This should be your VAPID public key
-        return 'your-vapid-public-key-here';
+        return 'BPJrSNmOoSRKh6NI0_YsHQMFwu9M6Iw2LF1FmcWIGXWWGcqNJEg9wqdvH5tLGNtAkuUfMfJADFJYH4xCAEQA92Y';
+    }
+    
+    /**
+     * Convert VAPID key from base64 to Uint8Array
+     */
+    urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/\-/g, '+')
+            .replace(/_/g, '/');
+            
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        
+        return outputArray;
     }
 
     async sendSubscriptionToServer(subscription) {
         try {
-            await fetch('/api/push-subscription.php', {
+            // Convert subscription to JSON
+            const subscriptionJson = subscription.toJSON();
+            
+            // Send to server
+            const response = await fetch('/api/push-subscription.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-Token': this.getCSRFToken()
                 },
-                body: JSON.stringify(subscription)
+                body: JSON.stringify({
+                    subscription: subscriptionJson,
+                    user_agent: navigator.userAgent,
+                    device_type: this.getDeviceType(),
+                    timestamp: Date.now()
+                })
             });
+            
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}`);
+            }
+            
+            console.log('Push subscription sent to server');
+            return true;
         } catch (error) {
             console.error('Failed to send subscription to server:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * Get device type for analytics
+     */
+    getDeviceType() {
+        const ua = navigator.userAgent;
+        if (/Android/i.test(ua)) return 'android';
+        if (/iPad|iPhone|iPod/.test(ua)) return 'ios';
+        if (/Windows/.test(ua)) return 'windows';
+        if (/Mac OS X/.test(ua)) return 'mac';
+        if (/Linux/.test(ua)) return 'linux';
+        return 'other';
+    }
+
+    getCSRFToken() {
+        const tokenElement = document.querySelector('meta[name="csrf-token"]');
+        return tokenElement ? tokenElement.getAttribute('content') : '';
+    }
+    
+    /**
+     * Request notification permission
+     */
+    async requestNotificationPermission() {
+        if (!('Notification' in window)) {
+            console.warn('Notifications not supported');
+            return false;
+        }
+        
+        // If already granted, nothing to do
+        if (this.notificationPermission === 'granted') {
+            return true;
+        }
+        
+        try {
+            const permission = await Notification.requestPermission();
+            this.notificationPermission = permission;
+            
+            if (permission === 'granted') {
+                // Setup push now that we have permission
+                this.setupPushNotifications();
+                return true;
+            } else {
+                console.log('Notification permission denied');
+                return false;
+            }
+        } catch (error) {
+            console.error('Error requesting notification permission:', error);
+            return false;
         }
     }
 
     handlePushNotification(payload) {
         console.log('Push notification received:', payload);
         
-        // Show notification if app is not in focus
-        if (document.hidden) {
-            this.showNotification(payload.title, {
-                body: payload.body,
-                icon: payload.icon || '/assets/images/icon-192.png',
-                tag: payload.tag,
-                data: payload.data
+        // Don't show notification if we're already in the app and it's in focus
+        if (!document.hidden && payload.suppressIfVisible) {
+            console.log('Suppressing notification because app is visible');
+            return;
+        }
+        
+        // Check rate limiting
+        if (!this.checkNotificationRateLimit()) {
+            console.log('Notification rate limited');
+            this.queueNotification(payload);
+            return;
+        }
+        
+        // Group notifications if needed
+        if (payload.groupKey && this.shouldGroupNotification(payload)) {
+            this.addToNotificationGroup(payload);
+            return;
+        }
+        
+        // Show notification
+        this.showNotification(payload.title, {
+            body: payload.body,
+            icon: payload.icon || '/assets/images/icon-192.png',
+            badge: payload.badge || '/assets/images/notification-badge.png',
+            tag: payload.tag || 'default',
+            data: payload.data || {},
+            actions: payload.actions || [],
+            image: payload.image || null,
+            vibrate: payload.vibrate || [100, 50, 100],
+            renotify: payload.renotify || false,
+            requireInteraction: payload.requireInteraction || false,
+            silent: payload.silent || false
+        });
+    }
+    
+    /**
+     * Check if we should rate limit notifications
+     */
+    checkNotificationRateLimit() {
+        const now = Date.now();
+        
+        // If we've shown too many notifications in the last minute, rate limit
+        if ((now - this.lastNotificationTime) < 60000) {
+            if (this.notificationShowCount >= this.maxNotificationsPerMinute) {
+                return false;
+            }
+        } else {
+            // Reset counter if it's been more than a minute
+            this.notificationShowCount = 0;
+        }
+        
+        this.notificationShowCount++;
+        this.lastNotificationTime = now;
+        
+        return true;
+    }
+    
+    /**
+     * Queue a notification for later display
+     */
+    queueNotification(payload) {
+        this.notificationQueue.push({
+            payload,
+            timestamp: Date.now()
+        });
+        
+        // Process queue later
+        setTimeout(() => {
+            this.processNotificationQueue();
+        }, 60000); // Try again in 1 minute
+    }
+    
+    /**
+     * Process queued notifications
+     */
+    processNotificationQueue() {
+        if (this.notificationQueue.length === 0) return;
+        
+        // Get oldest notifications first, up to our rate limit
+        const now = Date.now();
+        const availableSlots = this.maxNotificationsPerMinute - this.notificationShowCount;
+        
+        if (availableSlots <= 0) {
+            // Try again later
+            setTimeout(() => {
+                this.processNotificationQueue();
+            }, 30000); // Try again in 30 seconds
+            return;
+        }
+        
+        // Sort by timestamp (oldest first)
+        this.notificationQueue.sort((a, b) => a.timestamp - b.timestamp);
+        
+        // Process up to available slots
+        const toProcess = this.notificationQueue.slice(0, availableSlots);
+        this.notificationQueue = this.notificationQueue.slice(availableSlots);
+        
+        // Show notifications
+        toProcess.forEach(item => {
+            if (now - item.timestamp > 3600000) {
+                // Skip notifications older than 1 hour
+                return;
+            }
+            
+            this.handlePushNotification(item.payload);
+        });
+    }
+    
+    /**
+     * Check if notification should be grouped
+     */
+    shouldGroupNotification(payload) {
+        if (!payload.groupKey) return false;
+        
+        const group = this.notificationGroups.get(payload.groupKey);
+        return group && group.count > 0;
+    }
+    
+    /**
+     * Add notification to a group
+     */
+    addToNotificationGroup(payload) {
+        const groupKey = payload.groupKey;
+        
+        // Get or create group
+        let group = this.notificationGroups.get(groupKey);
+        if (!group) {
+            group = {
+                count: 0,
+                title: payload.groupTitle || 'New Notifications',
+                messages: [],
+                lastUpdate: Date.now()
+            };
+            this.notificationGroups.set(groupKey, group);
+        }
+        
+        // Add to group
+        group.count++;
+        group.messages.push(payload.body);
+        group.lastUpdate = Date.now();
+        
+        // Keep only the last 5 messages
+        if (group.messages.length > 5) {
+            group.messages = group.messages.slice(-5);
+        }
+        
+        // Show group notification
+        let body;
+        if (group.count <= 3) {
+            body = group.messages.join('\n');
+        } else {
+            body = `${group.messages.slice(-3).join('\n')}\n\n+${group.count - 3} more...`;
+        }
+        
+        this.showNotification(group.title, {
+            body: body,
+            icon: payload.icon || '/assets/images/icon-192.png',
+            tag: `group-${groupKey}`,
+            renotify: true,
+            data: {
+                type: 'group',
+                groupKey: groupKey,
+                count: group.count,
+                ...payload.data
+            }
+        });
+    }
+
+    showNotification(title, options = {}) {
+        // Use enhanced notification service if available
+        if (this.notificationService) {
+            // Adapt parameters to the format expected by the notification service
+            return this.notificationService.showNotification({
+                title: title,
+                ...options,
+                type: options.data?.type || 'message'
             });
         }
-    }
 
-    showNotification(title, options) {
-        if ('Notification' in window && Notification.permission === 'granted') {
-            const notification = new Notification(title, options);
-            
-            notification.onclick = () => {
-                window.focus();
-                notification.close();
-                
-                // Handle notification click based on data
-                if (options.data && options.data.url) {
-                    window.location.href = options.data.url;
+        // Performance tracking
+        const endTracking = this.performanceMonitor.trackInteraction('notification', 'show', 
+            options.data?.type || 'basic');
+        
+        if ('Notification' in window && this.notificationPermission === 'granted') {
+            // Get service worker registration
+            navigator.serviceWorker.ready.then(registration => {
+                // Register click handler if data contains clickAction
+                if (options.data && options.data.clickAction) {
+                    this.registerNotificationClickHandler(options.tag, options.data.clickAction);
                 }
-            };
-        }
-    }
-
-    async syncOfflineData() {
-        // Sync any offline data with server
-        try {
-            const offlineData = this.getOfflineData();
-            
-            if (offlineData.length > 0) {
-                await fetch('/api/sync-offline-data.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': this.getCSRFToken()
-                    },
-                    body: JSON.stringify(offlineData)
-                });
                 
-                this.clearOfflineData();
-                console.log('Offline data synced');
+                // Show notification
+                registration.showNotification(title, options)
+                    .then(() => {
+                        endTracking(true, { type: options.data?.type || 'basic' });
+                    })
+                    .catch(error => {
+                        console.error('Error showing notification:', error);
+                        endTracking(false, { error: error.message });
+                    });
+            });
+        } else if (this.notificationPermission === 'default') {
+            // Ask for permission
+            this.requestNotificationPermission().then(granted => {
+                if (granted) {
+                    this.showNotification(title, options);
+                } else {
+                    endTracking(false, { error: 'permission_denied' });
+                }
+            });
+        } else {
+            endTracking(false, { error: 'not_supported_or_denied' });
+        }
+    }
+    
+    /**
+     * Register a handler for notification clicks
+     */
+    registerNotificationClickHandler(tag, action) {
+        this.notificationClickHandlers.set(tag, action);
+    }
+    
+    /**
+     * Register a handler for notification close events
+     */
+    registerNotificationCloseHandler(tag, handler) {
+        this.notificationCloseHandlers.set(tag, handler);
+    }
+    
+    /**
+     * Handle notification click event
+     */
+    handleNotificationClick(data) {
+        const { tag, url, actionId } = data;
+        
+        // Focus window
+        if (window.focus) {
+            window.focus();
+        }
+        
+        // Handle group notifications
+        if (data.type === 'group') {
+            this.handleGroupNotificationClick(data);
+            return;
+        }
+        
+        // Check for specific click handler
+        const handler = this.notificationClickHandlers.get(tag);
+        if (handler) {
+            try {
+                if (typeof handler === 'function') {
+                    handler(data);
+                } else if (typeof handler === 'string') {
+                    window.location.href = handler;
+                }
+            } catch (error) {
+                console.error('Error in notification click handler:', error);
             }
-        } catch (error) {
-            console.error('Failed to sync offline data:', error);
+            
+            // Remove one-time handlers
+            if (data.oneTimeHandler) {
+                this.notificationClickHandlers.delete(tag);
+            }
+            
+            return;
+        }
+        
+        // Default behavior - navigate to URL if provided
+        if (url) {
+            window.location.href = url;
         }
     }
-
-    getOfflineData() {
-        try {
-            const data = localStorage.getItem('offlineData');
-            return data ? JSON.parse(data) : [];
-        } catch (error) {
-            console.error('Failed to get offline data:', error);
-            return [];
+    
+    /**
+     * Handle group notification click
+     */
+    handleGroupNotificationClick(data) {
+        const { groupKey } = data;
+        
+        // Navigate to group view
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            // Default behavior - open appropriate view based on group key
+            switch (groupKey) {
+                case 'messages':
+                    window.location.href = '/dashboard.php?view=messages';
+                    break;
+                case 'notifications':
+                    window.location.href = '/dashboard.php?view=notifications';
+                    break;
+                default:
+                    window.location.href = '/dashboard.php';
+            }
+        }
+        
+        // Clear group
+        if (this.notificationGroups.has(groupKey)) {
+            this.notificationGroups.delete(groupKey);
         }
     }
-
-    clearOfflineData() {
-        try {
-            localStorage.removeItem('offlineData');
-        } catch (error) {
-            console.error('Failed to clear offline data:', error);
+    
+    /**
+     * Handle notification close event
+     */
+    handleNotificationClose(data) {
+        const { tag } = data;
+        
+        // Check for specific close handler
+        const handler = this.notificationCloseHandlers.get(tag);
+        if (handler && typeof handler === 'function') {
+            try {
+                handler(data);
+            } catch (error) {
+                console.error('Error in notification close handler:', error);
+            }
+            
+            // Remove one-time handlers
+            if (data.oneTimeHandler) {
+                this.notificationCloseHandlers.delete(tag);
+            }
         }
     }
 
@@ -566,11 +1011,6 @@ class PWAManager {
             toast.classList.remove('show');
             setTimeout(() => toast.remove(), 300);
         }, 3000);
-    }
-
-    getCSRFToken() {
-        const meta = document.querySelector('meta[name="csrf-token"]');
-        return meta ? meta.content : '';
     }
 
     // Public API
