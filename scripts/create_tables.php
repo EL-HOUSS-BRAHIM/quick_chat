@@ -146,6 +146,25 @@ try {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ",
         
+        // Group banned users table
+        'group_banned_users' => "
+            CREATE TABLE IF NOT EXISTS `group_banned_users` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `group_id` INT NOT NULL,
+                `user_id` INT NOT NULL,
+                `banned_by` INT NOT NULL,
+                `reason` TEXT NULL,
+                `banned_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                `banned_until` TIMESTAMP NULL,
+                FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE CASCADE,
+                FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+                FOREIGN KEY (`banned_by`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+                UNIQUE KEY `unique_banned_user` (`group_id`, `user_id`),
+                INDEX `idx_group_id` (`group_id`),
+                INDEX `idx_user_id` (`user_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ",
+        
         // Messages table
         'messages' => "
             CREATE TABLE IF NOT EXISTS `messages` (
