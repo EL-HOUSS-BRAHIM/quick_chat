@@ -1,5 +1,9 @@
 const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+
+// Check if we're running analysis mode
+const isAnalyze = process.argv.includes('--analyze');
 
 module.exports = {
   entry: {
@@ -9,6 +13,7 @@ module.exports = {
     'chat': './assets/js/features/chat/index.js',
     'dashboard': './assets/js/features/dashboard/index.js',
     'profile': './assets/js/features/profile/index.js',
+    'pwa': './assets/js/pwa-manager.js'
   },
   output: {
     filename: '[name].bundle.js',
@@ -30,13 +35,26 @@ module.exports = {
     ]
   },
   optimization: {
-    minimizer: [new TerserPlugin()],
+    minimizer: [new TerserPlugin({
+      terserOptions: {
+        compress: {
+          drop_console: process.env.NODE_ENV === 'production',
+        },
+      },
+    })],
     splitChunks: {
+      chunks: 'all',
+      maxInitialRequests: Infinity,
+      minSize: 20000,
       cacheGroups: {
         vendor: {
           test: /[\\/]node_modules[\\/]/,
-          name: 'vendors',
-          chunks: 'all'
+          name(module) {
+            // Get the name of the npm package
+            const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
+            // Return a nice name
+            return `vendor.${packageName.replace('@', '')}`;
+          },
         },
         common: {
           name: 'common',
@@ -47,5 +65,9 @@ module.exports = {
       }
     }
   },
-  devtool: 'source-map'
+  devtool: process.env.NODE_ENV === 'production' ? 'source-map' : 'eval-source-map',
+  plugins: [
+    // Add bundle analyzer plugin only when in analyze mode
+    ...(isAnalyze ? [new BundleAnalyzerPlugin()] : [])
+  ]
 };
