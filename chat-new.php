@@ -625,13 +625,19 @@ if ($targetUserId) {
                 if (window.chatApp && typeof window.chatApp.showNewGroupModal === 'function') {
                     window.chatApp.showNewGroupModal();
                 } else {
-                    console.error('showNewGroupModal function not available on chatApp');
+                    const modal = document.getElementById('newGroupModal');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                    } else {
+                        console.error('New group modal element not found');
+                    }
                 }
             };
             
             window.closeNewGroupModal = function() {
-                if (window.chatApp && typeof window.chatApp.closeNewGroupModal === 'function') {
-                    window.chatApp.closeNewGroupModal();
+                const modal = document.getElementById('newGroupModal');
+                if (modal) {
+                    modal.style.display = 'none';
                 }
             };
             
