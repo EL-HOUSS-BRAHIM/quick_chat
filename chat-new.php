@@ -2,7 +2,7 @@
 $pageTitle = 'Chat - Quick Chat';
 $pageClass = 'modern-chat-page';
 $additionalCSS = ['assets/css/modern-chat.css'];
-$additionalJS = ['assets/js/modern-chat.js', 'assets/js/emoji.js'];
+$additionalJS = ['assets/js/modern-chat.js', 'assets/js/emoji.js', 'assets/js/message-reactions.js', 'assets/js/group-chat.js', 'assets/js/missing-functions.js', 'assets/js/chat-extensions.js'];
 
 // Require authentication
 require_once __DIR__ . '/includes/auth_check.php';
