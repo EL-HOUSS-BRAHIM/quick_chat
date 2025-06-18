@@ -70,6 +70,15 @@ class ModernChatApp {
             newChatModal: document.getElementById('newChatModal'),
             userSearchInput: document.getElementById('userSearchInput'),
             userSearchResults: document.getElementById('userSearchResults'),
+            newGroupModal: document.getElementById('newGroupModal'),
+            groupName: document.getElementById('groupName'),
+            groupDescription: document.getElementById('groupDescription'),
+            groupVisibility: document.getElementById('groupVisibility'),
+            groupAvatarInput: document.getElementById('groupAvatarInput'),
+            groupAvatarPreview: document.getElementById('groupAvatarPreview'),
+            memberSearch: document.getElementById('memberSearch'),
+            memberSearchResults: document.getElementById('memberSearchResults'),
+            selectedMembers: document.getElementById('selectedMembers'),
             
             // Settings
             notificationsEnabled: document.getElementById('notificationsEnabled'),
@@ -184,6 +193,9 @@ class ModernChatApp {
                 this.showWelcomeScreen();
             }
             
+            // Load groups
+            await this.loadGroups();
+            
         } catch (error) {
             console.error('Failed to load initial data:', error);
             this.showError('Failed to load chat data');
@@ -221,6 +233,82 @@ class ModernChatApp {
         } catch (error) {
             console.error('Failed to load online users:', error);
         }
+    }
+    
+    async loadGroups() {
+        try {
+            const response = await fetch(`${this.apiBase}groups.php?action=list`);
+            const data = await response.json();
+            
+            if (data.groups) {
+                // Update the groups list in the sidebar
+                this.renderGroupsList(data.groups);
+                
+                // Also add groups to conversations for consistent handling
+                data.groups.forEach(group => {
+                    // Find existing group in conversations or add it
+                    const existingIndex = this.conversations.findIndex(c => 
+                        c.is_group && c.group_id === group.id);
+                        
+                    if (existingIndex >= 0) {
+                        // Update existing entry
+                        this.conversations[existingIndex] = {
+                            ...this.conversations[existingIndex],
+                            ...group,
+                            is_group: true,
+                            group_id: group.id
+                        };
+                    } else {
+                        // Add new group to conversations
+                        this.conversations.push({
+                            ...group,
+                            is_group: true,
+                            group_id: group.id,
+                            display_name: group.name,
+                            avatar: group.avatar || 'assets/images/default-group.svg'
+                        });
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error loading groups:', error);
+            this.showNotification('Failed to load groups', 'error');
+        }
+    }
+    
+    renderGroupsList(groups) {
+        const groupsContainer = document.getElementById('groupsList');
+        
+        if (!groupsContainer) return;
+        
+        // Clear existing groups
+        groupsContainer.innerHTML = '';
+        
+        if (groups.length === 0) {
+            groupsContainer.innerHTML = '<div class="no-groups">No groups yet</div>';
+            return;
+        }
+        
+        groups.forEach(group => {
+            const groupElement = document.createElement('div');
+            groupElement.className = 'chat-item group-chat-item';
+            groupElement.setAttribute('data-group-id', group.id);
+            groupElement.innerHTML = `
+                <div class="chat-avatar group-avatar">
+                    <img src="${group.avatar || 'assets/images/default-group.svg'}" alt="${group.name}">
+                </div>
+                <div class="chat-info">
+                    <div class="chat-name">${group.name}</div>
+                    <div class="chat-preview">${group.member_count || 0} members</div>
+                </div>
+            `;
+            
+            groupElement.addEventListener('click', () => {
+                this.openGroupChat(group.id);
+            });
+            
+            groupsContainer.appendChild(groupElement);
+        });
     }
     
     async loadConversation(userId = null) {
@@ -969,726 +1057,578 @@ class ModernChatApp {
         return data;
     }
     
-    async loadGroupMembers(groupId) {
-        const response = await fetch(`${this.apiBase}groups.php?action=members&group_id=${groupId}`);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-        
-        const data = await response.json();
-        return data.members;
-    }
-    
-    async addUserToGroup(groupId, userId, isAdmin = false) {
-        // First, log the CSRF token to console for debugging
-        const csrfToken = this.getCSRFToken();
-        console.log('CSRF Token:', csrfToken);
-        
-        // Log the current session state
-        console.log('Current session status:', document.cookie ? 'Cookies present' : 'No cookies');
-        
-        const formData = new FormData();
-        formData.append('action', 'add_member');
-        formData.append('group_id', groupId);
-        formData.append('user_id', userId);
-        formData.append('is_admin', isAdmin ? '1' : '0');
-        formData.append('csrf_token', csrfToken);
-        
-        // Log form data for debugging
-        console.log('Form data for group member addition:');
-        for (let pair of formData.entries()) {
-            console.log(pair[0] + ': ' + pair[1]);
-        }
-        
-        const response = await fetch(`${this.apiBase}groups.php`, {
-            method: 'POST',
-            body: formData,
-            credentials: 'same-origin',
-            headers: {
-                'X-CSRF-Token': csrfToken // Add token as a header as well
+    async loadGroups() {
+        try {
+            const response = await fetch(`${this.apiBase}groups.php?action=list`);
+            const data = await response.json();
+            
+            if (data.groups) {
+                // Update the groups list in the sidebar
+                this.renderGroupsList(data.groups);
+                
+                // Also add groups to conversations for consistent handling
+                data.groups.forEach(group => {
+                    // Find existing group in conversations or add it
+                    const existingIndex = this.conversations.findIndex(c => 
+                        c.is_group && c.group_id === group.id);
+                        
+                    if (existingIndex >= 0) {
+                        // Update existing entry
+                        this.conversations[existingIndex] = {
+                            ...this.conversations[existingIndex],
+                            ...group,
+                            is_group: true,
+                            group_id: group.id
+                        };
+                    } else {
+                        // Add new group to conversations
+                        this.conversations.push({
+                            ...group,
+                            is_group: true,
+                            group_id: group.id,
+                            display_name: group.name,
+                            avatar: group.avatar || 'assets/images/default-group.svg'
+                        });
+                    }
+                });
             }
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        } catch (error) {
+            console.error('Error loading groups:', error);
+            this.showNotification('Failed to load groups', 'error');
         }
-        
-        return await response.json();
     }
     
-    async removeUserFromGroup(groupId, userId) {
-        const data = new URLSearchParams();
-        data.append('action', 'remove_member');
-        data.append('group_id', groupId);
-        data.append('user_id', userId);
-        data.append('csrf_token', this.getCSRFToken());
+    renderGroupsList(groups) {
+        const groupsContainer = document.getElementById('groupsList');
         
-        const response = await fetch(`${this.apiBase}groups.php`, {
-            method: 'DELETE',
-            body: data,
-            credentials: 'same-origin'
-        });
+        if (!groupsContainer) return;
         
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        // Clear existing groups
+        groupsContainer.innerHTML = '';
+        
+        if (groups.length === 0) {
+            groupsContainer.innerHTML = '<div class="no-groups">No groups yet</div>';
+            return;
         }
         
-        return await response.json();
-    }
-    
-    async banUserFromGroup(groupId, userId, reason = '') {
-        const formData = new FormData();
-        formData.append('action', 'ban_member');
-        formData.append('group_id', groupId);
-        formData.append('user_id', userId);
-        formData.append('reason', reason);
-        formData.append('csrf_token', this.getCSRFToken());
-        
-        const response = await fetch(`${this.apiBase}groups.php`, {
-            method: 'POST',
-            body: formData,
-            credentials: 'same-origin'
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-        
-        return await response.json();
-    }
-    
-    async updateGroupSettings(groupId, settings) {
-        const data = new URLSearchParams();
-        data.append('group_id', groupId);
-        
-        if (settings.name) data.append('name', settings.name);
-        if (settings.description) data.append('description', settings.description);
-        if (settings.isPublic !== undefined) data.append('is_public', settings.isPublic ? '1' : '0');
-        data.append('csrf_token', this.getCSRFToken());
-        
-        const response = await fetch(`${this.apiBase}groups.php`, {
-            method: 'PUT',
-            body: data,
-            credentials: 'same-origin'
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-        
-        return await response.json();
-    }
-    
-    openGroupChat(groupId) {
-        this.currentGroupId = groupId;
-        this.currentConversation = null; // Clear the direct conversation
-        
-        // Find the group in our conversations
-        const group = this.conversations.find(c => c.is_group && c.group_id === groupId);
-        
-        if (group) {
-            this.openChatUI(group);
-            this.loadGroupMembers(groupId).then(members => {
-                this.updateGroupMembersList(members);
+        groups.forEach(group => {
+            const groupElement = document.createElement('div');
+            groupElement.className = 'chat-item group-chat-item';
+            groupElement.setAttribute('data-group-id', group.id);
+            groupElement.innerHTML = `
+                <div class="chat-avatar group-avatar">
+                    <img src="${group.avatar || 'assets/images/default-group.svg'}" alt="${group.name}">
+                </div>
+                <div class="chat-info">
+                    <div class="chat-name">${group.name}</div>
+                    <div class="chat-preview">${group.member_count || 0} members</div>
+                </div>
+            `;
+            
+            groupElement.addEventListener('click', () => {
+                this.openGroupChat(group.id);
             });
+            
+            groupsContainer.appendChild(groupElement);
+        });
+    }
+    
+    async loadGroupMembers(groupId) {
+        try {
+            const response = await fetch(`${this.apiBase}groups.php?action=members&group_id=${groupId}`);
+            const data = await response.json();
+            
+            return data.members || [];
+        } catch (error) {
+            console.error('Error loading group members:', error);
+            this.showNotification('Failed to load group members', 'error');
+            return [];
         }
     }
     
     updateGroupMembersList(members) {
-        // Check if we have the participants sidebar element
-        if (!document.getElementById('participantsList')) {
-            // Create it if it doesn't exist
-            const sidebarElement = document.createElement('div');
-            sidebarElement.id = 'participantsContainer';
-            sidebarElement.className = 'participants-sidebar';
-            sidebarElement.innerHTML = `
-                <div class="sidebar-header">
-                    <h3>Group Members</h3>
-                    <button id="addMemberBtn" class="action-btn"><i class="fas fa-user-plus"></i></button>
-                </div>
-                <div id="participantCount" class="participant-count"></div>
-                <div id="participantsList" class="participants-list"></div>
-            `;
-            
-            document.querySelector('.chat-container').appendChild(sidebarElement);
-            
-            // Add event listener for the add member button
-            document.getElementById('addMemberBtn').addEventListener('click', () => this.showAddMemberModal());
-        }
+        const membersContainer = document.getElementById('groupInfoMembers');
         
-        // Update members list
-        const participantsList = document.getElementById('participantsList');
+        if (!membersContainer) return;
         
-        if (participantsList) {
-            const isAdmin = members.some(m => m.user_id === this.currentUserId && m.is_admin);
-            
-            participantsList.innerHTML = members.map(member => `
-                <div class="participant-item" data-user-id="${member.id}">
-                    <div class="participant-avatar">
-                        <img src="${member.avatar || 'assets/images/default-avatar.svg'}" alt="${member.display_name}">
-                        <span class="status-indicator ${member.status}"></span>
-                    </div>
-                    <div class="participant-info">
-                        <div class="participant-name">${this.escapeHtml(member.display_name || member.username)}</div>
-                        ${member.is_admin ? '<span class="admin-badge">Admin</span>' : ''}
-                    </div>
-                    ${isAdmin && member.id !== this.currentUserId ? `
-                        <div class="participant-actions">
-                            <button class="action-btn" onclick="chatApp.showMemberActionsMenu(${member.id})">
-                                <i class="fas fa-ellipsis-v"></i>
-                            </button>
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
-            
-            // Update the participant count
-            this.updateParticipantCount(members.length);
-        }
-    }
-    
-    updateParticipantCount(count) {
-        const participantElement = document.getElementById('participantCount');
-        if (participantElement) {
-            participantElement.textContent = `${count} member${count !== 1 ? 's' : ''}`;
-        }
-    }
-    
-    showAddMemberModal() {
-        // Create modal for adding members
-        const modalElement = document.createElement('div');
-        modalElement.id = 'addMemberModal';
-        modalElement.className = 'modal';
-        modalElement.onclick = (e) => {
-            if (e.target === modalElement) {
-                document.body.removeChild(modalElement);
-            }
-        };
+        // Clear existing members
+        membersContainer.innerHTML = '';
         
-        modalElement.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Add Member to Group</h3>
-                    <button class="close-btn" onclick="document.body.removeChild(document.getElementById('addMemberModal'))">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="search-container">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="userSearchInput" placeholder="Search users...">
-                    </div>
-                    <div id="userSearchResults" class="search-results"></div>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modalElement);
-        
-        // Add event listener to search input
-        const searchInput = document.getElementById('userSearchInput');
-        searchInput.addEventListener('input', (e) => {
-            this.searchUsers(e.target.value);
-        });
-    }
-    
-    async searchUsers(query) {
-        if (!query.trim()) {
-            document.getElementById('userSearchResults').innerHTML = '';
+        if (members.length === 0) {
+            membersContainer.innerHTML = '<div class="no-members">No members</div>';
             return;
         }
         
-        try {
-            const response = await fetch(`${this.apiBase}users.php?search=${encodeURIComponent(query)}`);
-            const data = await response.json();
+        members.forEach(member => {
+            const memberElement = document.createElement('div');
+            memberElement.className = 'member-item';
             
-            const resultsElement = document.getElementById('userSearchResults');
+            const isAdmin = member.role === 'admin';
+            const isCurrentUser = member.user_id === this.currentUserId;
             
-            if (data.users && data.users.length > 0) {
-                resultsElement.innerHTML = data.users.map(user => `
-                    <div class="search-result-item" data-user-id="${user.id}">
-                        <div class="user-avatar">
-                            <img src="${user.avatar || 'assets/images/default-avatar.svg'}" alt="${user.display_name || user.username}">
-                        </div>
-                        <div class="user-info">
-                            <div class="user-name">${this.escapeHtml(user.display_name || user.username)}</div>
-                            <div class="user-username">@${this.escapeHtml(user.username)}</div>
-                        </div>
-                        <button class="primary-btn add-user-btn" onclick="chatApp.addMemberToGroup(${user.id})">
-                            Add
-                        </button>
-                    </div>
-                `).join('');
-            } else {
-                resultsElement.innerHTML = '<div class="empty-state">No users found</div>';
-            }
-        } catch (error) {
-            console.error('Error searching users:', error);
-        }
+            memberElement.innerHTML = `
+                <div class="member-avatar">
+                    <img src="${member.avatar || 'assets/images/default-avatar.svg'}" 
+                         alt="${member.display_name || member.username}">
+                    <div class="status-indicator ${member.is_online ? 'online' : 'offline'}"></div>
+                </div>
+                <div class="member-info">
+                    <span class="member-name">
+                        ${member.display_name || member.username}
+                        ${isAdmin ? '<span class="admin-badge">Admin</span>' : ''}
+                        ${isCurrentUser ? '<span class="you-badge">You</span>' : ''}
+                    </span>
+                    <span class="member-status">${member.is_online ? 'Online' : 'Last seen ' + this.formatLastSeen(member.last_seen)}</span>
+                </div>
+                ${this.renderMemberActions(member, isAdmin, isCurrentUser)}
+            `;
+            
+            membersContainer.appendChild(memberElement);
+        });
     }
     
-    async addMemberToGroup(userId) {
-        try {
-            await this.addUserToGroup(this.currentGroupId, userId);
-            
-            // Reload the members list
-            const members = await this.loadGroupMembers(this.currentGroupId);
-            this.updateGroupMembersList(members);
-            
-            // Close the modal
-            const modal = document.getElementById('addMemberModal');
-            if (modal) {
-                document.body.removeChild(modal);
-            }
-            
-            this.showNotification('Member added successfully');
-        } catch (error) {
-            console.error('Error adding member:', error);
-            this.showError(error.message);
+    renderMemberActions(member, isAdmin, isCurrentUser) {
+        // Only show actions if current user is an admin of the group
+        if (!this.isCurrentUserGroupAdmin()) {
+            return '';
         }
-    }
-    
-    showMemberActionsMenu(userId) {
-        // Close any existing menus
-        this.closeAllDropdowns();
         
-        // Create the dropdown menu
-        const dropdown = document.createElement('div');
-        dropdown.className = 'dropdown-menu member-actions-menu';
-        dropdown.innerHTML = `
-            <ul>
-                <li onclick="chatApp.makeAdmin(${userId})">Make Admin</li>
-                <li onclick="chatApp.removeFromGroup(${userId})">Remove from Group</li>
-                <li class="danger" onclick="chatApp.banFromGroup(${userId})">Ban from Group</li>
-            </ul>
-        `;
+        // Don't show remove/admin actions for the current user
+        if (isCurrentUser) {
+            return '';
+        }
         
-        // Position and show the dropdown
-        const button = event.target.closest('.action-btn');
-        const rect = button.getBoundingClientRect();
-        dropdown.style.top = `${rect.bottom}px`;
-        dropdown.style.left = `${rect.left}px`;
-        
-        document.body.appendChild(dropdown);
-        
-        // Close when clicking outside
-        setTimeout(() => {
-            document.addEventListener('click', function closeDropdown(e) {
-                if (!dropdown.contains(e.target) && e.target !== button) {
-                    if (document.body.contains(dropdown)) {
-                        document.body.removeChild(dropdown);
-                    }
-                    document.removeEventListener('click', closeDropdown);
+        return `
+            <div class="member-actions">
+                ${isAdmin ? 
+                    `<button class="action-btn" title="Remove admin privileges" onclick="chatApp.removeAdminRole(${member.user_id})">
+                        <i class="fas fa-user-minus"></i>
+                    </button>` : 
+                    `<button class="action-btn" title="Make admin" onclick="chatApp.makeAdmin(${member.user_id})">
+                        <i class="fas fa-user-shield"></i>
+                    </button>`
                 }
-            });
-        }, 0);
+                <button class="action-btn remove-btn" title="Remove from group" onclick="chatApp.removeMember(${member.user_id})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+    }
+    
+    isCurrentUserGroupAdmin() {
+        // Check if the current user is an admin in the current group
+        if (!this.currentGroupId) return false;
+        
+        const group = this.conversations.find(c => 
+            c.is_group && c.group_id === this.currentGroupId);
+            
+        return group && (group.created_by === this.currentUserId || group.role === 'admin');
     }
     
     async makeAdmin(userId) {
         try {
+            if (!this.currentGroupId) return;
+            
             await this.addUserToGroup(this.currentGroupId, userId, true);
+            this.showNotification('User is now an admin', 'success');
             
-            // Reload the members list
+            // Refresh the members list
             const members = await this.loadGroupMembers(this.currentGroupId);
             this.updateGroupMembersList(members);
-            
-            this.closeAllDropdowns();
-            this.showNotification('User is now an admin');
         } catch (error) {
-            console.error('Error making user an admin:', error);
-            this.showError(error.message);
+            console.error('Error making user admin:', error);
+            this.showNotification('Failed to make user admin: ' + error.message, 'error');
         }
     }
     
-    async removeFromGroup(userId) {
+    async removeAdminRole(userId) {
         try {
-            await this.removeUserFromGroup(this.currentGroupId, userId);
+            if (!this.currentGroupId) return;
             
-            // Reload the members list
-            const members = await this.loadGroupMembers(this.currentGroupId);
-            this.updateGroupMembersList(members);
-            
-            this.closeAllDropdowns();
-            this.showNotification('User removed from group');
-        } catch (error) {
-            console.error('Error removing user from group:', error);
-            this.showError(error.message);
-        }
-    }
-    
-    async banFromGroup(userId) {
-        // Show confirmation dialog
-        if (confirm('Are you sure you want to ban this user from the group? They will not be able to rejoin.')) {
-            try {
-                await this.banUserFromGroup(this.currentGroupId, userId);
-                
-                // Reload the members list
-                const members = await this.loadGroupMembers(this.currentGroupId);
-                this.updateGroupMembersList(members);
-                
-                this.closeAllDropdowns();
-                this.showNotification('User banned from group');
-            } catch (error) {
-                console.error('Error banning user from group:', error);
-                this.showError(error.message);
-            }
-        }
-    }
-    
-    showNewGroupModal() {
-        // Create modal for creating a new group
-        const modalElement = document.createElement('div');
-        modalElement.id = 'newGroupModal';
-        modalElement.className = 'modal';
-        modalElement.onclick = (e) => {
-            if (e.target === modalElement) {
-                document.body.removeChild(modalElement);
-            }
-        };
-        
-        modalElement.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Create New Group</h3>
-                    <button class="close-btn" onclick="document.body.removeChild(document.getElementById('newGroupModal'))">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <form id="newGroupForm">
-                        <div class="form-group">
-                            <label for="groupName">Group Name</label>
-                            <input type="text" id="groupName" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="groupDescription">Description</label>
-                            <textarea id="groupDescription" rows="3"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="groupIsPublic"> 
-                                Make this group public
-                            </label>
-                        </div>
-                        <div class="form-group">
-                            <label for="groupAvatar">Group Avatar (Optional)</label>
-                            <input type="file" id="groupAvatar" accept="image/*">
-                        </div>
-                        <div class="form-actions">
-                            <button type="button" class="secondary-btn" onclick="document.body.removeChild(document.getElementById('newGroupModal'))">
-                                Cancel
-                            </button>
-                            <button type="submit" class="primary-btn">
-                                Create Group
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modalElement);
-        
-        // Add event listener to form
-        document.getElementById('newGroupForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            const name = document.getElementById('groupName').value;
-            const description = document.getElementById('groupDescription').value;
-            const isPublic = document.getElementById('groupIsPublic').checked;
-            const avatarInput = document.getElementById('groupAvatar');
-            
-            if (avatarInput.files.length > 0) {
-                this.newGroupAvatar = avatarInput.files[0];
-            }
-            
-            this.createNewGroupChat(name, description, isPublic)
-                .then(() => {
-                    document.body.removeChild(document.getElementById('newGroupModal'));
-                    this.showNotification('Group created successfully');
-                })
-                .catch(error => {
-                    console.error('Error creating group:', error);
-                    this.showError(error.message);
-                });
-        });
-    }
-    
-    showGroupSettings() {
-        // Find the current group
-        const group = this.conversations.find(c => c.is_group && c.group_id === this.currentGroupId);
-        
-        if (!group) {
-            return;
-        }
-        
-        // Create modal for group settings
-        const modalElement = document.createElement('div');
-        modalElement.id = 'groupSettingsModal';
-        modalElement.className = 'modal';
-        modalElement.onclick = (e) => {
-            if (e.target === modalElement) {
-                document.body.removeChild(modalElement);
-            }
-        };
-        
-        modalElement.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Group Settings</h3>
-                    <button class="close-btn" onclick="document.body.removeChild(document.getElementById('groupSettingsModal'))">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <form id="groupSettingsForm">
-                        <div class="form-group">
-                            <label for="editGroupName">Group Name</label>
-                            <input type="text" id="editGroupName" value="${this.escapeHtml(group.name)}" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="editGroupDescription">Description</label>
-                            <textarea id="editGroupDescription" rows="3">${this.escapeHtml(group.description || '')}</textarea>
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="editGroupIsPublic" ${group.is_public ? 'checked' : ''}> 
-                                Make this group public
-                            </label>
-                        </div>
-                        <div class="form-actions">
-                            <button type="button" class="secondary-btn" onclick="document.body.removeChild(document.getElementById('groupSettingsModal'))">
-                                Cancel
-                            </button>
-                            <button type="submit" class="primary-btn">
-                                Save Changes
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modalElement);
-        
-        // Add event listener to form
-        document.getElementById('groupSettingsForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            const name = document.getElementById('editGroupName').value;
-            const description = document.getElementById('editGroupDescription').value;
-            const isPublic = document.getElementById('editGroupIsPublic').checked;
-            
-            this.updateGroupSettings(this.currentGroupId, {
-                name,
-                description,
-                isPublic
-            })
-                .then(() => {
-                    document.body.removeChild(document.getElementById('groupSettingsModal'));
-                    this.showNotification('Group settings updated successfully');
-                    
-                    // Reload conversations to refresh the group info
-                    this.loadConversations();
-                })
-                .catch(error => {
-                    console.error('Error updating group settings:', error);
-                    this.showError(error.message);
-                });
-        });
-    }
-    
-    // Update existing methods to support group chats
-    updateChatHeader(conversation) {
-        if (!this.elements.chatHeader) return;
-        
-        const isGroup = conversation.is_group;
-        const avatar = conversation.avatar || 'assets/images/default-avatar.svg';
-        const name = this.escapeHtml(conversation.name);
-        const status = conversation.status || 'offline';
-        
-        // Add group settings button for group chats
-        const groupSettingsBtn = isGroup ? `
-            <button class="action-btn" onclick="chatApp.showGroupSettings()" title="Group Settings">
-                <i class="fas fa-cog"></i>
-            </button>
-        ` : '';
-        
-        this.elements.chatHeader.innerHTML = `
-            <div class="chat-avatar">
-                ${isGroup ? 
-                    '<div class="group-avatar"><i class="fas fa-users"></i></div>' :
-                    `<img src="${avatar}" alt="${name}">`
-                }
-            </div>
-            <div class="chat-user-info">
-                <div class="chat-user-name">${name}</div>
-                <div class="chat-user-status">
-                    ${isGroup ? 
-                        '<span class="group-type">' + (conversation.is_public ? 'Public Group' : 'Private Group') + '</span>' :
-                        `<span class="status-indicator ${status}"></span>
-                         <span class="status-text">${status === 'online' ? 'Online' : 'Offline'}</span>`
-                    }
-                </div>
-            </div>
-            <div class="chat-actions">
-                ${groupSettingsBtn}
-                <button class="action-btn" onclick="toggleChatInfo()" title="Info">
-                    <i class="fas fa-info-circle"></i>
-                </button>
-                <button class="action-btn" onclick="toggleSearchMessages()" title="Search">
-                    <i class="fas fa-search"></i>
-                </button>
-            </div>
-        `;
-    }
-    
-    // Add message reaction methods
-    async addReactionToMessage(messageId, emoji, groupId = null) {
-        try {
             const formData = new FormData();
-            formData.append('message_id', messageId);
-            formData.append('emoji', emoji);
+            formData.append('action', 'update_member');
+            formData.append('group_id', this.currentGroupId);
+            formData.append('user_id', userId);
+            formData.append('role', 'member');
             formData.append('csrf_token', this.getCSRFToken());
             
-            if (groupId) {
-                formData.append('group_id', groupId);
-            }
-            
-            const response = await fetch(`${this.apiBase}message-reactions.php`, {
+            const response = await fetch(`${this.apiBase}groups.php`, {
                 method: 'POST',
                 body: formData,
                 credentials: 'same-origin'
             });
             
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-            
             const data = await response.json();
             
-            // Update UI
-            this.updateMessageReactions(messageId, data.reactions);
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to update member');
+            }
             
-            return data;
+            this.showNotification('Admin privileges removed', 'success');
+            
+            // Refresh the members list
+            const members = await this.loadGroupMembers(this.currentGroupId);
+            this.updateGroupMembersList(members);
         } catch (error) {
-            console.error('Error adding reaction:', error);
-            this.showError(error.message);
+            console.error('Error removing admin role:', error);
+            this.showNotification('Failed to remove admin role: ' + error.message, 'error');
         }
     }
     
-    async getMessageReactions(messageId) {
+    async removeMember(userId) {
         try {
-            const response = await fetch(`${this.apiBase}message-reactions.php?message_id=${messageId}`);
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            if (!confirm('Are you sure you want to remove this member from the group?')) {
+                return;
             }
+            
+            if (!this.currentGroupId) return;
+            
+            const formData = new FormData();
+            formData.append('action', 'remove_member');
+            formData.append('group_id', this.currentGroupId);
+            formData.append('user_id', userId);
+            formData.append('csrf_token', this.getCSRFToken());
+            
+            const response = await fetch(`${this.apiBase}groups.php`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
             
             const data = await response.json();
-            return data.reactions;
-        } catch (error) {
-            console.error('Error getting reactions:', error);
-            return [];
-        }
-    }
-    
-    updateMessageReactions(messageId, reactions) {
-        const messageElement = document.querySelector(`.message[data-message-id="${messageId}"]`);
-        if (!messageElement) return;
-        
-        // Find or create reactions container
-        let reactionsContainer = messageElement.querySelector('.message-reactions');
-        if (!reactionsContainer) {
-            reactionsContainer = document.createElement('div');
-            reactionsContainer.className = 'message-reactions';
-            const messageBubble = messageElement.querySelector('.message-bubble');
-            if (messageBubble) {
-                messageBubble.appendChild(reactionsContainer);
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to remove member');
             }
-        }
-        
-        // Clear existing reactions
-        reactionsContainer.innerHTML = '';
-        
-        // Add reactions
-        if (reactions && reactions.length > 0) {
-            reactions.forEach(reaction => {
-                const reactionElement = document.createElement('span');
-                reactionElement.className = 'reaction';
-                reactionElement.dataset.emoji = reaction.emoji;
-                
-                // Check if current user has reacted with this emoji
-                const hasReacted = reaction.user_ids.includes(parseInt(this.currentUserId));
-                if (hasReacted) {
-                    reactionElement.classList.add('user-reacted');
-                }
-                
-                reactionElement.innerHTML = `${reaction.emoji} <span class="count">${reaction.count}</span>`;
-                
-                // Add click handler for toggling reaction
-                reactionElement.addEventListener('click', () => {
-                    this.addReactionToMessage(messageId, reaction.emoji, this.currentGroupId);
-                });
-                
-                reactionsContainer.appendChild(reactionElement);
-            });
+            
+            this.showNotification('Member removed from group', 'success');
+            
+            // Refresh the members list
+            const members = await this.loadGroupMembers(this.currentGroupId);
+            this.updateGroupMembersList(members);
+        } catch (error) {
+            console.error('Error removing member:', error);
+            this.showNotification('Failed to remove member: ' + error.message, 'error');
         }
     }
     
-    showReactionPicker(messageId) {
-        // Create reaction picker
-        const pickerElement = document.createElement('div');
-        pickerElement.className = 'reaction-picker';
-        pickerElement.innerHTML = `
-            <div class="common-emojis">
-                <span data-emoji="👍">👍</span>
-                <span data-emoji="❤️">❤️</span>
-                <span data-emoji="😂">😂</span>
-                <span data-emoji="😮">😮</span>
-                <span data-emoji="😢">😢</span>
-                <span data-emoji="👏">👏</span>
-                <span data-emoji="🎉">🎉</span>
-                <span data-emoji="🔥">🔥</span>
-            </div>
+    showNewGroupModal() {
+        const modal = document.getElementById('newGroupModal');
+        if (modal) {
+            modal.classList.add('active');
+            
+            // Clear previous values
+            document.getElementById('groupName').value = '';
+            document.getElementById('groupDescription').value = '';
+            document.getElementById('groupVisibility').value = '0';
+            document.getElementById('groupAvatarInput').value = '';
+            document.getElementById('groupAvatarPreview').innerHTML = '<i class="fas fa-users"></i>';
+            
+            // Load contacts for member selection
+            this.loadContactsForGroupCreation();
+        }
+    }
+    
+    closeNewGroupModal() {
+        const modal = document.getElementById('newGroupModal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+    }
+    
+    async loadContactsForGroupCreation() {
+        try {
+            const searchInput = document.getElementById('memberSearch');
+            const resultsContainer = document.getElementById('memberSearchResults');
+            
+            // Clear previous results
+            resultsContainer.innerHTML = '';
+            
+            // Set up search input
+            if (!searchInput._listenerAdded) {
+                searchInput.addEventListener('input', this.debounce(() => {
+                    this.searchContactsForGroup(searchInput.value);
+                }, 300));
+                searchInput._listenerAdded = true;
+            }
+            
+            // Load initial contacts
+            const response = await fetch(`${this.apiBase}users.php?action=contacts`);
+            const data = await response.json();
+            
+            if (data.contacts && data.contacts.length > 0) {
+                this.renderContactsForGroupCreation(data.contacts);
+            } else {
+                resultsContainer.innerHTML = '<div class="no-results">No contacts found</div>';
+            }
+        } catch (error) {
+            console.error('Error loading contacts:', error);
+        }
+    }
+    
+    renderContactsForGroupCreation(contacts) {
+        const resultsContainer = document.getElementById('memberSearchResults');
+        resultsContainer.innerHTML = '';
+        
+        contacts.forEach(contact => {
+            const contactElement = document.createElement('div');
+            contactElement.className = 'member-item';
+            contactElement.innerHTML = `
+                <div class="member-avatar">
+                    <img src="${contact.avatar || 'assets/images/default-avatar.svg'}" alt="${contact.display_name || contact.username}">
+                </div>
+                <div class="member-info">
+                    <span class="member-name">${contact.display_name || contact.username}</span>
+                    <span class="member-status">${contact.is_online ? 'Online' : 'Offline'}</span>
+                </div>
+                <button class="add-member-btn" onclick="chatApp.selectGroupMember(${contact.id}, '${contact.display_name || contact.username}', '${contact.avatar || 'assets/images/default-avatar.svg'}')">
+                    <i class="fas fa-plus"></i>
+                </button>
+            `;
+            resultsContainer.appendChild(contactElement);
+        });
+    }
+    
+    async searchContactsForGroup(query) {
+        try {
+            if (!query.trim()) {
+                this.loadContactsForGroupCreation();
+                return;
+            }
+            
+            const response = await fetch(`${this.apiBase}users.php?action=search&query=${encodeURIComponent(query)}`);
+            const data = await response.json();
+            
+            if (data.users && data.users.length > 0) {
+                this.renderContactsForGroupCreation(data.users);
+            } else {
+                const resultsContainer = document.getElementById('memberSearchResults');
+                resultsContainer.innerHTML = '<div class="no-results">No matching users found</div>';
+            }
+        } catch (error) {
+            console.error('Error searching contacts:', error);
+        }
+    }
+    
+    selectGroupMember(userId, name, avatar) {
+        const selectedContainer = document.getElementById('selectedMembers');
+        
+        // Check if already selected
+        if (selectedContainer.querySelector(`[data-user-id="${userId}"]`)) {
+            return;
+        }
+        
+        const memberElement = document.createElement('div');
+        memberElement.className = 'selected-member';
+        memberElement.setAttribute('data-user-id', userId);
+        memberElement.innerHTML = `
+            <img src="${avatar}" alt="${name}">
+            <span>${name}</span>
+            <button onclick="chatApp.removeGroupMember(${userId})">
+                <i class="fas fa-times"></i>
+            </button>
         `;
         
-        // Position the picker
-        const messageElement = document.querySelector(`.message[data-message-id="${messageId}"]`);
-        if (messageElement) {
-            const rect = messageElement.getBoundingClientRect();
-            pickerElement.style.top = `${rect.top - 40}px`;
-            pickerElement.style.left = `${rect.left + 20}px`;
+        selectedContainer.appendChild(memberElement);
+    }
+    
+    removeGroupMember(userId) {
+        const selectedContainer = document.getElementById('selectedMembers');
+        const memberElement = selectedContainer.querySelector(`[data-user-id="${userId}"]`);
+        
+        if (memberElement) {
+            memberElement.remove();
+        }
+    }
+    
+    async createNewGroup() {
+        try {
+            const groupName = document.getElementById('groupName').value.trim();
+            const groupDescription = document.getElementById('groupDescription').value.trim();
+            const isPublic = document.getElementById('groupVisibility').value === '1';
+            const avatarInput = document.getElementById('groupAvatarInput');
             
-            document.body.appendChild(pickerElement);
+            if (!groupName) {
+                this.showNotification('Group name is required', 'error');
+                return;
+            }
             
-            // Add click handlers for emojis
-            pickerElement.querySelectorAll('.common-emojis span').forEach(emojiElement => {
-                emojiElement.addEventListener('click', () => {
-                    this.addReactionToMessage(messageId, emojiElement.dataset.emoji, this.currentGroupId);
-                    document.body.removeChild(pickerElement);
-                });
+            const formData = new FormData();
+            formData.append('action', 'create');
+            formData.append('name', groupName);
+            formData.append('description', groupDescription);
+            formData.append('is_public', isPublic ? '1' : '0');
+            formData.append('csrf_token', this.getCSRFToken());
+            
+            // Add avatar if selected
+            if (avatarInput.files.length > 0) {
+                formData.append('avatar', avatarInput.files[0]);
+            }
+            
+            // Show loading state
+            this.showLoading('Creating group...');
+            
+            const response = await fetch(`${this.apiBase}groups.php`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
             });
             
-            // Close when clicking outside
-            setTimeout(() => {
-                document.addEventListener('click', function closeReactionPicker(e) {
-                    if (!pickerElement.contains(e.target)) {
-                        if (document.body.contains(pickerElement)) {
-                            document.body.removeChild(pickerElement);
-                        }
-                        document.removeEventListener('click', closeReactionPicker);
-                    }
-                });
-            }, 0);
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to create group');
+            }
+            
+            // Close modal and show success
+            this.closeNewGroupModal();
+            this.showNotification('Group created successfully', 'success');
+            
+            // Refresh groups list
+            await this.loadGroups();
+            
+            // Navigate to the new group chat
+            if (data.group && data.group.id) {
+                this.openGroupChat(data.group.id);
+            }
+            
+        } catch (error) {
+            console.error('Error creating group:', error);
+            this.showNotification('Failed to create group: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+    
+    toggleGroupInfo() {
+        const groupInfoSidebar = document.getElementById('groupInfoSidebar');
+        
+        if (groupInfoSidebar) {
+            if (groupInfoSidebar.classList.contains('active')) {
+                groupInfoSidebar.classList.remove('active');
+            } else {
+                groupInfoSidebar.classList.add('active');
+                
+                // Load group details and members if in a group chat
+                if (this.currentGroupId) {
+                    this.loadGroupDetails(this.currentGroupId);
+                }
+            }
+        }
+    }
+    
+    async loadGroupDetails(groupId) {
+        try {
+            // Get group details
+            const groupResponse = await fetch(`${this.apiBase}groups.php?action=details&group_id=${groupId}`);
+            const groupData = await groupResponse.json();
+            
+            if (!groupData.group) {
+                throw new Error('Group not found');
+            }
+            
+            // Update the group info sidebar
+            const groupInfo = groupData.group;
+            
+            // Update avatar
+            const groupInfoAvatar = document.getElementById('groupInfoAvatar');
+            if (groupInfoAvatar) {
+                const avatarImg = groupInfoAvatar.querySelector('img');
+                if (avatarImg) {
+                    avatarImg.src = groupInfo.avatar || 'assets/images/default-group.svg';
+                    avatarImg.alt = groupInfo.name;
+                }
+            }
+            
+            // Update name and meta information
+            const groupInfoName = document.getElementById('groupInfoName');
+            if (groupInfoName) {
+                groupInfoName.textContent = groupInfo.name;
+            }
+            
+            const groupInfoMemberCount = document.getElementById('groupInfoMemberCount');
+            if (groupInfoMemberCount) {
+                groupInfoMemberCount.textContent = `${groupInfo.member_count || 0} members`;
+            }
+            
+            const groupInfoCreatedAt = document.getElementById('groupInfoCreatedAt');
+            if (groupInfoCreatedAt) {
+                groupInfoCreatedAt.textContent = `Created ${this.formatDate(groupInfo.created_at)}`;
+            }
+            
+            // Update description
+            const groupInfoDescription = document.getElementById('groupInfoDescription');
+            if (groupInfoDescription) {
+                groupInfoDescription.textContent = groupInfo.description || 'No description available';
+            }
+            
+            // Load and update members list
+            const members = await this.loadGroupMembers(groupId);
+            this.updateGroupMembersList(members);
+            
+        } catch (error) {
+            console.error('Error loading group details:', error);
+            this.showNotification('Failed to load group details: ' + error.message, 'error');
+        }
+    }
+    
+    formatDate(dateString) {
+        if (!dateString) return 'Unknown';
+        
+        const date = new Date(dateString);
+        return date.toLocaleDateString(undefined, { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+    }
+    
+    formatLastSeen(dateString) {
+        if (!dateString) return 'a while ago';
+        
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+        
+        if (diffMins < 1) return 'just now';
+        if (diffMins < 60) return `${diffMins} min ago`;
+        if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+        if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+        
+        return date.toLocaleDateString();
+    }
+    
+    async addUserToGroup(groupId, userId, isAdmin = false) {
+        try {
+            if (!groupId || !userId) return;
+            
+            const formData = new FormData();
+            formData.append('action', 'add_member');
+            formData.append('group_id', groupId);
+            formData.append('user_id', userId);
+            formData.append('role', isAdmin ? 'admin' : 'member');
+            formData.append('csrf_token', this.getCSRFToken());
+            
+            const response = await fetch(`${this.apiBase}groups.php`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to add member to group');
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Error adding user to group:', error);
+            this.showNotification('Failed to add user to group: ' + error.message, 'error');
+            throw error;
         }
     }
 }
