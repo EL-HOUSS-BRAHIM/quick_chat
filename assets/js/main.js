@@ -11,6 +11,7 @@ import state from './core/state.js';
 import eventBus from './core/event-bus.js';
 import errorHandler from './core/error-handler.js';
 import themeManager from './core/theme-manager.js';
+import browserCompatibility from './core/browser-compatibility.js';
 
 // Import API client
 import apiClient from './api/api-client.js';
@@ -23,7 +24,7 @@ import webrtcModule from './features/webrtc/index.js';
 import adminModule from './features/admin/index.js';
 
 // Import compatibility layer
-import { initChatCompatibility } from '../chat-compatibility.js';
+import { initChatCompatibility } from './chat-compatibility.js';
 
 /**
  * Initialize the application
