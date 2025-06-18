@@ -1,43 +1,79 @@
 /**
- * Advanced Chat Features - Message Reactions
- * Handles message reactions, replies, editing, and other advanced features
+ * Advanced Chat Features - Message Reactions - DEPRECATED
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./features/chat/reactions.js
  */
 
+// Import the new implementation
+import ChatReactions from './features/chat/reactions.js';
+import eventBus from './core/event-bus.js';
+
+// Create a compatibility class that delegates to the new implementation
 class MessageReactionsManager {
     constructor() {
-        this.reactions = new Map(); // messageId -> reactions
-        this.reactionPicker = null;
-        this.currentMessage = null;
-        this.popularReactions = ['👍', '❤️', '😂', '😮', '😢', '😡', '👏', '🎉'];
+        console.warn('MessageReactionsManager is deprecated. Please use ChatReactions from features/chat/reactions.js instead.');
         
-        this.init();
+        // Create an instance of the new ChatReactions class
+        this.reactions = new ChatReactions();
+        
+        // For backward compatibility
+        this.popularReactions = ['👍', '❤️', '😂', '😮', '😢', '😡', '👏', '🎉'];
+        this.currentMessage = null;
+        
+        // Listen to relevant events
+        eventBus.subscribe('message:reaction:selected', (data) => {
+            if (data.messageId && this.onReactionSelected) {
+                this.onReactionSelected(data.messageId, data.emoji);
+            }
+        });
     }
-
+    
+    // No need to create reaction components or bind events as those are handled by the new implementation
     init() {
-        this.createReactionComponents();
-        this.bindEvents();
-        this.loadReactions();
+        // Already initialized in constructor
     }
-
+    
     createReactionComponents() {
-        // Create reaction picker
-        const reactionPicker = document.createElement('div');
-        reactionPicker.id = 'reaction-picker';
-        reactionPicker.className = 'reaction-picker';
-        reactionPicker.innerHTML = `
-            <div class="reaction-picker-content">
-                <div class="popular-reactions">
-                    ${this.popularReactions.map(emoji => `
-                        <button class="reaction-btn" data-emoji="${emoji}" 
-                                onclick="messageReactions.selectReaction('${emoji}')">
-                            ${emoji}
-                        </button>
-                    `).join('')}
-                </div>
-                <div class="reaction-categories">
-                    <div class="category-tabs">
-                        <button class="category-tab active" data-category="recent">Recent</button>
-                        <button class="category-tab" data-category="people">People</button>
+        // Already handled by new implementation
+    }
+    
+    bindEvents() {
+        // Already handled by new implementation
+    }
+    
+    loadReactions() {
+        // Already handled by new implementation
+    }
+    
+    // Proxy methods to the new implementation
+    showReactionPicker(messageId, element) {
+        eventBus.publish('message:reaction:show', {
+            messageId: messageId,
+            element: element
+        });
+        this.currentMessage = messageId;
+    }
+    
+    hideReactionPicker() {
+        this.currentMessage = null;
+    }
+    
+    selectReaction(emoji) {
+        if (this.currentMessage) {
+            this.reactions.addReaction(emoji);
+        }
+    }
+    
+    // For custom reaction callbacks
+    onReactionSelected(messageId, emoji) {
+        // This can be overridden by applications
+        console.log(`Reaction ${emoji} selected for message ${messageId}`);
+    }
+}
+
+// Export for backward compatibility
+window.MessageReactionsManager = MessageReactionsManager;
+window.messageReactions = new MessageReactionsManager();
                         <button class="category-tab" data-category="nature">Nature</button>
                         <button class="category-tab" data-category="objects">Objects</button>
                         <button class="category-tab" data-category="symbols">Symbols</button>
