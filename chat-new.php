@@ -225,6 +225,9 @@ if ($targetUserId) {
 
                 <!-- Message Input -->
                 <div class="message-input-container">
+                    <!-- Reply Container -->
+                    <div id="replyContainer" class="reply-container" style="display: none;"></div>
+                    
                     <form class="message-form" id="messageForm">
                         <div class="input-actions">
                             <button type="button" class="action-btn" onclick="toggleEmojiPicker()" title="Emoji">
@@ -679,5 +682,21 @@ if ($targetUserId) {
             });
         });
     </script>
+    
+    <!-- Reaction Picker -->
+    <div id="reactionPicker" class="reaction-picker" style="display:none">
+        <div class="reaction-picker-content">
+            <div class="popular-reactions">
+                <button class="reaction-btn" onclick="chatApp.addReaction('👍')">👍</button>
+                <button class="reaction-btn" onclick="chatApp.addReaction('❤️')">❤️</button>
+                <button class="reaction-btn" onclick="chatApp.addReaction('😂')">😂</button>
+                <button class="reaction-btn" onclick="chatApp.addReaction('😮')">😮</button>
+                <button class="reaction-btn" onclick="chatApp.addReaction('😢')">😢</button>
+                <button class="reaction-btn" onclick="chatApp.addReaction('😡')">😡</button>
+                <button class="reaction-btn" onclick="chatApp.addReaction('👏')">👏</button>
+                <button class="reaction-btn" onclick="chatApp.addReaction('🎉')">🎉</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
