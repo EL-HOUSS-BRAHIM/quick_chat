@@ -1,33 +1,68 @@
 /**
  * Enhanced Service Worker
  * Provides offline functionality, caching, and background sync
+ * Version: 2.0.0
  */
-const CACHE_NAME = 'quick-chat-v1.0.0';
+
+// Cache names with versioning
+const CACHE_NAMES = {
+    static: 'quick-chat-static-v2.0.0',
+    assets: 'quick-chat-assets-v2.0.0',
+    api: 'quick-chat-api-v2.0.0',
+    dynamic: 'quick-chat-dynamic-v2.0.0'
+};
+
+// Cache expiration times (in milliseconds)
+const CACHE_EXPIRATION = {
+    api: 5 * 60 * 1000, // 5 minutes
+    dynamic: 7 * 24 * 60 * 60 * 1000 // 7 days
+};
+
 const OFFLINE_URL = '/offline.html';
 
-// Files to cache immediately
-const PRECACHE_URLS = [
+// Files to cache immediately in static cache
+const STATIC_CACHE_URLS = [
     '/',
     '/offline.html',
+    '/index.php',
     '/dashboard.php',
-    '/chat.php',
-    '/assets/css/styles.css',
-    '/assets/css/chat-modern.css',
-    '/assets/css/modern-dashboard.css',
-    '/assets/js/app.js',
-    '/assets/js/chat.js',
-    '/assets/js/utils.js',
-    '/assets/js/modern-dashboard.js',
+    '/manifest.json',
+    '/assets/images/default-avatar.svg',
     '/assets/images/icon-192.png',
-    '/assets/images/icon-512.png',
-    '/manifest.json'
+    '/assets/images/icon-512.png'
 ];
 
-// Files to cache on runtime
+// CSS and JS assets to cache in assets cache
+const ASSETS_CACHE_URLS = [
+    // Core CSS Files
+    '/assets/css/styles.css',
+    '/assets/css/modern-dashboard.css',
+    '/assets/css/chat-modern.css',
+    '/assets/css/modern-chat.css',
+    '/assets/css/mobile-responsive.css',
+    
+    // Core JS Files
+    '/assets/js/core/app.js',
+    '/assets/js/core/utils.js',
+    '/assets/js/core/state.js',
+    '/assets/js/core/event-bus.js',
+    '/assets/js/core/error-handler.js',
+    '/assets/js/core/theme-manager.js',
+    
+    // API Client
+    '/assets/js/api/api-client.js',
+    
+    // Feature Modules
+    '/assets/js/features/chat/index.js',
+    '/assets/js/features/dashboard/index.js',
+    '/assets/js/features/profile/index.js'
+];
+
+// URLs that should be cached at runtime with network-first strategy
 const RUNTIME_CACHE_URLS = [
-    '/api/',
-    '/uploads/',
-    '/assets/'
+    '/assets/',
+    '/uploads/'
+];
 ];
 
 self.addEventListener('install', (event) => {
