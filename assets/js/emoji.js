@@ -1,42 +1,45 @@
 /**
- * Simple Emoji Picker for Quick Chat
+ * Simple Emoji Picker for Quick Chat - DEPRECATED
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./features/chat/emoji-picker.js
  */
+
+// Import the new implementation
+import EmojiPickerNew from './features/chat/emoji-picker.js';
+
+// Create a compatibility class that extends the new implementation
 class EmojiPicker {
     constructor(options = {}) {
-        this.container = options.container || null;
-        this.onEmojiSelect = options.onEmojiSelect || function() {};
-        this.categories = {
-            recent: JSON.parse(localStorage.getItem('recentEmojis') || '[]'),
-            smileys: ['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','😘','🥰','😗','😙','😚','🙂','🤗','🤩','🤔','🤨','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','🥱','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕'],
-            people: ['👤','👥','👨','👩','👧','👦','👶','👵','👴','👮','👷','💂','🕵️','👩‍⚕️','👨‍⚕️','👩‍🎓','👨‍🎓','👩‍🏫','👨‍🏫','👩‍⚖️','👨‍⚖️','👩‍🌾','👨‍🌾','👩‍🍳','👨‍🍳','👩‍🔧','👨‍🔧'],
-            nature: ['🌸','🌼','🌻','🌺','🌹','🌷','🌱','🌲','🌳','🌴','🌵','🌾','🌿','🍀','🍁','🍂','🍃','🐝','🐞','🐌','🐛','🐜','🦋','🐢','🐍','🦎','🐙','🦑','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆'],
-            food: ['🍕','🍔','🍟','🌭','🍿','🥓','🍗','🍖','🥚','🍳','🧀','🥞','🥨','🥯','🥐','🍞','🥖','🥪','🥙','🌮','🌯','🥗','🍲','🍛','🍜','🍝','🍠','🍢','🍣','🍤','🍦','🍧','🍨','🍩','🍪','🎂','🍰','☕','🍵','🥤','🍶','🍺','🍷','🥂']
-        };
-        this.currentCategory = 'smileys';
-        this.init();
-    }
-    
-    init() {
-        this.loadRecentEmojis();
-        if (this.container) {
-            this.render();
+        console.warn('EmojiPicker in emoji.js is deprecated. Please use EmojiPicker from features/chat/emoji-picker.js instead.');
+        
+        // Create an instance of the new EmojiPicker class
+        this.emojiPicker = new EmojiPickerNew();
+        
+        // Initialize with container if provided
+        if (options.container) {
+            this.emojiPicker.attachTo(options.container);
+        }
+        
+        // Store callback
+        if (options.onEmojiSelect) {
+            this.emojiPicker.onEmojiSelected = options.onEmojiSelect;
         }
     }
     
+    // Proxy methods to the new implementation
+    init() {
+        // Already initialized in constructor
+    }
+    
     render() {
-        if (!this.container) return;
-        
-        this.container.innerHTML = `
-            <div class="emoji-picker-header">
-                ${Object.keys(this.categories).map(cat => 
-                    `<button class="emoji-category-btn ${cat === this.currentCategory ? 'active' : ''}" 
-                             data-category="${cat}">${this.getCategoryIcon(cat)}</button>`
-                ).join('')}
-            </div>
-            <div class="emoji-picker-search">
-                <input type="text" placeholder="Search emojis..." class="emoji-search-input">
-            </div>
-            <div class="emoji-picker-body">
+        this.emojiPicker.render();
+    }
+    
+    // Add any other methods that might be needed for backward compatibility
+}
+
+// Export for backward compatibility
+window.EmojiPicker = EmojiPicker;
                 ${this.renderEmojis()}
             </div>
         `;
