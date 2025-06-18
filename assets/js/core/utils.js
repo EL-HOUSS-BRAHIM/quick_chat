@@ -199,6 +199,66 @@ export function formatFileSize(bytes, decimals = 2) {
 }
 
 /**
+ * Copy text to clipboard
+ * @param {string} text - Text to copy
+ * @returns {Promise<boolean>} Success status
+ */
+export async function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      // Use modern Clipboard API if available
+      await navigator.clipboard.writeText(text);
+      return true;
+    } else {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return success;
+    }
+  } catch (err) {
+    console.error('Failed to copy text:', err);
+    return false;
+  }
+}
+
+/**
+ * Get URL parameters as an object
+ * @param {string} url - URL to parse (defaults to current URL)
+ * @returns {Object} URL parameters as key-value pairs
+ */
+export function getUrlParams(url = window.location.href) {
+  try {
+    const params = {};
+    const urlObj = new URL(url);
+    const searchParams = new URLSearchParams(urlObj.search);
+    
+    for (const [key, value] of searchParams) {
+      params[key] = value;
+    }
+    
+    return params;
+  } catch (err) {
+    console.error('Failed to parse URL parameters:', err);
+    return {};
+  }
+}
+
+/**
+ * Generate a unique ID with optional prefix
+ * @param {string} prefix - ID prefix
+ * @returns {string} Unique ID
+ */
+export function generateUniqueId(prefix = 'id') {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
  * Storage wrapper for localStorage with JSON support
  */
 export const storage = {
@@ -262,8 +322,11 @@ export default {
   throttle,
   showToast,
   generateUUID,
+  generateUniqueId,
   escapeHtml,
   getFileExtension,
   formatFileSize,
+  copyToClipboard,
+  getUrlParams,
   storage
 };
