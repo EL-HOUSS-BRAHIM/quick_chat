@@ -1,10 +1,21 @@
 /**
- * Advanced File Handling and Optimization System
- * Provides image compression, lazy loading, thumbnail generation, and CDN optimization
+ * Advanced File Handling and Optimization System - DEPRECATED
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./features/chat/file-uploader.js
  */
 
+// Import the new implementation
+import FileUploader from './features/chat/file-uploader.js';
+
+// Create a compatibility class that delegates to the new implementation
 class FileOptimizer {
     constructor() {
+        console.warn('FileOptimizer is deprecated. Please use FileUploader from features/chat/file-uploader.js instead.');
+        
+        // Create an instance of the new FileUploader class
+        this.fileUploader = new FileUploader();
+        
+        // For backward compatibility, set up configuration
         this.config = {
             imageCompression: {
                 quality: 0.8,
@@ -31,22 +42,41 @@ class FileOptimizer {
                 }
             }
         };
-        
-        this.compressionWorker = null;
-        this.lazyObserver = null;
-        this.thumbnailCache = new Map();
-        
-        this.initializeServices();
     }
+    
+    // Proxy key methods to the new implementation
+    async compressImage(file, options = {}) {
+        return await this.fileUploader.optimizeImage(file, options);
+    }
+    
+    async uploadWithOptimization(file, options = {}) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('optimize', 'true');
+        
+        if (options.quality) {
+            formData.append('quality', options.quality);
+        }
+        
+        if (options.maxWidth) {
+            formData.append('maxWidth', options.maxWidth);
+        }
+        
+        if (options.maxHeight) {
+            formData.append('maxHeight', options.maxHeight);
+        }
+        
+        return await this.fileUploader.uploadFile(formData);
+    }
+    
+    generateThumbnail(file, size = 150) {
+        return this.fileUploader.generateThumbnail(file, size);
+    }
+}
 
-    /**
-     * Initialize file optimization services
-     */
-    initializeServices() {
-        this.initializeImageCompression();
-        this.initializeLazyLoading();
-        this.initializeThumbnailGeneration();
-        this.initializeCDNOptimization();
+// Export for backward compatibility
+window.FileOptimizer = FileOptimizer;
+window.fileOptimizer = new FileOptimizer();
         
         console.log('File optimization services initialized');
     }
