@@ -1,0 +1,27 @@
+/**
+ * Jest configuration file
+ */
+module.exports = {
+  testEnvironment: 'jsdom',
+  roots: ['<rootDir>/assets/js'],
+  testMatch: ['**/__tests__/**/*.js', '**/?(*.)+(spec|test).js'],
+  collectCoverageFrom: [
+    'assets/js/**/*.js',
+    '!assets/js/dist/**',
+    '!assets/js/**/*.spec.js',
+    '!assets/js/**/*.test.js',
+    '!assets/js/__tests__/**'
+  ],
+  coverageThreshold: {
+    global: {
+      statements: 70,
+      branches: 60,
+      functions: 70,
+      lines: 70
+    }
+  },
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/assets/js/$1'
+  },
+  setupFilesAfterEnv: ['<rootDir>/assets/js/__tests__/setup.js']
+};
