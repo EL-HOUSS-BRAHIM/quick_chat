@@ -114,9 +114,11 @@ export function throttle(func, limit = 300) {
  * @param {string} message - Message to display
  * @param {string} type - Type of toast (success, error, warning, info)
  * @param {number} duration - Milliseconds to show toast
+ * @param {boolean} dismissible - Whether toast can be manually dismissed
+ * @returns {HTMLElement} The toast element
  */
-export function showToast(message, type = 'info', duration = 3000) {
-  // Create toast container if it doesn't exist
+export function showToast(message, type = 'info', duration = 3000, dismissible = true) {
+  // Create container if it doesn't exist
   let toastContainer = document.getElementById('toast-container');
   
   if (!toastContainer) {
@@ -128,23 +130,40 @@ export function showToast(message, type = 'info', duration = 3000) {
   // Create toast element
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
-  toast.textContent = message;
+  toast.setAttribute('role', 'alert');
+  toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+  
+  // Add content
+  toast.innerHTML = `
+      <div class="toast-content">${message}</div>
+      ${dismissible ? '<button class="toast-close" aria-label="Close notification">&times;</button>' : ''}
+  `;
   
   // Add to container
   toastContainer.appendChild(toast);
   
-  // Trigger animation
-  setTimeout(() => {
-    toast.classList.add('show');
-  }, 10);
+  // Set up dismiss functionality
+  if (dismissible) {
+      const closeBtn = toast.querySelector('.toast-close');
+      if (closeBtn) {
+          closeBtn.addEventListener('click', () => {
+              toast.classList.add('toast-hide');
+              toast.addEventListener('transitionend', () => toast.remove());
+          });
+      }
+  }
   
-  // Remove after duration
-  setTimeout(() => {
-    toast.classList.remove('show');
-    setTimeout(() => {
-      toastContainer.removeChild(toast);
-    }, 300); // Match animation duration
-  }, duration);
+  // Auto dismiss after duration
+  if (duration > 0) {
+      setTimeout(() => {
+          if (toast.parentNode) {
+              toast.classList.add('toast-hide');
+              toast.addEventListener('transitionend', () => toast.remove());
+          }
+      }, duration);
+  }
+  
+  return toast;
 }
 
 /**
