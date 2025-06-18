@@ -1,6 +1,7 @@
 /**
  * WebRTC Module
  * Consolidated implementation for voice and video calls
+ * Enhanced with dynamic adaptation for different network conditions and browser compatibility
  */
 
 import app from '../../core/app.js';
@@ -15,9 +16,13 @@ import CallUI from './ui.js';
 import CallRecorder from './call-recorder.js';
 import ConnectionMonitor from './connection-monitor.js';
 import ConnectionPool from './connection-pool.js';
+import WebRTCCompatibilityManager from './browser-compatibility.js';
 
 class WebRTCModule {
   constructor(options = {}) {
+    // Initialize browser compatibility manager
+    this.compatibilityManager = new WebRTCCompatibilityManager();
+    
     // Configuration
     this.config = {
       signalingServer: options.signalingServer || 
@@ -94,46 +99,110 @@ class WebRTCModule {
       this.config.userId = app.getCurrentUserId();
       this.state.currentUserId = this.config.userId;
       
-      // Initialize device manager
-      await this.deviceManager.init();
-      this.state.deviceList = this.deviceManager.getDevices();
-      this.state.selectedDevices = this.deviceManager.getSelectedDevices();
+      // Check WebRTC compatibility
+      const compatSummary = this.compatibilityManager.getCompatibilitySummary();
+      console.log('WebRTC Compatibility:', compatSummary);
+      
+      // Emit compatibility status for UI to handle
+      eventBus.emit('webrtc:compatibility-status', compatSummary);
+      
+      // Update configuration based on browser capabilities
+      this.applyCompatibilitySettings();
       
       // Initialize signaling
-      this.signaling.on('open', this.handleSignalingOpen.bind(this));
-      this.signaling.on('offer', this.handleIncomingOffer.bind(this));
-      this.signaling.on('answer', this.handleIncomingAnswer.bind(this));
-      this.signaling.on('iceCandidate', this.handleIceCandidate.bind(this));
-      this.signaling.on('hangup', this.handleRemoteHangup.bind(this));
-      this.signaling.on('error', this.handleSignalingError.bind(this));
-      await this.signaling.connect(this.state.currentUserId);
+      await this.signaling.connect();
       
-      // Initialize UI
-      this.ui.init({
-        onToggleMute: this.toggleMute.bind(this),
-        onToggleVideo: this.toggleVideo.bind(this),
-        onToggleScreenShare: this.toggleScreenShare.bind(this),
-        onHangup: this.hangup.bind(this),
-        onAcceptCall: this.acceptCall.bind(this),
-        onRejectCall: this.rejectCall.bind(this),
-        onSwitchDevice: this.switchDevice.bind(this),
-        onToggleRecording: this.toggleRecording.bind(this)
-      });
+      // Setup event listeners
+      this.setupEventListeners();
       
-      // Register global event listeners
-      eventBus.on('call:request', this.initiateCall.bind(this));
+      // Fetch TURN servers if needed
+      await this.fetchTurnCredentials();
       
-      // Mark as initialized
+      // Initialize device manager
+      await this.deviceManager.initialize();
+      
+      // Update device lists
+      this.state.deviceList = this.deviceManager.getDeviceList();
+      this.state.selectedDevices = this.deviceManager.getSelectedDevices();
+      
+      // Update UI
+      this.ui.updateDeviceSelectors(this.state.deviceList, this.state.selectedDevices);
+      
       this.state.isInitialized = true;
+      console.log('WebRTC module initialized successfully');
       
-      // Emit initialization complete event
-      eventBus.emit('webrtc:initialized', {
-        deviceList: this.state.deviceList
-      });
+      // Emit ready event
+      eventBus.emit('webrtc:ready');
       
+      return true;
     } catch (error) {
-      errorHandler.handleError(error, 'Failed to initialize WebRTC module');
-      throw error;
+      errorHandler.handleError('Failed to initialize WebRTC module', error);
+      
+      // Check if we can use any fallbacks
+      if (this.compatibilityManager.hasFallbackFor('webRTC')) {
+        console.warn('Using fallback communication method');
+        this.useFallbackCommunication();
+      } else {
+        // Emit error event
+        eventBus.emit('webrtc:error', {
+          type: 'initialization',
+          message: 'Failed to initialize WebRTC. Video and voice calls will not be available.',
+          error: error
+        });
+      }
+      
+      return false;
+    }
+  }
+  
+  /**
+   * Apply browser compatibility settings
+   */
+  applyCompatibilitySettings() {
+    // Get peer connection config with browser-specific settings
+    const peerConfig = this.compatibilityManager.getPeerConnectionConfig({
+      iceServers: [
+        { urls: this.config.stunServers },
+        ...this.config.turnServers
+      ],
+      iceTransportPolicy: this.config.iceTransportPolicy
+    });
+    
+    // Update config with browser-specific settings
+    this.config.peerConnectionConfig = peerConfig;
+    
+    // Apply media constraints with browser compatibility
+    this.config.mediaConstraints = this.compatibilityManager.applyConstraints(this.config.mediaConstraints);
+    
+    // Update codec preferences if SDP munging is needed
+    if (this.compatibilityManager.fallbackOptions.useSdpMunging) {
+      this.config.applySdpTransform = true;
+    }
+    
+    // Enable background blur only if supported
+    this.config.backgroundBlurAvailable = this.compatibilityManager.capabilities.backgroundBlur;
+    
+    // Apply any other necessary adjustments
+    if (this.compatibilityManager.fallbackOptions.forceTurn) {
+      this.config.iceTransportPolicy = 'relay';
+    }
+  }
+  
+  /**
+   * Fall back to alternative communication method if WebRTC isn't supported
+   */
+  useFallbackCommunication() {
+    // Set up iframe-based communication or other fallback
+    console.log('Setting up fallback communication method');
+    
+    // Create fallback messaging transport
+    this.fallbackTransport = this.compatibilityManager.createMessageTransport(this.config.userId);
+    
+    if (this.fallbackTransport) {
+      this.fallbackTransport.startListening();
+      
+      // Emit fallback ready event
+      eventBus.emit('webrtc:fallback-ready');
     }
   }
   
