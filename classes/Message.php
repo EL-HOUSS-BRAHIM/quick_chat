@@ -439,7 +439,7 @@ class Message {
         }
         
         // Check if user is a member of the group
-        $stmt = $this->db->prepare("SELECT id FROM group_members WHERE group_id = ? AND user_id = ?");
+        $stmt = $this->db->prepare("SELECT id, is_banned FROM group_members WHERE group_id = ? AND user_id = ?");
         $stmt->execute([$groupId, $userId]);
         if ($stmt->rowCount() === 0) {
             // Check if the group is public, in which case they can send messages without being a member
@@ -447,6 +447,12 @@ class Message {
             $stmt->execute([$groupId]);
             $group = $stmt->fetch(PDO::FETCH_ASSOC);
             return $group && $group['is_public'];
+        } else {
+            // Check if the user is banned in the group_members table
+            $member = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($member['is_banned']) {
+                return false;
+            }
         }
         
         return true;
@@ -778,12 +784,12 @@ class Message {
      */
     public function getGroupMembers($groupId) {
         $stmt = $this->db->prepare("
-            SELECT u.id, u.username, u.display_name, u.avatar, u.status,
-                   gm.is_admin, gm.joined_at
+            SELECT u.id, u.username, u.display_name, u.avatar, u.is_online,
+                   gm.role, gm.joined_at
             FROM group_members gm
             JOIN users u ON gm.user_id = u.id
             WHERE gm.group_id = ?
-            ORDER BY gm.is_admin DESC, u.display_name ASC
+            ORDER BY FIELD(gm.role, 'admin', 'moderator', 'member'), u.display_name ASC
         ");
         $stmt->execute([$groupId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
