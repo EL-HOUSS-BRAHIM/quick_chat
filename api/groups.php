@@ -94,6 +94,17 @@ class GroupChatAPI {
                 $this->sendResponse(['groups' => $groups]);
                 break;
                 
+            case 'details':
+                // Get detailed information about a group
+                if (!isset($_GET['group_id'])) {
+                    $this->sendError('Group ID is required');
+                    return;
+                }
+                
+                $group = $this->message->getGroupDetails($_GET['group_id']);
+                $this->sendResponse(['group' => $group]);
+                break;
+                
             case 'members':
                 // Get group members
                 if (!isset($_GET['group_id'])) {
@@ -148,13 +159,13 @@ class GroupChatAPI {
                     return;
                 }
                 
-                $isAdmin = isset($_POST['is_admin']) ? (bool)$_POST['is_admin'] : false;
+                $role = isset($_POST['role']) ? $_POST['role'] : (isset($_POST['is_admin']) && (bool)$_POST['is_admin'] ? 'admin' : 'member');
                 
                 $this->message->addGroupMember(
                     $_POST['group_id'],
                     $_POST['user_id'],
                     $_SESSION['user_id'],
-                    $isAdmin
+                    $role === 'admin'
                 );
                 
                 $this->sendResponse([
@@ -182,6 +193,33 @@ class GroupChatAPI {
                 $this->sendResponse([
                     'success' => true,
                     'message' => 'Member banned successfully'
+                ]);
+                break;
+                
+            case 'update_member':
+                // Update a member's role in a group
+                if (!isset($_POST['group_id']) || !isset($_POST['user_id'])) {
+                    $this->sendError('Group ID and User ID are required');
+                    return;
+                }
+                
+                $role = isset($_POST['role']) ? $_POST['role'] : 'member';
+                
+                // For backward compatibility
+                if (isset($_POST['is_admin'])) {
+                    $role = (bool)$_POST['is_admin'] ? 'admin' : 'member';
+                }
+                
+                $this->message->updateGroupMember(
+                    $_POST['group_id'],
+                    $_POST['user_id'],
+                    $_SESSION['user_id'],
+                    $role
+                );
+                
+                $this->sendResponse([
+                    'success' => true,
+                    'message' => 'Member updated successfully'
                 ]);
                 break;
                 
