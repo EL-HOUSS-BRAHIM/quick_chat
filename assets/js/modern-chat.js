@@ -3,21 +3,29 @@
  */
 class ModernChatApp {
     constructor(options = {}) {
-        this.currentUserId = options.currentUserId;
-        this.targetUserId = options.targetUserId;
-        this.apiBase = options.apiBase || 'api/';
-        this.csrfToken = options.csrfToken || '';
+        // Configuration
+        this.config = {
+            currentUserId: options.currentUserId,
+            targetUserId: options.targetUserId,
+            groupId: options.groupId,
+            apiBase: options.apiBase || 'api/',
+            csrfToken: options.csrfToken || '',
+            chatType: options.chatType || 'private' // 'private' or 'group'
+        };
         
         // State
         this.messages = [];
         this.onlineUsers = [];
         this.conversations = [];
+        this.groups = [];
         this.currentConversation = null;
-        this.currentGroupId = null; // Add tracking for group conversations
         this.lastMessageId = 0;
         this.isTyping = false;
         this.typingTimeout = null;
         this.lastMessageTime = 0;
+        
+        // Event listeners
+        this.eventListeners = {};
         this.loadingHistory = false;
         this.noMoreHistory = false;
         this.messageLimit = 20;
@@ -100,6 +108,19 @@ class ModernChatApp {
             // Load initial data
             await this.loadInitialData();
             
+            // Initialize specific chat manager based on chat type
+            if (this.config.chatType === 'private') {
+                if (window.PrivateChatManager) {
+                    this.chatManager = new PrivateChatManager(this);
+                    console.log('Private chat manager initialized');
+                }
+            } else if (this.config.chatType === 'group') {
+                if (window.GroupChatManager) {
+                    this.chatManager = new GroupChatManager(this);
+                    console.log('Group chat manager initialized');
+                }
+            }
+            
             // Start polling
             this.startPolling();
             
@@ -180,21 +201,33 @@ class ModernChatApp {
     
     async loadInitialData() {
         try {
-            // Load conversations and online users in parallel
+            // Load conversations and online users in parallel for all chat types
             const [conversationsResponse, usersResponse] = await Promise.all([
                 this.loadConversations(),
                 this.loadOnlineUsers()
             ]);
             
-            // If we have a target user, load that conversation
-            if (this.targetUserId) {
-                await this.loadConversation(this.targetUserId);
-            } else {
-                this.showWelcomeScreen();
+            // For private chats
+            if (this.config.chatType === 'private') {
+                // If we have a target user, load that conversation
+                if (this.config.targetUserId) {
+                    await this.loadConversation(this.config.targetUserId);
+                } else {
+                    this.showWelcomeScreen();
+                }
+            } 
+            // For group chats
+            else if (this.config.chatType === 'group') {
+                // Load groups
+                await this.loadGroups();
+                
+                // If we have a group ID, load that group's messages
+                if (this.config.groupId) {
+                    await this.loadGroupMessages(this.config.groupId);
+                } else {
+                    this.showWelcomeScreen();
+                }
             }
-            
-            // Load groups
-            await this.loadGroups();
             
         } catch (error) {
             console.error('Failed to load initial data:', error);
@@ -318,7 +351,6 @@ class ModernChatApp {
         try {
             this.hideWelcomeScreen();
             this.currentConversation = userId;
-            this.currentGroupId = null; // Clear any group chat
             
             // Update UI to show user info
             if (userId) {
@@ -327,7 +359,10 @@ class ModernChatApp {
                 
                 if (!user) {
                     // Try to fetch user details
-                    const response = await fetch(`${this.apiBase}users.php?action=details&user_id=${userId}`, {
+                    const response = await fetch(`${this.config.apiBase}users.php?action=details&user_id=${userId}`, {
+                        headers: {
+                            'X-CSRF-Token': this.config.csrfToken
+                        },
                         credentials: 'same-origin'
                     });
                     
