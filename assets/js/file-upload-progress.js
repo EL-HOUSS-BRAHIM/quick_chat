@@ -1,43 +1,67 @@
 /**
- * File Upload Progress Manager
- * Handles file upload progress indicators, queue management, and controls
+ * File Upload Progress Manager - DEPRECATED
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./ui/upload-progress.js
  */
 
+// Import the new implementation
+import UploadProgressManager from './ui/upload-progress.js';
+
+// Create a compatibility class that delegates to the new implementation
 class FileUploadProgressManager {
     constructor() {
-        this.uploads = new Map(); // Track active uploads
-        this.uploadQueue = []; // Queue for pending uploads
-        this.maxConcurrentUploads = 3;
-        this.activeUploads = 0;
+        console.warn('FileUploadProgressManager is deprecated. Please use UploadProgressManager from ui/upload-progress.js instead.');
         
-        this.initializeProgressContainer();
-        this.bindEvents();
+        // Create an instance of the new UploadProgressManager class
+        this.progressManager = new UploadProgressManager();
+        
+        // For backward compatibility
+        this.uploads = this.progressManager.uploads;
+        this.uploadQueue = this.progressManager.uploadQueue;
+        this.maxConcurrentUploads = this.progressManager.maxConcurrentUploads;
     }
-
+    
+    // Proxy methods to the new implementation
     initializeProgressContainer() {
-        // Create progress container if it doesn't exist
-        if (!document.getElementById('upload-progress-container')) {
-            const container = document.createElement('div');
-            container.id = 'upload-progress-container';
-            container.className = 'upload-progress-container';
-            container.innerHTML = `
-                <div class="upload-progress-header">
-                    <h4>File Uploads</h4>
-                    <button class="close-uploads" onclick="uploadManager.hideProgressContainer()">×</button>
-                </div>
-                <div class="upload-progress-list"></div>
-            `;
-            document.body.appendChild(container);
-        }
+        // Already handled in the constructor
     }
-
+    
     bindEvents() {
-        // Listen for file input changes
-        document.addEventListener('change', (event) => {
-            if (event.target.type === 'file') {
-                this.handleFileSelection(event.target.files, event.target);
-            }
-        });
+        // Already handled in the constructor
+    }
+    
+    showProgressContainer() {
+        this.progressManager.showProgressContainer();
+    }
+    
+    hideProgressContainer() {
+        this.progressManager.hideProgressContainer();
+    }
+    
+    addProgressItem(id, file, options = {}) {
+        this.progressManager.addProgressItem(id, file);
+    }
+    
+    updateProgress(id, progress) {
+        this.progressManager.updateProgressItem(id, progress);
+    }
+    
+    completeUpload(id, result) {
+        this.progressManager.handleUploadComplete({ id, result });
+    }
+    
+    failUpload(id, error) {
+        this.progressManager.handleUploadError({ id, error });
+    }
+    
+    cancelUpload(id) {
+        this.progressManager.cancelUpload(id);
+    }
+}
+
+// Export for backward compatibility
+window.FileUploadProgressManager = FileUploadProgressManager;
+window.uploadManager = new FileUploadProgressManager();
 
         // Listen for drag and drop
         document.addEventListener('drop', (event) => {
