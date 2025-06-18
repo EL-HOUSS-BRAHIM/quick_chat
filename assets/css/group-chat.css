@@ -203,3 +203,445 @@
     color: var(--text-muted);
     font-size: 0.9rem;
 }
+
+/* Group Info Sidebar Styles */
+.group-info-sidebar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 300px;
+    background-color: var(--background-color);
+    border-left: 1px solid var(--border-color);
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.group-info-sidebar.active {
+    transform: translateX(0);
+}
+
+.group-info-header {
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.group-info-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.close-info-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+}
+
+.group-info-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+.group-info-section {
+    margin-bottom: 25px;
+}
+
+.group-info-section-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text-secondary);
+}
+
+.group-description {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+}
+
+.group-members-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.group-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.group-action-btn {
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.group-action-btn:hover {
+    background-color: var(--secondary-color);
+}
+
+.group-action-btn.danger {
+    color: var(--error-color);
+    border-color: var(--error-color);
+}
+
+.group-action-btn.danger:hover {
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.create-group-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--primary-color);
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.create-group-btn:hover {
+    color: var(--primary-hover);
+}
+
+.group-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Avatar upload styles */
+.avatar-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.avatar-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-bottom: 10px;
+    border: 2px solid var(--border-color);
+}
+
+.avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-change-btn {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.avatar-change-btn:hover {
+    text-decoration: underline;
+}
+
+/* Center align text utilities */
+.text-center {
+    text-align: center;
+}
+
+.text-muted {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+/* Group list item styles */
+.group-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-radius: var(--radius-md);
+    background-color: var(--surface-color);
+    transition: background-color 0.2s;
+    cursor: pointer;
+    gap: 10px;
+}
+
+.group-item:hover {
+    background-color: var(--secondary-color);
+}
+
+.group-item .group-avatar {
+    flex-shrink: 0;
+}
+
+.group-item .group-info {
+    flex: 1;
+    overflow: hidden;
+}
+
+.group-item .group-info h4 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.group-item .group-info p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.group-item .group-actions {
+    display: flex;
+    gap: 5px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.group-item:hover .group-actions {
+    opacity: 1;
+}
+
+.group-item .action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.group-item .action-btn:hover {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+/* Member item styles */
+.member-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-radius: var(--radius-md);
+    transition: background-color 0.2s;
+    cursor: pointer;
+    gap: 10px;
+}
+
+.member-item:hover {
+    background-color: var(--secondary-color);
+}
+
+.member-avatar {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.member-avatar img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.status-indicator {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--background-color);
+}
+
+.status-indicator.online {
+    background-color: var(--success-color);
+}
+
+.status-indicator.offline {
+    background-color: var(--text-muted);
+}
+
+.member-info {
+    flex: 1;
+    overflow: hidden;
+}
+
+.member-name {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.member-status {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.admin-badge, .you-badge {
+    font-size: 0.7rem;
+    padding: 2px 4px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.admin-badge {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.you-badge {
+    background-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
+/* Section styles */
+.section {
+    margin-bottom: 20px;
+}
+
+.section-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    padding: 0 15px;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background-color: var(--background-color);
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 20px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.primary-btn, .secondary-btn {
+    padding: 8px 16px;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.primary-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+}
+
+.primary-btn:hover {
+    background-color: var(--primary-hover);
+}
+
+.secondary-btn {
+    background-color: var(--surface-color);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.secondary-btn:hover {
+    background-color: var(--secondary-color);
+}
