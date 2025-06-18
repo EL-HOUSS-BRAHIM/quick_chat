@@ -52,7 +52,7 @@ try {
         }
 
         // Check if user has permission to view invite links
-        $stmt = $db->prepare("SELECT g.created_by, gm.is_admin 
+        $stmt = $db->prepare("SELECT g.created_by, gm.role 
                              FROM groups g
                              LEFT JOIN group_members gm ON g.id = gm.group_id AND gm.user_id = ?
                              WHERE g.id = ?");
@@ -65,7 +65,7 @@ try {
             exit;
         }
 
-        if ($group['created_by'] != $userId && !$group['is_admin']) {
+        if ($group['created_by'] != $userId && (!isset($group['role']) || $group['role'] != 'admin')) {
             http_response_code(403);
             echo json_encode(['error' => 'You do not have permission to view invite links']);
             exit;
