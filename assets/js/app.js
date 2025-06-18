@@ -1,14 +1,19 @@
 /**
  * Enhanced Quick Chat Application
- * Version: 2025-06-15 - Complete refactor with improved architecture
+ * Version: 2025-06-19 - Added performance monitoring
  * Features: Real-time messaging, offline support, file uploads, notifications, dark mode
  */
+import performanceMonitor from './core/performance-monitor.js';
+
 class QuickChatApp {
     /**
      * Initialize the QuickChat application
      */
     constructor() {
-        console.log('QuickChatApp v2025-06-15 initializing...');
+        console.log('QuickChatApp v2025-06-19 initializing...');
+        
+        // Performance monitor is automatically initialized on import
+        this.performanceMonitor = performanceMonitor;
         
         // Configuration
         this.config = {
@@ -3240,6 +3245,9 @@ class QuickChatApp {
     }
 
     async sendMessage(content) {
+        // Track message send performance
+        const endTracking = this.performanceMonitor.trackInteraction('message', 'send');
+        
         try {
             // Get message content from input if not provided
             if (!content) {
@@ -3255,6 +3263,7 @@ class QuickChatApp {
                 
                 if (!content) {
                     this.showError('Message cannot be empty');
+                    endTracking(false, { error: 'empty_message' });
                     return false;
                 }
             }
@@ -3262,12 +3271,14 @@ class QuickChatApp {
             // Validate message length
             if (content.length > this.config.maxMessageLength) {
                 this.showError(`Message too long. Maximum ${this.config.maxMessageLength} characters.`);
+                endTracking(false, { error: 'message_too_long', length: content.length });
                 return false;
             }
             
             // Check if user is authenticated
             if (!this.user) {
                 this.showError('You must be logged in to send messages');
+                endTracking(false, { error: 'not_authenticated' });
                 return false;
             }
             
@@ -3355,6 +3366,13 @@ class QuickChatApp {
                 // Broadcast to other tabs
                 this.broadcastToOtherTabs('message_sent', result.data);
                 
+                // Track successful message send
+                endTracking(true, { 
+                    messageId: result.data.id,
+                    messageLength: content.length,
+                    hasReply: this.state.replyingTo !== null
+                });
+                
                 return true;
             } else {
                 throw new Error(result.message || 'Failed to send message');
@@ -3371,12 +3389,15 @@ class QuickChatApp {
             if (error.message.includes('401') || error.message.includes('authentication')) {
                 this.showError('Session expired. Please log in again.');
                 this.logout();
+                endTracking(false, { error: 'authentication_error' });
             } else if (error.message.includes('network') || error.message.includes('fetch')) {
                 this.showError('Network error. Message will be sent when connection is restored.');
                 // Queue message for retry when online
                 this.queueOfflineMessage(content);
+                endTracking(false, { error: 'network_error', queued: true });
             } else {
                 this.showError(error.message || 'Failed to send message');
+                endTracking(false, { error: error.message || 'unknown_error' });
             }
             
             return false;
