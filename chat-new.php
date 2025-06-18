@@ -98,6 +98,17 @@ if ($targetUserId) {
                             <!-- Chat list will be loaded here -->
                         </div>
                     </div>
+                    <div class="section">
+                        <div class="group-header">
+                            <h4 class="section-title">Group Chats</h4>
+                            <button class="create-group-btn" onclick="chatApp.showNewGroupModal()">
+                                <i class="fas fa-plus"></i> New
+                            </button>
+                        </div>
+                        <div class="group-list" id="groupList">
+                            <!-- Group list will be loaded here -->
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="tab-content" id="contactsTab">
@@ -276,6 +287,59 @@ if ($targetUserId) {
                     </button>
                 </div>
             </div>
+
+            <!-- Group Info Sidebar -->
+            <div class="group-info-sidebar" id="groupInfoSidebar">
+                <div class="group-info-header">
+                    <h3 class="group-info-title">Group Info</h3>
+                    <button class="close-info-btn" onclick="chatApp.toggleGroupInfo()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="group-info-content">
+                    <div class="group-info-section">
+                        <div class="avatar-upload">
+                            <div class="avatar-preview" id="groupInfoAvatar">
+                                <img src="assets/images/default-group.svg" alt="Group Avatar">
+                            </div>
+                        </div>
+                        <h2 id="groupInfoName" class="text-center">Group Name</h2>
+                        <div class="text-center text-muted" id="groupInfoMeta">
+                            <span id="groupInfoMemberCount">0 members</span> • 
+                            <span id="groupInfoCreatedAt">Created June 18, 2025</span>
+                        </div>
+                    </div>
+
+                    <div class="group-info-section">
+                        <h4 class="group-info-section-title">Description</h4>
+                        <p class="group-description" id="groupInfoDescription">
+                            No description available.
+                        </p>
+                    </div>
+
+                    <div class="group-info-section">
+                        <h4 class="group-info-section-title">Members</h4>
+                        <div class="group-members-list" id="groupInfoMembers">
+                            <!-- Group members will be loaded here -->
+                        </div>
+                    </div>
+
+                    <div class="group-info-section">
+                        <h4 class="group-info-section-title">Actions</h4>
+                        <div class="group-actions">
+                            <button class="group-action-btn" id="inviteToGroupBtn">
+                                <i class="fas fa-user-plus"></i> Invite People
+                            </button>
+                            <button class="group-action-btn" id="leaveGroupBtn">
+                                <i class="fas fa-sign-out-alt"></i> Leave Group
+                            </button>
+                            <button class="group-action-btn danger" id="deleteGroupBtn">
+                                <i class="fas fa-trash-alt"></i> Delete Group
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -299,6 +363,106 @@ if ($targetUserId) {
                 <div class="user-list" id="userSearchResults">
                     <!-- Search results will be loaded here -->
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Group Modal -->
+    <div class="modal" id="newGroupModal" onclick="closeModal(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Group</h3>
+                <button class="close-btn" onclick="closeNewGroupModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="newGroupForm">
+                    <div class="form-group">
+                        <label for="groupName">Group Name</label>
+                        <input type="text" id="groupName" name="groupName" required placeholder="Enter group name">
+                    </div>
+                    <div class="form-group">
+                        <label for="groupDescription">Description</label>
+                        <textarea id="groupDescription" name="groupDescription" rows="3" placeholder="Enter group description"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="groupVisibility">Visibility</label>
+                        <select id="groupVisibility" name="groupVisibility">
+                            <option value="0">Private</option>
+                            <option value="1">Public</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Group Avatar</label>
+                        <div class="avatar-upload">
+                            <input type="file" id="groupAvatarInput" accept="image/*" style="display: none;">
+                            <div class="avatar-preview" id="groupAvatarPreview">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <button type="button" class="upload-btn" onclick="document.getElementById('groupAvatarInput').click()">
+                                <i class="fas fa-camera"></i> Upload Image
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Add Members</label>
+                        <div class="member-search">
+                            <input type="text" id="memberSearch" placeholder="Search users...">
+                        </div>
+                        <div class="selected-members" id="selectedMembers">
+                            <!-- Selected members will be shown here -->
+                        </div>
+                        <div class="member-results" id="memberSearchResults">
+                            <!-- Search results will be loaded here -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary-btn" onclick="closeNewGroupModal()">Cancel</button>
+                <button type="button" class="primary-btn" onclick="createNewGroup()">Create Group</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Group Invite Modal -->
+    <div class="modal" id="groupInviteModal" onclick="closeModal(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Invite to Group</h3>
+                <button class="close-btn" onclick="closeGroupInviteModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="inviteGroupName" class="mb-3 text-center">
+                    <strong>Group Name</strong>
+                </div>
+                
+                <div class="form-group">
+                    <label>Share Invite Link</label>
+                    <div class="invite-link-container">
+                        <input type="text" id="inviteLinkInput" readonly>
+                        <button class="copy-link-btn" onclick="copyInviteLink()">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Or Invite Specific People</label>
+                    <div class="member-search">
+                        <input type="text" id="inviteUserSearch" placeholder="Search users...">
+                    </div>
+                    <div class="member-results" id="inviteUserResults">
+                        <!-- Search results will be loaded here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-btn" onclick="closeGroupInviteModal()">Cancel</button>
+                <button class="primary-btn" onclick="sendGroupInvites()">Send Invites</button>
             </div>
         </div>
     </div>
@@ -388,6 +552,50 @@ if ($targetUserId) {
                     window.chatApp.showNewChatModal();
                 } else {
                     console.error('showNewChatModal function not available on chatApp');
+                }
+            };
+            
+            window.showNewGroupModal = function() {
+                if (window.chatApp && typeof window.chatApp.showNewGroupModal === 'function') {
+                    window.chatApp.showNewGroupModal();
+                } else {
+                    console.error('showNewGroupModal function not available on chatApp');
+                }
+            };
+            
+            window.closeNewGroupModal = function() {
+                if (window.chatApp && typeof window.chatApp.closeNewGroupModal === 'function') {
+                    window.chatApp.closeNewGroupModal();
+                }
+            };
+            
+            window.createNewGroup = function() {
+                if (window.chatApp && typeof window.chatApp.createNewGroup === 'function') {
+                    window.chatApp.createNewGroup();
+                }
+            };
+            
+            window.toggleGroupInfo = function() {
+                if (window.chatApp && typeof window.chatApp.toggleGroupInfo === 'function') {
+                    window.chatApp.toggleGroupInfo();
+                }
+            };
+            
+            window.closeGroupInviteModal = function() {
+                if (window.chatApp && typeof window.chatApp.closeGroupInviteModal === 'function') {
+                    window.chatApp.closeGroupInviteModal();
+                }
+            };
+            
+            window.copyInviteLink = function() {
+                if (window.chatApp && typeof window.chatApp.copyInviteLink === 'function') {
+                    window.chatApp.copyInviteLink();
+                }
+            };
+            
+            window.sendGroupInvites = function() {
+                if (window.chatApp && typeof window.chatApp.sendGroupInvites === 'function') {
+                    window.chatApp.sendGroupInvites();
                 }
             };
             
