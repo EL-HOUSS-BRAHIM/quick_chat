@@ -1,43 +1,67 @@
 /**
- * Message Search Component
- * Provides search functionality for chat messages
+ * Message Search Component - DEPRECATED
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./features/chat/search.js
  */
 
+// Import the new implementation
+import ChatSearch from './features/chat/search.js';
+
+// Create a compatibility class that delegates to the new implementation
 class MessageSearch {
     constructor(chatInstance) {
+        console.warn('MessageSearch is deprecated. Please use ChatSearch from features/chat/search.js instead.');
+        
+        // Create an instance of the new ChatSearch class
+        this.chatSearch = new ChatSearch();
         this.chat = chatInstance;
         this.searchResults = [];
         this.currentQuery = '';
-        this.searchIndex = -1;
-        this.isSearching = false;
-        
-        this.initSearchInterface();
-        this.bindEvents();
     }
     
+    // No need to initialize interface or bind events as those are handled by the new implementation
     initSearchInterface() {
-        // Create search overlay
-        const searchOverlay = document.createElement('div');
-        searchOverlay.id = 'message-search-overlay';
-        searchOverlay.className = 'search-overlay hidden';
-        searchOverlay.innerHTML = `
-            <div class="search-container">
-                <div class="search-header">
-                    <div class="search-input-container">
-                        <i class="fas fa-search search-icon"></i>
-                        <input type="text" id="message-search-input" 
-                               placeholder="Search messages..." 
-                               aria-label="Search messages"
-                               autocomplete="off">
-                        <button class="search-close-btn" aria-label="Close search">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                    <div class="search-filters">
-                        <button class="filter-btn active" data-filter="all" aria-label="Search all messages">
-                            All
-                        </button>
-                        <button class="filter-btn" data-filter="images" aria-label="Search images only">
+        // Already handled by new implementation
+    }
+    
+    bindEvents() {
+        // Already handled by new implementation
+    }
+    
+    // Proxy methods to the new implementation
+    search(query) {
+        if (this.chatSearch.searchInput) {
+            this.chatSearch.searchInput.value = query;
+            this.chatSearch.handleSearchInput();
+        }
+    }
+    
+    clearSearch() {
+        this.chatSearch.clearSearch();
+    }
+    
+    showSearchOverlay() {
+        this.chatSearch.showResults();
+    }
+    
+    hideSearchOverlay() {
+        this.chatSearch.hideResults();
+    }
+    
+    highlightSearchResult(index) {
+        // This method might not have a direct equivalent in the new implementation
+        // but we can try to navigate to the message if possible
+        if (this.searchResults && this.searchResults[index]) {
+            const messageId = this.searchResults[index].id;
+            if (messageId) {
+                this.chatSearch.navigateToMessage(messageId);
+            }
+        }
+    }
+}
+
+// Export for backward compatibility
+window.MessageSearch = MessageSearch;
                             Images
                         </button>
                         <button class="filter-btn" data-filter="files" aria-label="Search files only">
