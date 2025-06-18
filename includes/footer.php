@@ -5,6 +5,9 @@
 <script src="assets/js/security.js"></script>
 <script src="assets/js/pwa-manager.js"></script>
 
+<!-- Module Loader (New Architecture) -->
+<script src="assets/js/module-loader.js"></script>
+
 <!-- Additional JavaScript -->
 <?php if (isset($additionalJS) && is_array($additionalJS)): ?>
     <?php foreach ($additionalJS as $js): ?>
