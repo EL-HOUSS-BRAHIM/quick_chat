@@ -5,25 +5,24 @@
  * referenced in the HTML but not implemented in the main class.
  */
 
-// Wait for ModernChatApp to be defined before extending it
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof ModernChatApp !== 'undefined') {
-        // Add missing group info toggle function
-        ModernChatApp.prototype.toggleGroupInfo = function() {
-            console.log('Toggling group info sidebar');
-            const groupInfoSidebar = document.getElementById('groupInfoSidebar');
-            if (groupInfoSidebar) {
-                if (groupInfoSidebar.classList.contains('visible')) {
-                    groupInfoSidebar.classList.remove('visible');
-                } else {
-                    groupInfoSidebar.classList.add('visible');
-                    // Load group members if not already loaded
-                    if (this.currentGroupId) {
-                        this.loadGroupMembers(this.currentGroupId);
-                    }
+// Extend ModernChatApp prototype immediately
+(function() {
+    // Add missing group info toggle function
+    ModernChatApp.prototype.toggleGroupInfo = function() {
+        console.log('Toggling group info sidebar');
+        const groupInfoSidebar = document.getElementById('groupInfoSidebar');
+        if (groupInfoSidebar) {
+            if (groupInfoSidebar.classList.contains('visible')) {
+                groupInfoSidebar.classList.remove('visible');
+            } else {
+                groupInfoSidebar.classList.add('visible');
+                // Load group members if not already loaded
+                if (this.currentGroupId) {
+                    this.loadGroupMembers(this.currentGroupId);
                 }
             }
-        };
+        }
+    };
 
         // Add missing reply to message function
         ModernChatApp.prototype.replyToMessage = function(messageId) {
@@ -460,5 +459,4 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         console.log('Extended ModernChatApp with missing functions');
-    }
-});
+})();
