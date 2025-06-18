@@ -2,7 +2,10 @@
 $pageTitle = 'Group Chat - Quick Chat';
 $pageClass = 'modern-chat-page group-chat-page';
 $additionalCSS = ['assets/css/modern-chat.css', 'assets/css/message-reactions.css', 'assets/css/group-chat.css'];
-$additionalJS = ['assets/js/modern-chat.js', 'assets/js/emoji.js', 'assets/js/message-reactions.js', 'assets/js/group-chat.js', 'assets/js/chat-extensions.js', 'assets/js/chat-fix.js'];
+
+// NOTE: We're still including these legacy files for compatibility during migration.
+// They will eventually be fully replaced by the modular system loaded by module-loader.js
+$additionalJS = ['assets/js/modern-chat.js', 'assets/js/emoji.js', 'assets/js/message-reactions.js', 'assets/js/group-chat.js', 'assets/js/chat-compatibility.js'];
 
 // Require authentication
 require_once __DIR__ . '/includes/auth_check.php';
