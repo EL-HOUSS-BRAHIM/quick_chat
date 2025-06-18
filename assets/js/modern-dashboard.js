@@ -402,7 +402,7 @@ class ModernDashboard {
                     <p>${group.member_count || 0} members</p>
                 </div>
                 <div class="group-actions">
-                    <button class="action-btn" title="Chat" onclick="window.location.href='chat-new.php?group=${group.id}'">
+                    <button class="action-btn" title="Chat" onclick="window.location.href='chat.php?group=${group.id}'">
                         <i class="fas fa-comments"></i>
                     </button>
                     <button class="action-btn" title="Invite" onclick="showInviteModal(${group.id})">
@@ -903,11 +903,11 @@ function toggleNotifications() {
 }
 
 function startChat(userId) {
-    window.location.href = `chat-new.php?user=${userId}`;
+    window.location.href = `chat.php?user=${userId}`;
 }
 
 function openConversation(conversationId) {
-    window.location.href = `chat-new.php?conversation=${conversationId}`;
+    window.location.href = `chat.php?conversation=${conversationId}`;
 }
 
 function refreshActivity() {
