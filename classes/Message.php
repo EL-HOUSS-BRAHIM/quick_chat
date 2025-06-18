@@ -393,7 +393,7 @@ class Message {
     
     private function isValidEmoji($emoji) {
         // Basic emoji validation - in production, use a more comprehensive check
-        return preg_match('/^(?:[\x{1F600}-\x{1F64F}]|[\x{1F300}-\x{1F5FF}]|[\x{1F680}-\x{1F6FF}]|[\x{1F1E0}-\x{1F1FF}]|[\x{2600}-\x{26FF}]|[\x{2700}-\x{27BF}])+$/u', $emoji);
+        return preg_match('/^(?:[\x{1F600}-\x{1F64F}]|[\x{1F300}-\x{1F5FF}]|[\x{1F680}-\x{1F6FF}]|[\x{1F1E0]-\x{1F1FF}]|[\x{2600}-\x{26FF}]|[\x{2700}-\x{27BF}])+$/u', $emoji);
     }
     
     private function getFileUrl($filePath) {
@@ -490,8 +490,8 @@ class Message {
         
         // Add creator as admin
         $stmt = $this->db->prepare("
-            INSERT INTO group_members (group_id, user_id, is_admin)
-            VALUES (?, ?, 1)
+            INSERT INTO group_members (group_id, user_id, role)
+            VALUES (?, ?, 'admin')
         ");
         $stmt->execute([$groupId, $creatorId]);
         
@@ -510,7 +510,16 @@ class Message {
      * @param bool $isAdmin Whether the user should be an admin
      * @return bool Success status
      */
-    public function addGroupMember($groupId, $userId, $addedBy, $isAdmin = false) {
+    /**
+     * Add a member to a group
+     * 
+     * @param int $groupId The group ID
+     * @param int $userId The user ID to add
+     * @param int $addedBy The user ID adding the member
+     * @param mixed $roleOrIsAdmin Either a string role ('admin', 'member') or a boolean flag for backward compatibility
+     * @return bool Success status
+     */
+    public function addGroupMember($groupId, $userId, $addedBy, $roleOrIsAdmin = false) {
         // Validate the group exists
         $stmt = $this->db->prepare("SELECT id, created_by FROM `groups` WHERE id = ?");
         $stmt->execute([$groupId]);
@@ -520,12 +529,17 @@ class Message {
         $group = $stmt->fetch(PDO::FETCH_ASSOC);
         
         // Validate the adder has permission
-        $stmt = $this->db->prepare("SELECT is_admin FROM group_members WHERE group_id = ? AND user_id = ?");
+        $stmt = $this->db->prepare("SELECT role FROM group_members WHERE group_id = ? AND user_id = ?");
         $stmt->execute([$groupId, $addedBy]);
         $adder = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$adder && $group['created_by'] !== $addedBy) {
             throw new Exception("You don't have permission to add members");
+        }
+        
+        // If not group creator, check if user is admin
+        if ($group['created_by'] !== $addedBy && $adder && $adder['role'] !== 'admin') {
+            throw new Exception("Only admins can add members");
         }
         
         // Check if user is banned
@@ -542,12 +556,20 @@ class Message {
             throw new Exception("User is already a member of this group");
         }
         
+        // Determine the role
+        $role = 'member';
+        if (is_string($roleOrIsAdmin)) {
+            $role = $roleOrIsAdmin;
+        } elseif (is_bool($roleOrIsAdmin) && $roleOrIsAdmin) {
+            $role = 'admin';
+        }
+        
         // Add the user
         $stmt = $this->db->prepare("
-            INSERT INTO group_members (group_id, user_id, is_admin)
+            INSERT INTO group_members (group_id, user_id, role)
             VALUES (?, ?, ?)
         ");
-        $stmt->execute([$groupId, $userId, $isAdmin ? 1 : 0]);
+        $stmt->execute([$groupId, $userId, $role]);
         
         return true;
     }
@@ -653,7 +675,7 @@ class Message {
      */
     public function updateGroupSettings($groupId, $userId, $settings) {
         // Validate the group exists
-        $stmt = $this->db->prepare("SELECT id, created_by FROM groups WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT id, created_by FROM `groups` WHERE id = ?");
         $stmt->execute([$groupId]);
         if ($stmt->rowCount() === 0) {
             throw new Exception("Group not found");
@@ -720,7 +742,7 @@ class Message {
      */
     public function getUserGroups($userId) {
         $stmt = $this->db->prepare("
-            SELECT g.*, gm.is_admin, 
+            SELECT g.*, gm.role, 
                    (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count
             FROM `groups` g
             JOIN group_members gm ON g.id = gm.group_id
@@ -1085,7 +1107,7 @@ class Message {
      */
     public function createGroupInviteLink($groupId, $createdBy, $maxUses = null, $expiresAt = null) {
         // Validate group
-        $sql = "SELECT id, created_by FROM groups WHERE id = ?";
+        $sql = "SELECT id, created_by FROM `groups` WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$groupId]);
         
@@ -1177,7 +1199,7 @@ class Message {
         }
         
         // Add user to group
-        $sql = "INSERT INTO group_members (group_id, user_id, is_admin) VALUES (?, ?, 0)";
+        $sql = "INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$invite['group_id'], $userId]);
         
@@ -1318,6 +1340,87 @@ class Message {
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$actionId]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    /**
+     * Update a group member's role
+     * 
+     * @param int $groupId The group ID
+     * @param int $userId The user ID to update
+     * @param int $updatedBy The user ID updating the member
+     * @param string $role The new role ('admin', 'member', etc.)
+     * @return bool Success status
+     */
+    public function updateGroupMember($groupId, $userId, $updatedBy, $role = 'member') {
+        // Validate the group exists
+        $stmt = $this->db->prepare("SELECT id, created_by FROM `groups` WHERE id = ?");
+        $stmt->execute([$groupId]);
+        if ($stmt->rowCount() === 0) {
+            throw new Exception("Group not found");
+        }
+        $group = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Validate the updater has permission
+        $stmt = $this->db->prepare("SELECT role FROM group_members WHERE group_id = ? AND user_id = ?");
+        $stmt->execute([$groupId, $updatedBy]);
+        $updater = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$updater && $group['created_by'] !== $updatedBy) {
+            throw new Exception("You don't have permission to update members");
+        }
+        
+        // If not group creator, check if user is admin
+        if ($group['created_by'] !== $updatedBy && $updater && $updater['role'] !== 'admin') {
+            throw new Exception("Only admins can update members");
+        }
+        
+        // Check if user is a member
+        $stmt = $this->db->prepare("SELECT id FROM group_members WHERE group_id = ? AND user_id = ?");
+        $stmt->execute([$groupId, $userId]);
+        if ($stmt->rowCount() === 0) {
+            throw new Exception("User is not a member of this group");
+        }
+        
+        // Update the user's role
+        $stmt = $this->db->prepare("
+            UPDATE group_members 
+            SET role = ? 
+            WHERE group_id = ? AND user_id = ?
+        ");
+        $stmt->execute([$role, $groupId, $userId]);
+        
+        return true;
+    }
+    
+    /**
+     * Get detailed information about a group
+     * 
+     * @param int $groupId The group ID
+     * @return array The group details
+     */
+    public function getGroupDetails($groupId) {
+        // Get basic group info
+        $stmt = $this->db->prepare("
+            SELECT g.*, 
+                   u.username as creator_username, 
+                   u.display_name as creator_display_name,
+                   (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count
+            FROM `groups` g
+            JOIN users u ON g.created_by = u.id
+            WHERE g.id = ?
+        ");
+        $stmt->execute([$groupId]);
+        
+        if ($stmt->rowCount() === 0) {
+            throw new Exception("Group not found");
+        }
+        
+        $group = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Convert is_public to boolean for JavaScript
+        $group['is_public'] = (bool)$group['is_public'];
+        
+        return $group;
     }
 }
 ?>
