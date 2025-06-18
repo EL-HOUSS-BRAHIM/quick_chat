@@ -2,7 +2,7 @@
   "name": "Quick Chat",
   "short_name": "Quick Chat",
   "description": "A secure, accessible, and feature-rich messaging platform",
-  "start_url": "/dashboard-modern.php",
+  "start_url": "/dashboard.php",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#667eea",
