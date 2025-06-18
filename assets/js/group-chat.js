@@ -1,43 +1,168 @@
 /**
- * Group Chat Components
- * Handles group creation, member management, and group settings
+ * Group Chat Components - DEPRECATED
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./features/chat/group-info.js
  */
 
+// Import the new implementation
+import GroupInfo from './features/chat/group-info.js';
+import apiClient from './api/api-client.js';
+import eventBus from './core/event-bus.js';
+
+// Create a compatibility class that combines old functionality with new implementation
 class GroupChatManager {
     constructor() {
+        console.warn('GroupChatManager is deprecated. Please use GroupInfo from features/chat/group-info.js instead.');
+        
+        // Create an instance of the new GroupInfo class
+        this.groupInfo = new GroupInfo();
+        
+        // For backward compatibility
         this.currentGroup = null;
         this.groupMembers = new Map();
         this.groupSettings = null;
         
-        this.init();
-    }
-
-    init() {
+        // Initialize remaining functionality
         this.createGroupComponents();
         this.bindEvents();
+        
+        // Subscribe to group selection events
+        eventBus.subscribe('group:selected', (data) => {
+            this.currentGroup = data.groupId;
+        });
     }
-
+    
     createGroupComponents() {
-        // Create group creation modal
-        const groupCreateModal = document.createElement('div');
-        groupCreateModal.id = 'group-create-modal';
-        groupCreateModal.className = 'modal group-modal';
-        groupCreateModal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Create New Group</h3>
-                    <button class="close-btn" onclick="groupChatManager.hideGroupCreateModal()">×</button>
-                </div>
-                <div class="modal-body">
-                    <form id="group-create-form" onsubmit="groupChatManager.createGroup(event)">
-                        <div class="form-group">
-                            <label for="group-name">Group Name *</label>
-                            <input type="text" id="group-name" name="groupName" required 
-                                   placeholder="Enter group name" maxlength="50">
-                            <div class="character-count">
-                                <span id="group-name-count">0</span>/50
+        // Create group creation modal if it doesn't exist
+        if (!document.getElementById('group-create-modal')) {
+            const groupCreateModal = document.createElement('div');
+            groupCreateModal.id = 'group-create-modal';
+            groupCreateModal.className = 'modal group-modal';
+            groupCreateModal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Create New Group</h3>
+                        <button class="close-btn">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="group-create-form">
+                            <div class="form-group">
+                                <label for="group-name">Group Name *</label>
+                                <input type="text" id="group-name" name="groupName" required 
+                                       placeholder="Enter group name" maxlength="50">
+                                <div class="character-count">
+                                    <span id="group-name-count">0</span>/50
+                                </div>
                             </div>
-                        </div>
+                            <div class="form-group">
+                                <label for="group-description">Description</label>
+                                <textarea id="group-description" name="groupDescription" 
+                                          placeholder="Enter group description" maxlength="200"></textarea>
+                                <div class="character-count">
+                                    <span id="group-description-count">0</span>/200
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <button type="submit" class="btn btn-primary">Create Group</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(groupCreateModal);
+            
+            // Add event listeners for this modal
+            const closeBtn = groupCreateModal.querySelector('.close-btn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', this.hideGroupCreateModal.bind(this));
+            }
+            
+            const form = groupCreateModal.querySelector('#group-create-form');
+            if (form) {
+                form.addEventListener('submit', this.createGroup.bind(this));
+            }
+        }
+    }
+    
+    bindEvents() {
+        // Add new group button listener
+        const newGroupBtn = document.getElementById('new-group-btn');
+        if (newGroupBtn) {
+            newGroupBtn.addEventListener('click', this.showGroupCreateModal.bind(this));
+        }
+        
+        // Character count for inputs
+        document.addEventListener('input', (e) => {
+            if (e.target.id === 'group-name') {
+                document.getElementById('group-name-count').textContent = e.target.value.length;
+            }
+            if (e.target.id === 'group-description') {
+                document.getElementById('group-description-count').textContent = e.target.value.length;
+            }
+        });
+    }
+    
+    // Modal control methods
+    showGroupCreateModal() {
+        const modal = document.getElementById('group-create-modal');
+        if (modal) {
+            modal.classList.add('show');
+        }
+    }
+    
+    hideGroupCreateModal() {
+        const modal = document.getElementById('group-create-modal');
+        if (modal) {
+            modal.classList.remove('show');
+            // Reset form
+            const form = document.getElementById('group-create-form');
+            if (form) form.reset();
+        }
+    }
+    
+    // Group creation
+    async createGroup(event) {
+        if (event) event.preventDefault();
+        
+        const form = document.getElementById('group-create-form');
+        if (!form) return;
+        
+        const groupName = form.groupName.value.trim();
+        const groupDescription = form.groupDescription ? form.groupDescription.value.trim() : '';
+        
+        if (!groupName) {
+            alert('Please enter a group name');
+            return;
+        }
+        
+        try {
+            const response = await apiClient.post('/api/groups.php', {
+                action: 'create',
+                name: groupName,
+                description: groupDescription
+            });
+            
+            if (response.success) {
+                this.hideGroupCreateModal();
+                
+                // Publish event for new group
+                eventBus.publish('group:created', { 
+                    groupId: response.data.groupId,
+                    groupName: groupName
+                });
+            } else {
+                alert('Failed to create group: ' + response.error);
+            }
+        } catch (error) {
+            console.error('Error creating group:', error);
+            alert('An error occurred while creating the group.');
+        }
+    }
+}
+
+// Export for backward compatibility
+window.GroupChatManager = GroupChatManager;
+window.groupChatManager = new GroupChatManager();
                         
                         <div class="form-group">
                             <label for="group-description">Description</label>
