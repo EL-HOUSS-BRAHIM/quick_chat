@@ -1,53 +1,48 @@
 /**
- * Call Interface Components
- * Handles incoming call notifications, call controls, and call UI
+ * Call Interface Components - DEPRECATED
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./features/webrtc/ui.js
  */
 
+// Import the new implementation
+import CallUI from './features/webrtc/ui.js';
+import webrtcModule from './features/webrtc/index.js';
+
+// Create a compatibility class that delegates to the new implementation
 class CallInterfaceManager {
     constructor() {
-        this.activeCall = null;
-        this.incomingCall = null;
-        this.callInterface = null;
-        this.ringtone = null;
-        this.callStartTime = null;
-        this.callTimer = null;
+        console.warn('CallInterfaceManager is deprecated. Please use CallUI from features/webrtc/ui.js instead.');
         
-        this.init();
+        // Create an instance of the new CallUI class
+        this.callUI = new CallUI();
+        
+        // Initialize the call UI
+        this.callUI.init({
+            onAcceptCall: (call) => webrtcModule.acceptCall(call),
+            onDeclineCall: (call) => webrtcModule.declineCall(call),
+            onEndCall: () => webrtcModule.endCall(),
+            onToggleMute: (muted) => webrtcModule.toggleMute(muted),
+            onToggleVideo: (videoEnabled) => webrtcModule.toggleVideo(videoEnabled)
+        });
+        
+        // For backward compatibility, expose key methods directly
+        this.acceptCall = (callId) => webrtcModule.acceptCall({ callId });
+        this.declineCall = (callId) => webrtcModule.declineCall({ callId });
+        this.endCall = () => webrtcModule.endCall();
     }
-
-    init() {
-        this.createCallInterface();
-        this.loadRingtone();
-        this.bindEvents();
+    
+    // Proxy methods to the new implementation
+    displayIncomingCall(caller, callType) {
+        webrtcModule.handleIncomingCall({
+            caller,
+            type: callType
+        });
     }
+}
 
-    createCallInterface() {
-        // Create incoming call notification modal
-        const incomingCallModal = document.createElement('div');
-        incomingCallModal.id = 'incoming-call-modal';
-        incomingCallModal.className = 'call-modal incoming-call';
-        incomingCallModal.innerHTML = `
-            <div class="call-modal-content">
-                <div class="caller-info">
-                    <div class="caller-avatar">
-                        <img id="caller-avatar" src="" alt="Caller">
-                    </div>
-                    <div class="caller-details">
-                        <h3 id="caller-name">Unknown Caller</h3>
-                        <p id="call-type">Voice Call</p>
-                    </div>
-                </div>
-                <div class="call-actions">
-                    <button class="call-btn decline-btn" onclick="callInterface.declineCall()">
-                        <i class="fas fa-phone-slash"></i>
-                        <span>Decline</span>
-                    </button>
-                    <button class="call-btn accept-btn" onclick="callInterface.acceptCall()">
-                        <i class="fas fa-phone"></i>
-                        <span>Accept</span>
-                    </button>
-                </div>
-                <div class="call-animation">
+// Export for backward compatibility
+window.callInterface = new CallInterfaceManager();
+window.CallInterfaceManager = CallInterfaceManager;
                     <div class="pulse-ring"></div>
                     <div class="pulse-ring"></div>
                     <div class="pulse-ring"></div>
