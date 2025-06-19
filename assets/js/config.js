@@ -1,4 +1,4 @@
-// Quick Chat Configuration
+// Quick Chat Configuration - DEPRECATED
 // NOTICE: This file is maintained for backward compatibility.
 // New code should use the modular architecture in /assets/js/core/config.js
 import coreConfig from './core/config.js';
