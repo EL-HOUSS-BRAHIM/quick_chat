@@ -18,20 +18,15 @@ import pwaManager from './core/pwa-manager.js';
 // Import UI components
 import AccessibilityManager from './ui/accessibility.js';
 import UploadProgressManager from './ui/upload-progress.js';
-import VirtualScroll from './ui/virtual-scroll.js';
 
 // Import API client
 import apiClient from './api/api-client.js';
 
-// Import feature modules
-import chatModule from './features/chat/index.js';
-import dashboardModule from './features/dashboard/index.js';
-import profileModule from './features/profile/index.js';
-import webrtcModule from './features/webrtc/index.js';
-import adminModule from './features/admin/index.js';
-
 // Import compatibility layer
 import { initChatCompatibility } from './core/chat-compatibility.js';
+
+// Determine current page type for dynamic imports
+const currentPage = document.body.dataset.pageType || '';
 
 /**
  * Initialize the application
@@ -82,6 +77,10 @@ async function initApplication() {
  */
 async function initChatPage() {
   try {
+    // Show loading indicator
+    const loadingIndicator = document.getElementById('page-loading-indicator');
+    if (loadingIndicator) loadingIndicator.style.display = 'flex';
+    
     // Get chat configuration
     const config = {
       currentUserId: window.quickChatConfig?.userId,
@@ -90,14 +89,21 @@ async function initChatPage() {
       chatType: getUrlParam('group') ? 'group' : 'private'
     };
     
-    // Import additional modules for chat
-    const { createMentions } = await import('./features/chat/mentions.js');
-    const { createChatVirtualScroll } = await import('./ui/virtual-scroll.js');
+    // Import chat module dynamically
+    const [
+      { default: chatModule },
+      { createVirtualScroll },
+      { createMentions }
+    ] = await Promise.all([
+      import(/* webpackChunkName: "chat-core" */ './features/chat/index.js'),
+      import(/* webpackChunkName: "virtual-scroll" */ './ui/virtual-scroll.js'),
+      import(/* webpackChunkName: "chat-mentions" */ './features/chat/mentions.js')
+    ]);
     
     // Set up virtual scrolling for messages if container exists
     const messagesContainer = document.querySelector('.messages-container');
     if (messagesContainer) {
-      const virtualScroll = createChatVirtualScroll('messages-container', {
+      const virtualScroll = createVirtualScroll('messages-container', {
         pageSize: 30
       });
       // Store in global state for access by chat module
@@ -110,6 +116,11 @@ async function initChatPage() {
     // Initialize WebRTC if enabled
     if (window.quickChatConfig?.features?.voiceCall || 
         window.quickChatConfig?.features?.videoCall) {
+      const { default: webrtcModule } = await import(
+        /* webpackChunkName: "webrtc" */ 
+        './features/webrtc/index.js'
+      );
+      
       await webrtcModule.init({
         userId: window.quickChatConfig?.userId,
         username: window.quickChatConfig?.username
@@ -122,12 +133,35 @@ async function initChatPage() {
       state.set('mentions', mentions);
     }
     
+    // Initialize emoji picker if enabled
+    if (window.quickChatConfig?.features?.emojiPicker) {
+      const { initEmojiPicker } = await import(
+        /* webpackChunkName: "emoji-picker" */ 
+        './features/chat/emoji-picker.js'
+      );
+      initEmojiPicker();
+    }
+    
+    // Initialize file upload if enabled
+    if (window.quickChatConfig?.features?.fileUpload) {
+      const { initFileUploader } = await import(
+        /* webpackChunkName: "file-uploader" */ 
+        './features/chat/file-uploader.js'
+      );
+      initFileUploader();
+    }
+    
+    // Hide loading indicator
+    if (loadingIndicator) loadingIndicator.style.display = 'none';
+    
     console.log('Chat page initialized');
   } catch (error) {
     console.error('Failed to initialize chat page:', error);
     errorHandler.handleError(error);
-  }
-}
+    
+    // Hide loading indicator on error
+    const loadingIndicator = document.getElementById('page-loading-indicator');
+    if (loadingIndicator) loadingIndicator.style.display = 'none';
   }
 }
 
@@ -136,11 +170,30 @@ async function initChatPage() {
  */
 async function initDashboardPage() {
   try {
+    // Show loading indicator
+    const loadingIndicator = document.getElementById('page-loading-indicator');
+    if (loadingIndicator) loadingIndicator.style.display = 'flex';
+    
+    // Import dashboard module dynamically
+    const { default: dashboardModule } = await import(
+      /* webpackChunkName: "dashboard-core" */ 
+      './features/dashboard/index.js'
+    );
+    
+    // Initialize dashboard module
     await dashboardModule.init();
+    
+    // Hide loading indicator
+    if (loadingIndicator) loadingIndicator.style.display = 'none';
+    
     console.log('Dashboard page initialized');
   } catch (error) {
     console.error('Failed to initialize dashboard page:', error);
     errorHandler.handleError(error);
+    
+    // Hide loading indicator on error
+    const loadingIndicator = document.getElementById('page-loading-indicator');
+    if (loadingIndicator) loadingIndicator.style.display = 'none';
   }
 }
 
@@ -149,19 +202,49 @@ async function initDashboardPage() {
  */
 async function initProfilePage() {
   try {
-    // Import preferences module when needed
-    const { createPreferences } = await import('./features/profile/preferences.js');
+    // Show loading indicator
+    const loadingIndicator = document.getElementById('page-loading-indicator');
+    if (loadingIndicator) loadingIndicator.style.display = 'flex';
+    
+    // Import profile modules dynamically
+    const [
+      { default: profileModule },
+      { createPreferences }
+    ] = await Promise.all([
+      import(/* webpackChunkName: "profile-core" */ './features/profile/index.js'),
+      import(/* webpackChunkName: "profile-preferences" */ './features/profile/preferences.js')
+    ]);
     
     // Initialize profile module
-    await profileModule.init({
-      userId: window.quickChatConfig?.userId,
-      preferences: createPreferences()
-    });
+    await profileModule.init();
+    
+    // Initialize preferences if that section exists
+    const preferencesContainer = document.querySelector('.user-preferences');
+    if (preferencesContainer) {
+      const preferences = createPreferences();
+      preferences.init();
+    }
+    
+    // Initialize avatar upload if that feature is enabled
+    if (window.quickChatConfig?.features?.avatarUpload) {
+      const { initAvatarUpload } = await import(
+        /* webpackChunkName: "avatar-upload" */ 
+        './features/profile/avatar-upload.js'
+      );
+      initAvatarUpload();
+    }
+    
+    // Hide loading indicator
+    if (loadingIndicator) loadingIndicator.style.display = 'none';
     
     console.log('Profile page initialized');
   } catch (error) {
     console.error('Failed to initialize profile page:', error);
     errorHandler.handleError(error);
+    
+    // Hide loading indicator on error
+    const loadingIndicator = document.getElementById('page-loading-indicator');
+    if (loadingIndicator) loadingIndicator.style.display = 'none';
   }
 }
 
@@ -170,11 +253,65 @@ async function initProfilePage() {
  */
 async function initAdminPage() {
   try {
+    // Show loading indicator
+    const loadingIndicator = document.getElementById('page-loading-indicator');
+    if (loadingIndicator) loadingIndicator.style.display = 'flex';
+    
+    // Import admin modules dynamically
+    const [
+      { default: adminModule },
+      { default: configManager }
+    ] = await Promise.all([
+      import(/* webpackChunkName: "admin-core" */ './features/admin/index.js'),
+      import(/* webpackChunkName: "admin-config" */ './features/admin/config-manager.js')
+    ]);
+    
+    // Initialize admin module
     await adminModule.init();
+    
+    // Initialize configuration manager
+    await configManager.init();
+    
+    // Load additional admin modules based on active section
+    const activeSection = getUrlParam('section') || 'dashboard';
+    
+    switch (activeSection) {
+      case 'users':
+        const { default: userManager } = await import(
+          /* webpackChunkName: "admin-users" */ 
+          './features/admin/user-manager.js'
+        );
+        await userManager.init();
+        break;
+      
+      case 'logs':
+        const { default: logViewer } = await import(
+          /* webpackChunkName: "admin-logs" */ 
+          './features/admin/log-viewer.js'
+        );
+        await logViewer.init();
+        break;
+      
+      case 'system':
+        const { default: systemInfo } = await import(
+          /* webpackChunkName: "admin-system" */ 
+          './features/admin/system-info.js'
+        );
+        await systemInfo.init();
+        break;
+    }
+    
+    // Hide loading indicator
+    if (loadingIndicator) loadingIndicator.style.display = 'none';
+    
     console.log('Admin page initialized');
   } catch (error) {
     console.error('Failed to initialize admin page:', error);
     errorHandler.handleError(error);
+    
+    // Hide loading indicator on error
+    const loadingIndicator = document.getElementById('page-loading-indicator');
+    if (loadingIndicator) loadingIndicator.style.display = 'none';
   }
 }
 
@@ -201,8 +338,8 @@ function getCurrentPage() {
 
 /**
  * Get URL parameter value
- * @param {string} name - Parameter name
- * @returns {string|null} Parameter value
+ * @param {string} name - The parameter name to get
+ * @returns {string|null} The parameter value or null if not found
  */
 function getUrlParam(name) {
   const urlParams = new URLSearchParams(window.location.search);
@@ -210,12 +347,7 @@ function getUrlParam(name) {
 }
 
 // Initialize when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initApplication);
-} else {
-  // DOM already loaded
-  initApplication();
-}
+document.addEventListener('DOMContentLoaded', initApplication);
 
 // Export for potential direct imports
 export default {
