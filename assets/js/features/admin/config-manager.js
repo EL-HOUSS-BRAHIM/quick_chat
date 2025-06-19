@@ -5,7 +5,7 @@
 
 import apiClient from '../../api/api-client.js';
 import errorHandler from '../../core/error-handler.js';
-import { eventBus } from '../../core/event-bus.js';
+import eventBus from '../../core/event-bus.js';
 import * as utils from '../../core/utils.js';
 
 class ConfigManager {
