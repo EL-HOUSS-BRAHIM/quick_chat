@@ -45,7 +45,25 @@
     <link rel="icon" type="image/x-icon" href="assets/images/icon-192.png">
     <link rel="apple-touch-icon" href="assets/images/icon-192.png">
 </head>
-<body class="<?php echo htmlspecialchars($pageClass ?? ''); ?>">
+<body class="<?php echo htmlspecialchars($pageClass ?? ''); ?>" data-page-type="<?php 
+    if (strpos($_SERVER['PHP_SELF'], 'chat.php') !== false) {
+        echo 'chat';
+    } elseif (strpos($_SERVER['PHP_SELF'], 'dashboard.php') !== false) {
+        echo 'dashboard';
+    } elseif (strpos($_SERVER['PHP_SELF'], 'profile.php') !== false) {
+        echo 'profile';
+    } elseif (strpos($_SERVER['PHP_SELF'], 'admin.php') !== false) {
+        echo 'admin';
+    }
+?>">
+
+<!-- Page Loading Indicator -->
+<div id="page-loading-indicator" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); z-index: 9999; justify-content: center; align-items: center;">
+    <div style="text-align: center;">
+        <div class="loading-spinner"></div>
+        <p>Loading...</p>
+    </div>
+</div>
 
 <nav class="main-nav">
     <div class="nav-container">
