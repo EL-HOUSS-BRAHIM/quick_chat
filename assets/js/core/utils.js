@@ -53,8 +53,30 @@ export function formatDate(date, options = {}) {
   }
   
   // Standard date formatting for older dates
+  if (!config.relative || config.shortFormat) {
+    // Format: MM/DD/YYYY for non-relative dates to match test expectation
+    const month = dateObj.getMonth() + 1;
+    const day = dateObj.getDate();
+    const year = dateObj.getFullYear();
+    let result = `${month}/${day}/${year}`;
+    
+    // Add time if requested
+    if (config.includeTime) {
+      const hours = dateObj.getHours();
+      const minutes = dateObj.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const formattedHours = hours % 12 || 12;
+      const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
+      
+      result += ` ${formattedHours}:${formattedMinutes} ${ampm}`;
+    }
+    
+    return result;
+  }
+  
+  // Fancy format (only used when not in shortFormat mode)
   const formatOptions = {
-    month: config.shortFormat ? 'short' : 'long',
+    month: 'long',
     day: 'numeric',
     year: dateObj.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
   };
@@ -184,7 +206,12 @@ export function generateUUID() {
  * @returns {string} Escaped string
  */
 export function escapeHtml(unsafe) {
-  return unsafe
+  if (unsafe === null || unsafe === undefined) {
+    return '';
+  }
+  
+  const str = String(unsafe);
+  return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -275,6 +302,23 @@ export function getUrlParams(url = window.location.href) {
  */
 export function generateUniqueId(prefix = 'id') {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * Generate a random ID string
+ * @param {number} [length=8] - Length of the ID
+ * @param {string} [prefix=''] - Optional prefix for the ID
+ * @returns {string} Random ID
+ */
+export function generateRandomId(length = 8, prefix = '') {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = prefix;
+  
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  
+  return result;
 }
 
 /**
