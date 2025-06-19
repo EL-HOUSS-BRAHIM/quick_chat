@@ -14,10 +14,13 @@ class RealtimeChat {
     this.typingUsers = new Map();
     this.typingTimeout = 3000; // Clear typing indicator after 3 seconds of inactivity
     this.typingTimeouts = new Map();
+    this.typingThrottleTime = 1000; // Only send typing status every 1 second
     this.unreadMessages = new Map(); // userId/groupId -> count
     this.presenceStatus = new Map(); // userId -> status
     this.typing = false;
     this.lastTypingEvent = 0;
+    this.currentChatId = null;
+    this.currentChatType = null;
     
     // Bind methods
     this.handleMessage = this.handleMessage.bind(this);
@@ -44,9 +47,14 @@ class RealtimeChat {
     // Subscribe to app events
     eventBus.subscribe('chat:message:input', this.handleLocalTyping.bind(this));
     eventBus.subscribe('chat:message:read', this.sendReadReceipt);
+    eventBus.subscribe('private:chat:open', this.setCurrentChat.bind(this));
+    eventBus.subscribe('group:chat:open', this.setCurrentChat.bind(this));
     
     // Initialize presence updates
     this.initializePresence();
+    
+    // Create typing indicator element
+    this.createTypingIndicator();
   }
   
   /**
@@ -130,103 +138,142 @@ class RealtimeChat {
    * @param {Object} data Typing data
    */
   handleTyping(data) {
-    const { userId, chatId, type, isTyping } = data;
+    const { userId, typing, chatId, chatType } = data;
     
-    // Skip own typing events
-    if (userId === state.get('currentUser').id) return;
-    
-    // Create a unique key for this typing event
-    const key = type === 'private' ? userId : `group_${chatId}`;
-    
-    // Clear any existing timeout
-    if (this.typingTimeouts.has(key)) {
-      clearTimeout(this.typingTimeouts.get(key));
+    if (!userId || !chatId) {
+      return;
     }
     
-    if (isTyping) {
-      // Add to typing users
-      this.typingUsers.set(key, {
-        userId,
+    // Clear any existing timeout for this user
+    if (this.typingTimeouts.has(userId)) {
+      clearTimeout(this.typingTimeouts.get(userId));
+    }
+    
+    // Update typing users map
+    if (typing) {
+      this.typingUsers.set(userId, {
         chatId,
-        type,
+        chatType,
         timestamp: Date.now()
       });
       
-      // Set timeout to clear typing indicator
+      // Set timeout to clear typing status
       const timeout = setTimeout(() => {
-        this.typingUsers.delete(key);
-        this.typingTimeouts.delete(key);
-        
-        // Publish typing stopped event
-        eventBus.publish('chat:typing:stopped', {
-          userId,
-          chatId,
-          type
-        });
-      }, this.typingTimeout);
+        this.typingUsers.delete(userId);
+        this.typingTimeouts.delete(userId);
+        this.updateTypingIndicator();
+      }, this.typingTimeout + 1000); // Add buffer to server timeout
       
-      this.typingTimeouts.set(key, timeout);
-      
-      // Publish typing event
-      eventBus.publish('chat:typing', {
-        userId,
-        chatId,
-        type
-      });
+      this.typingTimeouts.set(userId, timeout);
     } else {
-      // Remove from typing users
-      this.typingUsers.delete(key);
-      
-      // Publish typing stopped event
-      eventBus.publish('chat:typing:stopped', {
-        userId,
-        chatId,
-        type
-      });
+      this.typingUsers.delete(userId);
+      this.typingTimeouts.delete(userId);
     }
+    
+    // Update the UI
+    this.updateTypingIndicator();
   }
   
   /**
-   * Handle local typing
-   * @param {Object} data Input data
+   * Set current chat
+   * @param {Object} data - Chat data
+   */
+  setCurrentChat(data) {
+    if (data.type === 'private') {
+      this.currentChatId = data.userId;
+      this.currentChatType = 'private';
+    } else if (data.type === 'group') {
+      this.currentChatId = data.groupId;
+      this.currentChatType = 'group';
+    }
+    
+    // Clear unread count for this chat
+    this.clearUnreadCount(this.currentChatId);
+    
+    // Update typing indicator
+    this.updateTypingIndicator();
+  }
+  
+  /**
+   * Create typing indicator element
+   */
+  createTypingIndicator() {
+    // Check if it already exists
+    let typingIndicator = document.getElementById('typing-indicator');
+    
+    if (!typingIndicator) {
+      typingIndicator = document.createElement('div');
+      typingIndicator.id = 'typing-indicator';
+      typingIndicator.className = 'typing-indicator';
+      typingIndicator.setAttribute('aria-live', 'polite');
+      typingIndicator.style.display = 'none';
+      
+      // Add to the chat container
+      const chatContainer = document.querySelector('.chat-messages, .message-container');
+      if (chatContainer) {
+        chatContainer.appendChild(typingIndicator);
+      } else {
+        // Fallback if chat container is not found yet
+        document.addEventListener('DOMContentLoaded', () => {
+          const container = document.querySelector('.chat-messages, .message-container');
+          if (container) {
+            container.appendChild(typingIndicator);
+          }
+        });
+      }
+    }
+    
+    return typingIndicator;
+  }
+  
+  /**
+   * Handle local user typing
+   * @param {Object} data - Input event data
    */
   handleLocalTyping(data) {
-    const { chatId, type } = data;
-    
-    // Skip if no active chat
-    if (!chatId) return;
-    
-    // Only send typing event if not already typing or if last event was more than 3 seconds ago
     const now = Date.now();
-    if (!this.typing || now - this.lastTypingEvent > 3000) {
-      this.typing = true;
-      this.lastTypingEvent = now;
-      
-      // Send typing indicator
-      this.sendTypingStatus(chatId, type, true);
-      
-      // Send stopped typing after delay
-      setTimeout(() => {
-        this.typing = false;
-        this.sendTypingStatus(chatId, type, false);
-      }, 5000); // Stop typing indicator after 5 seconds
+    
+    // Don't send typing status too often
+    if (now - this.lastTypingEvent < this.typingThrottleTime) {
+      return;
     }
+    
+    // Set typing flag and send status
+    this.typing = true;
+    this.lastTypingEvent = now;
+    
+    this.sendTypingStatus({
+      typing: true,
+      chatId: this.currentChatId,
+      chatType: this.currentChatType
+    });
+    
+    // Clear typing status after timeout
+    setTimeout(() => {
+      if (now === this.lastTypingEvent) {
+        this.typing = false;
+        this.sendTypingStatus({
+          typing: false,
+          chatId: this.currentChatId,
+          chatType: this.currentChatType
+        });
+      }
+    }, this.typingTimeout);
   }
   
   /**
-   * Send typing status
-   * @param {string} chatId ID of the chat (user ID or group ID)
-   * @param {string} type Type of chat ('private' or 'group')
-   * @param {boolean} isTyping Whether user is typing
+   * Send typing status to other users
+   * @param {Object} data - Typing data
    */
-  sendTypingStatus(chatId, type, isTyping) {
-    websocketManager.send({
-      action: 'typing',
-      data: {
-        chatId,
-        type,
-        isTyping
-      }
+  sendTypingStatus(data) {
+    if (!data.chatId || !data.chatType) {
+      return;
+    }
+    
+    websocketManager.send('typing', {
+      typing: data.typing,
+      chatId: data.chatId,
+      chatType: data.chatType
     });
   }
   
