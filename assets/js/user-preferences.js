@@ -1,102 +1,32 @@
 /**
- * User Preferences System
- * Manages individual user settings and preferences
+ * User Preferences System - LEGACY FILE
+ * Now imports from features/profile/preferences.js for backward compatibility
  */
+
+import { UserPreferences as UserPreferencesNew } from './features/profile/preferences.js';
+
+// Re-export the class with backward compatibility
 class UserPreferences {
     constructor() {
-        this.preferences = {
-            notifications: {
-                customSounds: true,
-                soundFile: 'default_notification.mp3',
-                enableDesktop: true,
-                enableEmail: false,
-                enableSMS: false
-            },
-            display: {
-                fontSize: 'medium', // small, medium, large, extra-large
-                theme: 'auto', // light, dark, auto
-                compactMode: false,
-                showTimestamps: true
-            },
-            emoji: {
-                customSets: ['default'],
-                recentEmojis: [],
-                skinTone: 'default'
-            },
-            privacy: {
-                showOnlineStatus: true,
-                allowCallsFromAnyone: false,
-                showReadReceipts: true,
-                showTypingIndicator: true
-            },
-            messages: {
-                autoDeleteDays: 0, // 0 = never
-                archiveAfterDays: 90,
-                enableAutoCorrect: true,
-                enterToSend: true
-            }
-        };
+        console.warn('user-preferences.js is deprecated. Use features/profile/preferences.js instead.');
+        // Create an instance of the new class
+        const instance = new UserPreferencesNew();
         
-        this.init();
-    }
-
-    async init() {
-        await this.loadPreferences();
-        this.applyPreferences();
-        this.setupEventListeners();
-    }
-
-    async loadPreferences() {
-        try {
-            // Load from server
-            const response = await fetch('/api/users.php?action=get_preferences', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': this.getCSRFToken()
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success && data.preferences) {
-                    this.preferences = { ...this.preferences, ...data.preferences };
-                }
-            }
-
-            // Also check localStorage for client-side preferences
-            const localPrefs = localStorage.getItem('userPreferences');
-            if (localPrefs) {
-                const parsed = JSON.parse(localPrefs);
-                this.preferences = { ...this.preferences, ...parsed };
-            }
-        } catch (error) {
-            console.error('Failed to load preferences:', error);
-        }
-    }
-
-    applyPreferences() {
-        // Apply font size
-        document.documentElement.setAttribute('data-font-size', this.preferences.display.fontSize);
+        // Copy all properties and methods from the new instance to this one
+        Object.setPrototypeOf(this, instance);
         
-        // Apply theme
-        if (this.preferences.display.theme === 'auto') {
-            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-        } else {
-            document.documentElement.setAttribute('data-theme', this.preferences.display.theme);
-        }
-
-        // Apply compact mode
-        if (this.preferences.display.compactMode) {
-            document.body.classList.add('compact-mode');
-        } else {
-            document.body.classList.remove('compact-mode');
-        }
-
-        // Set up notification sound
-        this.setupNotificationSound();
+        return this;
     }
+}
+
+// Auto-initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    window.userPreferences = new UserPreferences();
+});
+
+// Export for use in other modules
+export { UserPreferences };
+export default UserPreferences;
 
     setupNotificationSound() {
         if (this.preferences.notifications.customSounds && this.preferences.notifications.soundFile) {
