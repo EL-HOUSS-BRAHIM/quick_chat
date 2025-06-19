@@ -12,10 +12,13 @@ import eventBus from './core/event-bus.js';
 import errorHandler from './core/error-handler.js';
 import themeManager from './core/theme-manager.js';
 import browserCompatibility from './core/browser-compatibility.js';
+import security from './core/security.js';
+import pwaManager from './core/pwa-manager.js';
 
 // Import UI components
 import AccessibilityManager from './ui/accessibility.js';
 import UploadProgressManager from './ui/upload-progress.js';
+import VirtualScroll from './ui/virtual-scroll.js';
 
 // Import API client
 import apiClient from './api/api-client.js';
@@ -40,6 +43,11 @@ async function initApplication() {
   app.init();
   errorHandler.init();
   themeManager.init();
+  
+  // Initialize PWA features if supported
+  if ('serviceWorker' in navigator) {
+    pwaManager.init();
+  }
   
   // Determine which page we're on
   const currentPage = getCurrentPage();
@@ -82,6 +90,20 @@ async function initChatPage() {
       chatType: getUrlParam('group') ? 'group' : 'private'
     };
     
+    // Import additional modules for chat
+    const { createMentions } = await import('./features/chat/mentions.js');
+    const { createChatVirtualScroll } = await import('./ui/virtual-scroll.js');
+    
+    // Set up virtual scrolling for messages if container exists
+    const messagesContainer = document.querySelector('.messages-container');
+    if (messagesContainer) {
+      const virtualScroll = createChatVirtualScroll('messages-container', {
+        pageSize: 30
+      });
+      // Store in global state for access by chat module
+      state.set('virtualScroll', virtualScroll);
+    }
+    
     // Initialize chat module
     await chatModule.init(config);
     
@@ -94,10 +116,18 @@ async function initChatPage() {
       });
     }
     
+    // Initialize mentions functionality if needed
+    if (config.chatType === 'group' && window.quickChatConfig?.features?.mentions) {
+      const mentions = createMentions(chatModule);
+      state.set('mentions', mentions);
+    }
+    
     console.log('Chat page initialized');
   } catch (error) {
     console.error('Failed to initialize chat page:', error);
     errorHandler.handleError(error);
+  }
+}
   }
 }
 
@@ -119,9 +149,15 @@ async function initDashboardPage() {
  */
 async function initProfilePage() {
   try {
+    // Import preferences module when needed
+    const { createPreferences } = await import('./features/profile/preferences.js');
+    
+    // Initialize profile module
     await profileModule.init({
-      userId: window.quickChatConfig?.userId
+      userId: window.quickChatConfig?.userId,
+      preferences: createPreferences()
     });
+    
     console.log('Profile page initialized');
   } catch (error) {
     console.error('Failed to initialize profile page:', error);
