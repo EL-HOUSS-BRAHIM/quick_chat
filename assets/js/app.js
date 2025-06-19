@@ -2,9 +2,16 @@
  * Enhanced Quick Chat Application
  * Version: 2025-06-19 - Added performance monitoring
  * Features: Real-time messaging, offline support, file uploads, notifications, dark mode
+ * 
+ * NOTICE: This file is maintained for backward compatibility.
+ * New code should use the modular architecture in /assets/js/core/app.js
  */
-import performanceMonitor from './core/performance-monitor.js';
+import appCompatibilityLayer from './app-compatibility.js';
 
+// Re-export the compatibility layer
+export default appCompatibilityLayer;
+
+// For backward compatibility, keep the original class definition
 class QuickChatApp {
     /**
      * Initialize the QuickChat application
