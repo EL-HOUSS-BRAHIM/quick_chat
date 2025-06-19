@@ -1,0 +1,70 @@
+/**
+ * Quick Chat - Main SCSS File
+ * 
+ * This is the entry point for all styles in the application.
+ * It imports all other SCSS files in the correct order.
+ * Version: 3.0.0
+ */
+
+// Abstracts
+@import 'abstracts/variables';
+@import 'abstracts/functions';
+@import 'abstracts/mixins';
+@import 'abstracts/placeholders';
+
+// Base styles
+@import 'base/reset';
+@import 'base/typography';
+@import 'base/animations';
+@import 'base/utilities';
+
+// Layout
+@import 'layout/header';
+@import 'layout/footer';
+@import 'layout/grid';
+@import 'layout/sidebar';
+@import 'layout/forms';
+
+// Components
+@import 'components/buttons';
+@import 'components/cards';
+@import 'components/modals';
+@import 'components/emoji-picker';
+@import 'components/notifications';
+@import 'components/loaders';
+@import 'components/chat-bubbles';
+@import 'components/user-avatar';
+@import 'components/message-reactions';
+@import 'components/search-bar';
+@import 'components/file-preview';
+@import 'components/dropdown';
+@import 'components/tabs';
+@import 'components/toast';
+
+// Pages
+@import 'pages/chat';
+@import 'pages/dashboard';
+@import 'pages/profile';
+@import 'pages/auth';
+@import 'pages/admin';
+@import 'pages/group-chat';
+@import 'pages/private-chat';
+@import 'pages/webrtc-call';
+
+// Theme
+@import 'themes/dark-theme';
+@import 'themes/light-theme';
+@import 'themes/high-contrast';
+
+// Accessibility
+@import 'accessibility/screen-readers';
+@import 'accessibility/reduced-motion';
+@import 'accessibility/focus';
+
+// Responsive styles (should be last to override as needed)
+@import 'responsive/mobile';
+@import 'responsive/tablet';
+@import 'responsive/desktop';
+
+// Vendor styles (if needed)
+// @import 'vendor/some-library';
