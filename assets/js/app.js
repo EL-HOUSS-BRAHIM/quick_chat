@@ -1,5 +1,5 @@
 /**
- * Enhanced Quick Chat Application
+ * Enhanced Quick Chat Application - DEPRECATED
  * Version: 2025-06-19 - Added performance monitoring
  * Features: Real-time messaging, offline support, file uploads, notifications, dark mode
  * 
