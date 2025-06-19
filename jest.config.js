@@ -20,8 +20,16 @@ module.exports = {
       lines: 70
     }
   },
+  transform: {
+    "^.+\\.js$": "babel-jest"
+  },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/assets/js/$1'
   },
-  setupFilesAfterEnv: ['<rootDir>/assets/js/__tests__/setup.js']
+  setupFilesAfterEnv: ['<rootDir>/assets/js/__tests__/setup.js'],
+  // Add support for ES Modules
+  moduleFileExtensions: ['js', 'json', 'node'],
+  transformIgnorePatterns: [
+    '/node_modules/(?!.*\\.mjs$)'
+  ]
 };
