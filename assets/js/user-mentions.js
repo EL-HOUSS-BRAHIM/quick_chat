@@ -1,103 +1,34 @@
 /**
- * User Mentions Component
- * Provides @mention functionality with user suggestions
+ * User Mentions Component - LEGACY FILE
+ * Now imports from features/chat/mentions.js for backward compatibility
  */
 
+import { UserMentions as UserMentionsNew } from './features/chat/mentions.js';
+
+// Re-export the class with backward compatibility
 class UserMentions {
     constructor(chatInstance) {
-        this.chat = chatInstance;
-        this.users = [];
-        this.suggestions = [];
-        this.activeSuggestionIndex = -1;
-        this.mentionStartPos = -1;
-        this.currentMentionText = '';
-        this.isShowingSuggestions = false;
+        console.warn('user-mentions.js is deprecated. Use features/chat/mentions.js instead.');
+        // Create an instance of the new class
+        const instance = new UserMentionsNew(chatInstance);
         
-        this.initMentionsInterface();
-        this.bindEvents();
-        this.loadUsers();
+        // Copy all properties and methods from the new instance to this one
+        Object.setPrototypeOf(this, instance);
+        
+        return this;
     }
-    
-    initMentionsInterface() {
-        // Create mentions dropdown
-        const mentionsDropdown = document.createElement('div');
-        mentionsDropdown.id = 'mentions-dropdown';
-        mentionsDropdown.className = 'mentions-dropdown hidden';
-        mentionsDropdown.setAttribute('role', 'listbox');
-        mentionsDropdown.setAttribute('aria-label', 'User suggestions');
-        
-        // Insert dropdown before message input
-        const messageInput = document.getElementById('messageInput');
-        if (messageInput && messageInput.parentNode) {
-            messageInput.parentNode.insertBefore(mentionsDropdown, messageInput);
-        }
-        
-        this.elements = {
-            dropdown: mentionsDropdown,
-            messageInput: messageInput
-        };
-    }
-    
-    bindEvents() {
-        if (!this.elements.messageInput) return;
-        
-        // Input event for mention detection
-        this.elements.messageInput.addEventListener('input', (e) => {
-            this.handleInput(e);
-        });
-        
-        // Keydown for navigation and selection
-        this.elements.messageInput.addEventListener('keydown', (e) => {
-            if (this.isShowingSuggestions) {
-                this.handleKeyNavigation(e);
-            }
-        });
-        
-        // Click outside to close
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('#mentions-dropdown') && !e.target.closest('#messageInput')) {
-                this.hideSuggestions();
-            }
-        });
-        
-        // Dropdown click handling
-        this.elements.dropdown.addEventListener('click', (e) => {
-            const suggestionItem = e.target.closest('.mention-suggestion');
-            if (suggestionItem) {
-                const userId = suggestionItem.dataset.userId;
-                const username = suggestionItem.dataset.username;
-                this.selectMention(userId, username);
-            }
-        });
-    }
-    
-    handleInput(e) {
-        const input = e.target;
-        const value = input.value;
-        const cursorPos = input.selectionStart;
-        
-        // Check if we're typing a mention
-        const mentionMatch = this.findMentionAt(value, cursorPos);
-        
-        if (mentionMatch) {
-            this.mentionStartPos = mentionMatch.start;
-            this.currentMentionText = mentionMatch.text;
-            this.searchUsers(mentionMatch.text);
-        } else {
-            this.hideSuggestions();
-        }
-    }
-    
-    findMentionAt(text, cursorPos) {
-        // Look backwards from cursor to find @
-        let atPos = -1;
-        for (let i = cursorPos - 1; i >= 0; i--) {
-            if (text[i] === '@') {
-                atPos = i;
-                break;
-            }
-            if (text[i] === ' ' || text[i] === '\\n') {
-                break; // Mention must be continuous
+}
+
+// Export for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = UserMentions;
+} else {
+    window.UserMentions = UserMentions;
+}
+
+// Also export as ES module
+export default UserMentions;
+export { UserMentions };
             }
         }
         
