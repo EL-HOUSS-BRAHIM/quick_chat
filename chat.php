@@ -702,5 +702,13 @@ if ($targetUserId) {
             </div>
         </div>
     </div>
+    
+    <!-- Load Module Loader for new architecture -->
+    <script src="assets/js/module-loader.js"></script>
+    
+    <!-- Legacy script inclusion for backward compatibility during migration -->
+    <?php foreach ($additionalJS as $js): ?>
+    <script src="<?php echo $js; ?>"></script>
+    <?php endforeach; ?>
 </body>
 </html>
