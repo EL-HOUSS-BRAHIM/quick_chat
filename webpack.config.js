@@ -49,18 +49,51 @@ module.exports = {
       cacheGroups: {
         vendor: {
           test: /[\\/]node_modules[\\/]/,
-          name(module) {
-            // Get the name of the npm package
-            const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
-            // Return a nice name
-            return `vendor.${packageName.replace('@', '')}`;
-          },
+          name: 'vendors',
+          chunks: 'all',
+          priority: 10
         },
         common: {
           name: 'common',
           minChunks: 2,
           chunks: 'all',
           priority: -20
+        },
+        chat: {
+          test: /[\\/]features[\\/]chat[\\/]/,
+          name: 'chat-features',
+          chunks: 'all',
+          priority: 5
+        },
+        admin: {
+          test: /[\\/]features[\\/]admin[\\/]/,
+          name: 'admin-features',
+          chunks: 'all',
+          priority: 5
+        },
+        profile: {
+          test: /[\\/]features[\\/]profile[\\/]/,
+          name: 'profile-features',
+          chunks: 'all',
+          priority: 5
+        },
+        webrtc: {
+          test: /[\\/]features[\\/]webrtc[\\/]/,
+          name: 'webrtc-features',
+          chunks: 'all',
+          priority: 5
+        },
+        ui: {
+          test: /[\\/]ui[\\/]/,
+          name: 'ui-components',
+          chunks: 'all',
+          priority: 3
+        },
+        utils: {
+          test: /[\\/]utils[\\/]/,
+          name: 'utilities',
+          chunks: 'all',
+          priority: 2
         }
       }
     }
