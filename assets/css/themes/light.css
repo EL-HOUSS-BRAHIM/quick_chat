@@ -1,0 +1,88 @@
+/**
+ * Light Theme for Quick Chat
+ * Default color scheme for the application
+ */
+
+:root {
+  /* Primary Colors */
+  --primary-color: #1a73e8;
+  --primary-hover: #1557b0;
+  --primary-active: #0f4a94;
+  --primary-text: #ffffff;
+  
+  /* Background Colors */
+  --bg-main: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #f1f3f4;
+  --bg-input: #ffffff;
+  --bg-hover: #f1f3f4;
+  --bg-active: #e8eaed;
+  
+  /* Text Colors */
+  --text-primary: #202124;
+  --text-secondary: #5f6368;
+  --text-tertiary: #80868b;
+  --text-disabled: #9aa0a6;
+  --text-placeholder: #80868b;
+  --text-link: #1a73e8;
+  
+  /* Border Colors */
+  --border-color: #dadce0;
+  --border-focus: #1a73e8;
+  --border-error: #d93025;
+  
+  /* Status Colors */
+  --success-color: #0f9d58;
+  --warning-color: #f29900;
+  --error-color: #d93025;
+  --info-color: #1a73e8;
+  
+  /* Chat Colors */
+  --message-sent-bg: #e3f2fd;
+  --message-received-bg: #f1f3f4;
+  --message-time: #80868b;
+  --typing-indicator: #1a73e8;
+  
+  /* User Status Colors */
+  --status-online: #0f9d58;
+  --status-away: #f29900;
+  --status-busy: #d93025;
+  --status-offline: #80868b;
+  
+  /* Shadow */
+  --shadow-sm: 0 1px 2px rgba(60, 64, 67, 0.1);
+  --shadow-md: 0 2px 6px rgba(60, 64, 67, 0.15);
+  --shadow-lg: 0 4px 12px rgba(60, 64, 67, 0.2);
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
+  
+  /* Accessibility */
+  --focus-ring: 0 0 0 2px rgba(26, 115, 232, 0.5);
+}
+
+/* High contrast mode adjustments */
+@media (forced-colors: active) {
+  :root {
+    --primary-color: CanvasText;
+    --border-color: CanvasText;
+    --focus-ring: 0 0 0 2px CanvasText;
+  }
+}
+
+/* Apply focus styles consistently */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Reduce motion preference */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0ms;
+    --transition-normal: 0ms;
+    --transition-slow: 0ms;
+  }
+}
