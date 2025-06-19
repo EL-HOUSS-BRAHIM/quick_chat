@@ -6,7 +6,7 @@
 import app from '../../core/app.js';
 import apiClient from '../../api/api-client.js';
 import errorHandler from '../../core/error-handler.js';
-import { eventBus } from '../../core/event-bus.js';
+import eventBus from '../../core/event-bus.js';
 import { state } from '../../core/state.js';
 import UserManager from './user-manager.js';
 import StatsManager from './stats-manager.js';
