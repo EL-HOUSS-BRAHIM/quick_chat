@@ -1,22 +1,17 @@
 /**
- * Private Chat JavaScript - Quick Chat
- * 
- * This file contains specialized functionality for private chats.
+ * Private Chat JavaScript - Quick Chat - DEPRECATED
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./features/chat/private-chat.js
  */
 
-class PrivateChatManager {
-    constructor(chatApp) {
-        this.chatApp = chatApp;
-        this.targetUserId = chatApp.config.targetUserId;
-        this.init();
-    }
+import PrivateChatManager from './features/chat/private-chat.js';
 
-    init() {
-        // Initialize private chat specific functionality
-        this.setupUserStatus();
-        this.setupTypingIndicator();
-        this.setupReadReceipts();
-    }
+// Re-export for backward compatibility
+export default PrivateChatManager;
+export { PrivateChatManager };
+
+// Make available globally
+window.PrivateChatManager = PrivateChatManager;
 
     setupUserStatus() {
         // Set up user status monitoring
