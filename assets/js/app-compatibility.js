@@ -1,5 +1,5 @@
 /**
- * App.js - Backward Compatibility Layer
+ * App.js - Backward Compatibility Layer - DEPRECATED
  * 
  * This file forwards calls to the new core/app.js module while maintaining
  * backward compatibility with existing code that uses the old app.js.
