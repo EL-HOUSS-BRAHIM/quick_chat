@@ -1,39 +1,40 @@
 /**
- * Accessibility enhancements for Quick Chat
- * Version: 1.0.0
- * 
- * This module provides accessibility features for the chat application including:
- * - Screen reader announcements
- * - Focus management
- * - Keyboard navigation
- * - ARIA attributes management
- * - High contrast mode support
+ * Accessibility enhancements for Quick Chat - DEPRECATED
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./ui/accessibility.js
  */
 
+// Import the new implementation
+import accessibilityManager from './ui/accessibility.js';
+
+// Re-export for backward compatibility
 class AccessibilityManager {
     constructor() {
-        // Initialization state
-        this.initialized = false;
-        
-        // Preferences
-        this.preferences = {
-            highContrast: false,
-            largeText: false,
-            reduceMotion: false,
-            announceMessages: true
-        };
-        
-        // DOM elements
-        this.elements = {
-            liveRegion: null,
-            focusTrap: null
-        };
-        
-        // Bind methods to maintain context
-        this.announce = this.announce.bind(this);
-        this.trapFocus = this.trapFocus.bind(this);
-        this.handlePreferenceChange = this.handlePreferenceChange.bind(this);
+        console.warn('Using deprecated AccessibilityManager. Please migrate to the new module.');
+        // Proxy to the new implementation
+        // Proxy all methods to the new implementation
+        return new Proxy(this, {
+            get(target, prop) {
+                if (typeof accessibilityManager[prop] === 'function') {
+                    return accessibilityManager[prop].bind(accessibilityManager);
+                }
+                return accessibilityManager[prop];
+            },
+            set(target, prop, value) {
+                accessibilityManager[prop] = value;
+                return true;
+            }
+        });
     }
+}
+
+// Export for backward compatibility
+window.accessibilityManager = accessibilityManager;
+window.AccessibilityManager = AccessibilityManager;
+
+// Export for ES modules
+export default accessibilityManager;
+export { AccessibilityManager };
     
     /**
      * Initialize accessibility features
