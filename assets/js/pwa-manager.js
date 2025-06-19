@@ -1,23 +1,20 @@
 /**
- * Progressive Web App (PWA) Manager
+ * Progressive Web App (PWA) Manager - DEPRECATED
  * Handles service worker registration, offline functionality, and app installation
  * Enhanced with improved push notification system - Updated 2025-06-19
+ * 
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./utils/pwa-manager.js
  */
-import { Workbox } from 'workbox-window';
-import performanceMonitor from './core/performance-monitor.js';
 
-class PWAManager {
-    constructor() {
-        this.workbox = null;
-        this.isOnline = navigator.onLine;
-        this.installPrompt = null;
-        this.offlineQueue = [];
-        this.cacheVersion = 'v3.0.0';
-        this.pushSubscription = null;
-        this.notificationPermission = null;
-        this.notificationQueue = [];
-        this.notificationClickHandlers = new Map();
-        this.notificationCloseHandlers = new Map();
+import pwaManager from './utils/pwa-manager.js';
+
+// Re-export for backward compatibility
+export default pwaManager;
+
+// Make available globally
+window.PWAManager = pwaManager.constructor;
+window.pwaManager = pwaManager;
         this.notificationShowCount = 0;
         this.lastNotificationTime = 0;
         this.maxNotificationsPerMinute = 10;
