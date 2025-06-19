@@ -1,103 +1,24 @@
 /**
- * Virtual Scrolling Component for Large Message Lists
- * Improves performance by only rendering visible messages
+ * Virtual Scrolling Component for Large Message Lists - LEGACY FILE
+ * Now imports from ui/virtual-scroll.js for backward compatibility
  */
 
-class VirtualScrollMessaging {
+import { VirtualScroll } from './ui/virtual-scroll.js';
+
+// Re-export the class with backward compatibility
+class VirtualScrollMessaging extends VirtualScroll {
     constructor(options = {}) {
-        this.container = document.querySelector(options.container || '.messages-container');
-        this.messagesList = document.querySelector(options.messagesList || '.messages-list');
-        this.options = {
-            itemHeight: options.itemHeight || 80, // Average message height
-            buffer: options.buffer || 5, // Extra items to render outside viewport
-            threshold: options.threshold || 200, // Pixels before loading more
-            pageSize: options.pageSize || 50,
-            ...options
-        };
-
-        this.state = {
-            messages: [],
-            visibleStart: 0,
-            visibleEnd: 0,
-            scrollTop: 0,
-            containerHeight: 0,
-            totalHeight: 0,
-            isLoading: false,
-            hasMore: true,
-            page: 1
-        };
-
-        this.messageCache = new Map();
-        this.observedElements = new Map();
-        this.resizeObserver = null;
-        this.intersectionObserver = null;
-
-        this.init();
+        console.warn('virtual-scroll-messaging.js is deprecated. Use ui/virtual-scroll.js instead.');
+        super(options);
     }
+}
 
-    /**
-     * Initialize virtual scrolling
-     */
-    init() {
-        if (!this.container || !this.messagesList) {
-            throw new Error('Virtual scroll container or messages list not found');
-        }
+// Make available globally
+window.VirtualScrollMessaging = VirtualScrollMessaging;
 
-        // Setup container styles
-        this.container.style.position = 'relative';
-        this.container.style.overflowY = 'auto';
-        this.container.style.height = this.container.style.height || '400px';
-
-        // Setup messages list styles
-        this.messagesList.style.position = 'relative';
-        this.messagesList.style.minHeight = '100%';
-
-        // Bind events
-        this.bindEvents();
-
-        // Setup observers
-        this.setupObservers();
-
-        // Initial load
-        this.loadInitialMessages();
-    }
-
-    /**
-     * Bind scroll and resize events
-     */
-    bindEvents() {
-        // Throttled scroll handler
-        let scrollTimeout;
-        this.container.addEventListener('scroll', () => {
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(() => {
-                this.handleScroll();
-            }, 16); // ~60fps
-        });
-
-        // Window resize handler
-        window.addEventListener('resize', () => {
-            this.updateContainerHeight();
-            this.calculateVisibleRange();
-            this.renderVisibleMessages();
-        });
-    }
-
-    /**
-     * Setup intersection and resize observers
-     */
-    setupObservers() {
-        // Intersection Observer for dynamic height calculation
-        this.intersectionObserver = new IntersectionObserver(
-            (entries) => {
-                entries.forEach(entry => {
-                    const messageId = entry.target.dataset.messageId;
-                    if (entry.isIntersecting) {
-                        this.observedElements.set(messageId, entry.target.offsetHeight);
-                    }
-                });
-            },
-            { root: this.container, threshold: 0 }
+// Export for use in other modules
+export { VirtualScrollMessaging };
+export default VirtualScrollMessaging;
         );
 
         // Resize Observer for container size changes
