@@ -1,5 +1,5 @@
 /**
- * Virtual Scrolling Component for Large Message Lists - LEGACY FILE
+ * Virtual Scrolling Component for Large Message Lists - LEGACY FILE - DEPRECATED
  * Now imports from ui/virtual-scroll.js for backward compatibility
  */
 
