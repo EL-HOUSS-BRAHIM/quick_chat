@@ -77,6 +77,11 @@ class AppCompatibilityLayer {
         return this.coreApp.saveMessagesToStorage ? this.coreApp.saveMessagesToStorage() : true;
     }
     
+    broadcastToOtherTabs() {
+        // Compatibility method for tests
+        return this.coreApp.broadcastToOtherTabs ? this.coreApp.broadcastToOtherTabs() : true;
+    }
+    
     sendMessage(message, options = {}) {
         // Compatibility method for tests - simulate sending message
         if (!message || !message.trim()) {
