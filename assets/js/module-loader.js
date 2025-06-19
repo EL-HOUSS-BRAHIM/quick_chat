@@ -10,6 +10,9 @@ const config = {
   // Main entry point
   mainModule: '/assets/js/main.js',
   
+  // Required version of main.js to be compatible with this loader
+  requiredMainVersion: '2.4.x',
+  
   // Legacy fallback
   legacyBundle: '/assets/js/bundle.js',
   
@@ -99,6 +102,31 @@ function loadScripts() {
     scriptEl.src = config.mainModule;
     scriptEl.type = 'module';
     
+    // Add integrity check if available in config
+    if (window.quickChatConfig && window.quickChatConfig.integrity && 
+        window.quickChatConfig.integrity[config.mainModule]) {
+      scriptEl.integrity = window.quickChatConfig.integrity[config.mainModule];
+      scriptEl.crossOrigin = 'anonymous';
+      logMessage('Using subresource integrity for main module');
+    }
+    
+    // Add error event listener to catch module loading errors
+    window.addEventListener('error', function(event) {
+      // Only handle ES module errors
+      if (event.filename && event.filename.includes('/assets/js/')) {
+        logMessage(`ES module error: ${event.message} in ${event.filename}:${event.lineno}`);
+      }
+    }, false);
+    
+    // Listen for error events from main.js
+    document.addEventListener('quickchat:error', function(event) {
+      logMessage(`Application error from main.js: ${event.detail.error}`);
+      // Fall back to legacy script if main.js reports critical error
+      if (event.detail.moduleType === 'esmodule') {
+        loadLegacyScript();
+      }
+    }, false);
+    
     // Set a timeout for module loading
     const moduleLoadTimeout = setTimeout(() => {
       logMessage('ES module load timeout, falling back to legacy script');
@@ -150,6 +178,16 @@ function loadLegacyScript() {
     polyfills.push('/assets/js/vendor/polyfills/intersection-observer.js');
   }
   
+  // Add polyfill for ResizeObserver if needed
+  if (!window.ResizeObserver) {
+    polyfills.push('/assets/js/vendor/polyfills/resize-observer.js');
+  }
+  
+  // Add polyfill for CustomEvent if needed for older IE
+  if (typeof window.CustomEvent !== 'function') {
+    polyfills.push('/assets/js/vendor/polyfills/custom-event.js');
+  }
+  
   // Record legacy mode for analytics
   if (window.quickChatConfig && window.quickChatConfig.analytics) {
     // Record that we're using legacy mode, if analytics are available
@@ -190,7 +228,7 @@ function loadBundles() {
   // Add page-specific bundles from configuration
   if (config.pageBundles && config.pageBundles[pageType]) {
     bundles.push(...config.pageBundles[pageType]);
-  } else {
+  } else if (pageType) { // Only run fallback if pageType is not empty
     // Fallback to switch statement for backward compatibility
     switch (pageType) {
       case 'chat':
@@ -205,6 +243,13 @@ function loadBundles() {
         break;
       case 'admin':
         bundles.push('/assets/js/dist/admin-features.bundle.js');
+        break;
+      case 'group-chat':
+        bundles.push('/assets/js/dist/group-features.bundle.js');
+        bundles.push('/assets/js/dist/ui-components.bundle.js');
+        break;
+      default:
+        logMessage(`Unknown page type: ${pageType}, loading only core bundles`);
         break;
     }
   }
@@ -221,6 +266,7 @@ function loadBundles() {
 function loadScriptsSequentially(scripts, callback) {
   let index = 0;
   let failedScripts = [];
+  let loadedScripts = [];
   
   function loadNext() {
     if (index >= scripts.length) {
@@ -230,6 +276,16 @@ function loadScriptsSequentially(scripts, callback) {
       
       if (typeof callback === 'function') {
         callback(failedScripts.length === 0);
+      }
+      
+      // Dispatch event when all scripts are loaded
+      if (document.dispatchEvent && failedScripts.length === 0) {
+        document.dispatchEvent(new CustomEvent('quickchat:bundlesloaded', {
+          detail: { 
+            loaded: loadedScripts,
+            failed: failedScripts
+          }
+        }));
       }
       return;
     }
@@ -249,6 +305,7 @@ function loadScriptsSequentially(scripts, callback) {
     scriptEl.onload = () => {
       clearTimeout(timeoutId);
       logMessage(`Successfully loaded: ${script}`);
+      loadedScripts.push(script);
       index++;
       loadNext();
     };
@@ -272,7 +329,21 @@ function logMessage(message) {
   if (config.debug && console && typeof console.log === 'function') {
     console.log(`[ModuleLoader] ${message}`);
   }
+  
+  // Store logs in memory for potential troubleshooting
+  if (!window._quickChatLoaderLogs) {
+    window._quickChatLoaderLogs = [];
+  }
+  window._quickChatLoaderLogs.push({
+    timestamp: new Date().toISOString(),
+    message: message
+  });
 }
+
+// Add method to retrieve logs for troubleshooting
+window.getQuickChatLoaderLogs = function() {
+  return window._quickChatLoaderLogs || [];
+};
 
 // Create a global error handler for script loading
 window.addEventListener('error', function(event) {
@@ -298,9 +369,10 @@ function init() {
   // Enable debug mode in development environments
   if (window.location.hostname === 'localhost' || 
       window.location.hostname === '127.0.0.1' ||
-      window.location.hostname.includes('dev.')) {
+      window.location.hostname.includes('dev.') ||
+      window.location.search.includes('debug=true')) {
     config.debug = true;
-    logMessage('Debug mode enabled for development environment');
+    logMessage('Debug mode enabled for development environment or via URL parameter');
   }
   
   // Check if configuration is overridden by the page
@@ -311,6 +383,14 @@ function init() {
     if (userConfig.mainModule) config.mainModule = userConfig.mainModule;
     if (userConfig.legacyBundle) config.legacyBundle = userConfig.legacyBundle;
     if (userConfig.debug !== undefined) config.debug = !!userConfig.debug;
+    if (userConfig.coreBundles) config.coreBundles = userConfig.coreBundles;
+    if (userConfig.pageBundles) {
+      // Deep merge of page bundles
+      config.pageBundles = {
+        ...config.pageBundles,
+        ...userConfig.pageBundles
+      };
+    }
     
     logMessage('Using custom module loader configuration from page');
   }
