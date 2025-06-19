@@ -12,6 +12,7 @@ module.exports = {
     '!assets/js/**/*.test.js',
     '!assets/js/__tests__/**'
   ],
+  setupFilesAfterEnv: ['<rootDir>/assets/js/test-utils/setup.js'],
   coverageThreshold: {
     global: {
       statements: 70,
