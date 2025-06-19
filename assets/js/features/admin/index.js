@@ -207,5 +207,3 @@ class AdminModule {
 }
 
 export default AdminModule;
-
-export default AdminModule;
