@@ -3,7 +3,7 @@
  * Handles Progressive Web App functionality
  */
 
-import eventBus from '../event-bus.js';
+import eventBus from './event-bus.js';
 
 class PWAManager {
   constructor() {
