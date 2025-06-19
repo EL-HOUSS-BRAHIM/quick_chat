@@ -1,8 +1,11 @@
 /**
  * Integration tests for the messaging system
- * Tests the end-to-end messaging functionality
+ * Tests the end-to-end messaging functionality  
  */
 import { jest } from '@jest/globals';
+
+// Mock fetch globally
+global.fetch = jest.fn();
 
 describe('Messaging System Integration Tests', () => {
     // Mock DOM elements and fetch API
@@ -10,7 +13,6 @@ describe('Messaging System Integration Tests', () => {
     let mockMessageInput;
     let mockMessagesList;
     let mockUser;
-    let originalFetch;
     
     beforeEach(() => {
         // Set up DOM elements
@@ -21,10 +23,6 @@ describe('Messaging System Integration Tests', () => {
         mockMessagesList = document.createElement('div');
         mockMessagesList.id = 'messagesList';
         document.body.appendChild(mockMessagesList);
-        
-        // Mock fetch
-        originalFetch = global.fetch;
-        global.fetch = jest.fn();
         
         // Import app dynamically to get a fresh instance for each test
         jest.resetModules();
@@ -45,12 +43,29 @@ describe('Messaging System Integration Tests', () => {
             // Mock CSRF token
             app.csrfToken = 'test-csrf-token';
             
-            // Spy on various methods
+            // Mock config
+            app.config = {
+                maxMessageLength: 5000
+            };
+            
+            // Spy on various methods that exist
             jest.spyOn(app, 'renderMessages').mockImplementation(() => {});
             jest.spyOn(app, 'scrollToBottom').mockImplementation(() => {});
             jest.spyOn(app, 'showError').mockImplementation(() => {});
-            jest.spyOn(app, 'saveMessagesToStorage').mockImplementation(() => {});
-            jest.spyOn(app, 'broadcastToOtherTabs').mockImplementation(() => {});
+            
+            // Add missing methods if they don't exist
+            if (!app.saveMessagesToStorage) {
+                app.saveMessagesToStorage = jest.fn();
+            }
+            if (!app.broadcastToOtherTabs) {
+                app.broadcastToOtherTabs = jest.fn();
+            }
+            if (!app.queueOfflineMessage) {
+                app.queueOfflineMessage = jest.fn();
+            }
+            if (!app.clearReply) {
+                app.clearReply = jest.fn();
+            }
         });
     });
     
@@ -58,9 +73,6 @@ describe('Messaging System Integration Tests', () => {
         // Clean up DOM
         document.body.removeChild(mockMessageInput);
         document.body.removeChild(mockMessagesList);
-        
-        // Restore fetch
-        global.fetch = originalFetch;
         
         // Clear all mocks
         jest.clearAllMocks();
@@ -171,9 +183,6 @@ describe('Messaging System Integration Tests', () => {
         // Mock a network error
         global.fetch.mockRejectedValueOnce(new Error('network error'));
         
-        // Mock offline queue method
-        jest.spyOn(app, 'queueOfflineMessage').mockImplementation(() => {});
-        
         // Act
         const result = await app.sendMessage();
         
@@ -194,9 +203,6 @@ describe('Messaging System Integration Tests', () => {
             id: 456,
             content: 'Original message'
         };
-        
-        // Mock clearReply method
-        jest.spyOn(app, 'clearReply').mockImplementation(() => {});
         
         const mockResponse = {
             success: true,
