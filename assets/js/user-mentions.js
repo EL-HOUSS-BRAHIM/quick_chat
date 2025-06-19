@@ -1,5 +1,5 @@
 /**
- * User Mentions Component - LEGACY FILE
+ * User Mentions Component - LEGACY FILE - DEPRECATED
  * Now imports from features/chat/mentions.js for backward compatibility
  */
 
