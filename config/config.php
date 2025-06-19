@@ -1,23 +1,129 @@
 <?php
-require_once __DIR__ . '/../classes/Env.php';
+/**
+ * Application Configuration
+ * 
+ * This file contains the main configuration for the application.
+ * Environment-specific values should be set in the .env file.
+ */
 
-// Load environment variables
-Env::load();
-
-// Validate required environment variables
-Env::required([
-    'DB_HOST', 'DB_NAME', 'DB_USER', 'ENCRYPTION_KEY', 'JWT_SECRET', 'PASSWORD_PEPPER'
-]);
-
-// Configuration class using environment variables
-class Config {
-    // Database settings
-    public static function getDbHost() { return Env::get('DB_HOST', 'localhost'); }
-    public static function getDbPort() { return Env::int('DB_PORT', 3306); }
-    public static function getDbName() { return Env::get('DB_NAME'); }
-    public static function getDbUser() { return Env::get('DB_USER'); }
-    public static function getDbPass() { return Env::get('DB_PASS', ''); }
-    public static function getDbCharset() { return Env::get('DB_CHARSET', 'utf8mb4'); }
+return [
+    /*
+    |--------------------------------------------------------------------------
+    | Application Settings
+    |--------------------------------------------------------------------------
+    */
+    'app' => [
+        'name' => 'Quick Chat',
+        'version' => '1.0.0',
+        'timezone' => 'UTC',
+        'locale' => 'en',
+        'available_locales' => ['en', 'es', 'fr', 'de'],
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Database Settings
+    |--------------------------------------------------------------------------
+    */
+    'database' => [
+        'driver' => $_ENV['DB_CONNECTION'] ?? 'mysql',
+        'host' => $_ENV['DB_HOST'] ?? '127.0.0.1',
+        'port' => $_ENV['DB_PORT'] ?? '3306',
+        'database' => $_ENV['DB_DATABASE'] ?? 'quick_chat',
+        'username' => $_ENV['DB_USERNAME'] ?? 'root',
+        'password' => $_ENV['DB_PASSWORD'] ?? '',
+        'charset' => 'utf8mb4',
+        'collation' => 'utf8mb4_unicode_ci',
+        'prefix' => '',
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Redis Settings
+    |--------------------------------------------------------------------------
+    */
+    'redis' => [
+        'enabled' => isset($_ENV['REDIS_ENABLED']) && $_ENV['REDIS_ENABLED'] === 'true',
+        'host' => $_ENV['REDIS_HOST'] ?? '127.0.0.1',
+        'port' => $_ENV['REDIS_PORT'] ?? '6379',
+        'password' => $_ENV['REDIS_PASSWORD'] ?? null,
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Mail Settings
+    |--------------------------------------------------------------------------
+    */
+    'mail' => [
+        'driver' => $_ENV['MAIL_DRIVER'] ?? 'smtp',
+        'host' => $_ENV['MAIL_HOST'] ?? 'smtp.mailtrap.io',
+        'port' => $_ENV['MAIL_PORT'] ?? '2525',
+        'username' => $_ENV['MAIL_USERNAME'] ?? null,
+        'password' => $_ENV['MAIL_PASSWORD'] ?? null,
+        'encryption' => $_ENV['MAIL_ENCRYPTION'] ?? null,
+        'from_address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'no-reply@example.com',
+        'from_name' => $_ENV['MAIL_FROM_NAME'] ?? 'Quick Chat',
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Security Settings
+    |--------------------------------------------------------------------------
+    */
+    'security' => [
+        'csp_enabled' => isset($_ENV['CSP_ENABLED']) && $_ENV['CSP_ENABLED'] === 'true',
+        'rate_limit_enabled' => isset($_ENV['RATE_LIMIT_ENABLED']) && $_ENV['RATE_LIMIT_ENABLED'] === 'true',
+        'password_min_length' => 8,
+        'jwt_secret' => $_ENV['JWT_SECRET'] ?? 'default-insecure-key',
+        'jwt_expiration' => 3600, // 1 hour
+        'jwt_refresh_expiration' => 86400, // 24 hours
+        'encryption_key' => $_ENV['ENCRYPTION_KEY'] ?? 'default-insecure-key',
+        'password_pepper' => $_ENV['PASSWORD_PEPPER'] ?? 'default-insecure-pepper',
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | File Upload Settings
+    |--------------------------------------------------------------------------
+    */
+    'uploads' => [
+        'max_size' => (int)($_ENV['MAX_UPLOAD_SIZE'] ?? 20), // In MB
+        'allowed_types' => explode(',', $_ENV['ALLOWED_FILE_TYPES'] ?? 'jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx,txt,zip,rar'),
+        'paths' => [
+            'images' => 'uploads/images',
+            'avatars' => 'uploads/avatars',
+            'group_avatars' => 'uploads/group_avatars',
+            'files' => 'uploads/files',
+            'audio' => 'uploads/audio',
+            'videos' => 'uploads/videos',
+        ],
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | WebRTC Settings
+    |--------------------------------------------------------------------------
+    */
+    'webrtc' => [
+        'turn_enabled' => isset($_ENV['TURN_SERVER_ENABLED']) && $_ENV['TURN_SERVER_ENABLED'] === 'true',
+        'turn_url' => $_ENV['TURN_SERVER_URL'] ?? 'turn:example.com:3478',
+        'turn_username' => $_ENV['TURN_SERVER_USERNAME'] ?? 'username',
+        'turn_credential' => $_ENV['TURN_SERVER_CREDENTIAL'] ?? 'password',
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Chat Settings
+    |--------------------------------------------------------------------------
+    */
+    'chat' => [
+        'messages_per_page' => 50,
+        'max_message_length' => 5000,
+        'max_group_name_length' => 100,
+        'max_group_description_length' => 500,
+        'max_group_members' => 100,
+    ],
+];
     public static function isDbSslEnabled() { return Env::bool('DB_SSL_ENABLED', false); }
     public static function getDbSslCaPath() { return Env::get('DB_SSL_CA_PATH', '.cert/ca.pem'); }
     
