@@ -1,23 +1,23 @@
 /**
- * Real-time Features Implementation
+ * Real-time Features Implementation - DEPRECATED
  * Provides typing indicators, read receipts, and presence system
+ * 
+ * This file is maintained for backward compatibility
+ * Please use the new module at ./utils/realtime-features.js
  */
-class RealTimeFeatures {
-    constructor() {
-        this.typingUsers = new Map();
-        this.readReceipts = new Map();
-        this.userPresence = new Map();
-        this.typingTimeout = null;
-        this.typingDelay = 2000; // 2 seconds
-        this.presenceInterval = null;
-        this.heartbeatInterval = 30000; // 30 seconds
-        
-        this.init();
-    }
 
-    async init() {
-        this.setupTypingIndicators();
-        this.setupReadReceipts();
+import RealTimeFeaturesNew from './utils/realtime-features.js';
+
+// Create singleton instance
+const realTimeFeatures = new RealTimeFeaturesNew();
+
+// Re-export for backward compatibility
+export default realTimeFeatures;
+export { RealTimeFeaturesNew as RealTimeFeatures };
+
+// Make available globally
+window.RealTimeFeatures = RealTimeFeaturesNew;
+window.realTimeFeatures = realTimeFeatures;
         this.setupPresenceSystem();
         this.startHeartbeat();
     }
