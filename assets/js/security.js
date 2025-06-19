@@ -1,4 +1,4 @@
-// security.js - Security helpers for Quick Chat
+// security.js - Security helpers for Quick Chat - DEPRECATED
 // LEGACY FILE: Now imports from core/security.js for backward compatibility
 
 // Import the security module from the new location
