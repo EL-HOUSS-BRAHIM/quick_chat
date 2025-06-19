@@ -1,0 +1,144 @@
+/**
+ * High Contrast Theme
+ * 
+ * Theme for users who need high contrast for better readability
+ */
+
+.high-contrast {
+  // Color overrides
+  --primary-color: #0074D9;
+  --primary-dark: #004b8c;
+  --primary-light: #5da8ff;
+  
+  --secondary-color: #FF4136;
+  --secondary-dark: #b50900;
+  --secondary-light: #ff8a83;
+  
+  --accent-color: #FFDC00;
+  --accent-dark: #a68f00;
+  --accent-light: #fff175;
+  
+  // Background colors
+  --bg-primary: #000000;
+  --bg-secondary: #111111;
+  --bg-tertiary: #222222;
+  
+  // Text colors
+  --text-primary: #FFFFFF;
+  --text-secondary: #F0F0F0;
+  --text-tertiary: #CCCCCC;
+  --text-muted: #AAAAAA;
+  
+  // Border colors
+  --border-color: #FFFFFF;
+  --border-light: #CCCCCC;
+  
+  // Interface elements
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  
+  // Text and links
+  a {
+    color: var(--primary-light);
+    text-decoration: underline;
+    
+    &:hover, &:focus {
+      color: var(--primary-light);
+      text-decoration: underline double;
+    }
+  }
+  
+  // Buttons
+  .btn {
+    border: 2px solid var(--border-color);
+    
+    &-primary {
+      background-color: var(--primary-color);
+      color: var(--text-primary);
+      border-color: var(--primary-light);
+    }
+    
+    &-secondary {
+      background-color: var(--secondary-color);
+      color: var(--text-primary);
+      border-color: var(--secondary-light);
+    }
+    
+    &-outline {
+      background-color: transparent;
+      border: 2px solid var(--primary-color);
+      color: var(--primary-light);
+    }
+  }
+  
+  // Form elements
+  input, textarea, select {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
+    
+    &:focus {
+      border-color: var(--primary-light);
+      outline: 2px solid var(--primary-light);
+    }
+    
+    &::placeholder {
+      color: var(--text-muted);
+    }
+  }
+  
+  // Chat bubbles
+  .chat-bubble {
+    &--outgoing {
+      background-color: var(--primary-dark);
+      color: var(--text-primary);
+      border: 1px solid var(--primary-light);
+    }
+    
+    &--incoming {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-light);
+    }
+  }
+  
+  // Focus indicators
+  :focus {
+    outline: 3px solid var(--accent-color);
+    outline-offset: 2px;
+  }
+  
+  // Icons
+  .icon {
+    color: var(--text-primary);
+  }
+  
+  // Modals
+  .modal {
+    &__content {
+      background-color: var(--bg-secondary);
+      border: 3px solid var(--border-color);
+    }
+    
+    &__header {
+      border-bottom: 2px solid var(--border-color);
+    }
+  }
+  
+  // Other elements
+  .card {
+    background-color: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+  }
+  
+  .dropdown-menu {
+    background-color: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+  }
+  
+  .tooltip {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+  }
+}
