@@ -1,0 +1,58 @@
+/**
+ * Reduced Motion Styles
+ * 
+ * Styles for users who prefer reduced motion
+ */
+
+// Apply to all animations and transitions when user prefers reduced motion
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+// Specific class for when reduced motion is enabled via app settings
+.reduced-motion {
+  // Remove chat bubble animations
+  .chat-bubble {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  // Remove loader animations but keep them visible
+  .loader {
+    animation: none !important;
+    
+    &::before,
+    &::after {
+      animation: none !important;
+    }
+  }
+  
+  // Simplify transitions
+  .modal,
+  .dropdown,
+  .tooltip {
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  // Remove hover effects that use transitions
+  button, 
+  .btn,
+  a {
+    transition: none !important;
+  }
+  
+  // Remove emoji picker animations
+  .emoji-picker {
+    .emoji {
+      transition: none !important;
+    }
+  }
+}
