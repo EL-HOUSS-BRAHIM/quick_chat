@@ -6,7 +6,7 @@
 import errorHandler from './error-handler.js';
 import themeManager from './theme-manager.js';
 import eventBus from './event-bus.js';
-import appState from './state.js';
+import { state as appState } from './state.js';
 import utils from './utils.js';
 import apiClient from '../api/api-client.js';
 
