@@ -1,5 +1,10 @@
 // Quick Chat Configuration
-window.ChatConfig = {
+// NOTICE: This file is maintained for backward compatibility.
+// New code should use the modular architecture in /assets/js/core/config.js
+import coreConfig from './core/config.js';
+
+// Keep backward compatibility
+window.ChatConfig = window.ChatConfig || {
     // API endpoints
     apiUrl: 'api/',
     uploadUrl: 'api/upload.php',
@@ -241,3 +246,6 @@ if (typeof module !== 'undefined' && module.exports) {
         ChatUtils: window.ChatUtils
     };
 }
+
+// Export for ES modules
+export default window.ChatConfig;
