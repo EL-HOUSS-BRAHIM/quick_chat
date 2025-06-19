@@ -26,7 +26,7 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/assets/js/$1'
   },
-  setupFilesAfterEnv: ['<rootDir>/assets/js/__tests__/setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/assets/js/test-utils/jest-setup.js'],
   // Add support for ES Modules
   moduleFileExtensions: ['js', 'json', 'node'],
   transformIgnorePatterns: [
