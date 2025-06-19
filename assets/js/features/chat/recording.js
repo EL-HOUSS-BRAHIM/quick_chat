@@ -1,6 +1,6 @@
 /**
  * Chat Voice Recording Module
- * Handles voice message recording and upload
+ * Handles voice message recording, upload, and transcription
  */
 
 import apiClient from '../../api/api-client.js';
@@ -12,12 +12,18 @@ class VoiceRecorder {
     this.audioChunks = [];
     this.isRecording = false;
     this.recordBtn = null;
+    this.recordingDuration = 0;
+    this.recordingTimer = null;
+    this.transcriptionEnabled = true; // Enable transcription by default
     
     // Bind methods
     this.toggleRecording = this.toggleRecording.bind(this);
     this.startRecording = this.startRecording.bind(this);
     this.stopRecording = this.stopRecording.bind(this);
     this.uploadAudioFile = this.uploadAudioFile.bind(this);
+    this.updateRecordingTimer = this.updateRecordingTimer.bind(this);
+    this.toggleTranscription = this.toggleTranscription.bind(this);
+    this.createRecordingUI = this.createRecordingUI.bind(this);
     
     // Initialize
     this.init();
@@ -30,6 +36,9 @@ class VoiceRecorder {
     // Find record button
     this.recordBtn = document.getElementById('recordBtn');
     
+    // Create recording UI if it doesn't exist
+    this.createRecordingUI();
+    
     // Add event listener if button exists
     if (this.recordBtn) {
       this.recordBtn.addEventListener('click', this.toggleRecording);
@@ -37,6 +46,90 @@ class VoiceRecorder {
     
     // Subscribe to events
     eventBus.subscribe('voice:record:toggle', this.toggleRecording);
+    eventBus.subscribe('voice:transcription:toggle', this.toggleTranscription);
+  }
+  
+  /**
+   * Create recording UI components
+   */
+  createRecordingUI() {
+    // If record button doesn't exist, create it
+    if (!this.recordBtn) {
+      const messageInputArea = document.querySelector('.message-input-area');
+      
+      if (messageInputArea) {
+        // Create record button
+        this.recordBtn = document.createElement('button');
+        this.recordBtn.id = 'recordBtn';
+        this.recordBtn.className = 'record-btn';
+        this.recordBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+        this.recordBtn.title = 'Record Voice Message';
+        
+        // Add record button to input area
+        messageInputArea.appendChild(this.recordBtn);
+        
+        // Add event listener
+        this.recordBtn.addEventListener('click', this.toggleRecording);
+      }
+    }
+    
+    // Create recording indicator if it doesn't exist
+    if (!document.getElementById('recordingIndicator')) {
+      const recordingIndicator = document.createElement('div');
+      recordingIndicator.id = 'recordingIndicator';
+      recordingIndicator.className = 'recording-indicator';
+      recordingIndicator.style.display = 'none';
+      
+      recordingIndicator.innerHTML = `
+        <div class="recording-info">
+          <div class="recording-pulse"></div>
+          <span class="recording-time">00:00</span>
+        </div>
+        <div class="recording-actions">
+          <button id="stopRecordingBtn" class="stop-recording-btn">
+            <i class="fas fa-stop"></i>
+          </button>
+          <button id="cancelRecordingBtn" class="cancel-recording-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      `;
+      
+      // Add to document
+      document.body.appendChild(recordingIndicator);
+      
+      // Add event listeners
+      document.getElementById('stopRecordingBtn').addEventListener('click', this.stopRecording);
+      document.getElementById('cancelRecordingBtn').addEventListener('click', () => {
+        // Cancel recording without uploading
+        this.stopRecording(true);
+      });
+    }
+    
+    // Create transcription toggle if it doesn't exist
+    if (!document.getElementById('transcriptionToggle')) {
+      const messageInputArea = document.querySelector('.message-actions') || document.querySelector('.message-input-area');
+      
+      if (messageInputArea) {
+        const transcriptionToggle = document.createElement('div');
+        transcriptionToggle.className = 'transcription-toggle';
+        
+        transcriptionToggle.innerHTML = `
+          <label for="enableTranscription" class="transcription-label">
+            <input type="checkbox" id="enableTranscription" ${this.transcriptionEnabled ? 'checked' : ''}>
+            <span class="toggle-label">Transcribe Voice Messages</span>
+          </label>
+        `;
+        
+        // Add to document
+        messageInputArea.appendChild(transcriptionToggle);
+        
+        // Add event listener
+        document.getElementById('enableTranscription').addEventListener('change', (e) => {
+          this.toggleTranscription({ enabled: e.target.checked });
+        });
+      }
+    }
   }
   
   /**
