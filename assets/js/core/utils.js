@@ -330,42 +330,37 @@ export function generateRandomId(length = 8, prefix = '') {
 export function formatNumber(num, options = {}) {
   const defaultOptions = {
     compact: false,
-    decimals: 1,
+    decimals: undefined, // undefined means auto
     units: 'metric'
   };
-  
   const config = { ...defaultOptions, ...options };
-  
   if (isNaN(num) || num === null || num === undefined) {
     return '0';
   }
-  
   const number = Number(num);
-  
   // For compact format, use abbreviated units
   if (config.compact) {
     if (number >= 1e9) {
-      return (number / 1e9).toFixed(config.decimals) + 'B';
+      return (number / 1e9).toFixed(config.decimals ?? 1) + 'B';
     }
     if (number >= 1e6) {
-      return (number / 1e6).toFixed(config.decimals) + 'M';
+      return (number / 1e6).toFixed(config.decimals ?? 1) + 'M';
     }
     if (number >= 1e3) {
-      return (number / 1e3).toFixed(config.decimals) + 'K';
+      return (number / 1e3).toFixed(config.decimals ?? 1) + 'K';
     }
   }
-  
-  // For large numbers, add commas
-  if (number >= 1000 && !config.compact) {
-    return number.toLocaleString();
+  // For all numbers, apply decimals if specified
+  let formatted;
+  if (typeof config.decimals === 'number') {
+    formatted = number.toFixed(config.decimals);
+  } else {
+    formatted = number.toString();
   }
-  
-  // For small decimals, show appropriate precision
-  if (number < 1 && number > 0) {
-    return number.toFixed(config.decimals);
-  }
-  
-  return number.toString();
+  // Add commas for thousands (including negatives)
+  const parts = formatted.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.').replace(/\.0+$/, '');
 }
 
 /**
