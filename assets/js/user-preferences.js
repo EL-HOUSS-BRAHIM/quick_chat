@@ -1,5 +1,5 @@
 /**
- * User Preferences System - LEGACY FILE
+ * User Preferences System - LEGACY FILE - DEPRECATED
  * Now imports from features/profile/preferences.js for backward compatibility
  */
 
