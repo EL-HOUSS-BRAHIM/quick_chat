@@ -1,8 +1,10 @@
 /**
- * ES Module Loader
+ * ES Module Loader - Advanced Version
  * 
- * This script dynamically loads the ES modules for the new architecture
- * while maintaining compatibility with the legacy code.
+ * This script dynamically loads ES modules for the new architecture
+ * while maintaining compatibility with legacy code during migration.
+ * It includes dependency management, versioning, and conditional loading.
+ * Version: 3.0.0
  */
 
 // Configuration
@@ -11,7 +13,7 @@ const config = {
   mainModule: '/assets/js/main.js',
   
   // Required version of main.js to be compatible with this loader
-  requiredMainVersion: '2.4.x',
+  requiredMainVersion: '3.0.x',
   
   // Legacy fallback
   legacyBundle: '/assets/js/bundle.js',
@@ -37,7 +39,21 @@ const config = {
     ],
     'admin': [
       '/assets/js/dist/admin-features.bundle.js'
+    ],
+    'group-chat': [
+      '/assets/js/dist/group-chat-features.bundle.js'
+    ],
+    'private-chat': [
+      '/assets/js/dist/private-chat-features.bundle.js'
     ]
+  },
+  
+  // Dependency graph - new in v2.5
+  dependencyGraph: {
+    'chat-features': ['ui-components', 'emoji-picker'],
+    'group-chat-features': ['chat-features', 'group-management'],
+    'private-chat-features': ['chat-features', 'encryption'],
+    'admin-features': ['charts', 'user-management']
   },
   
   // Feature detection flags
