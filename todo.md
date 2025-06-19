@@ -1,4 +1,3 @@
-
 # Quick Chat – JavaScript Modernization: Next Steps & Action Plan
 
 ## Overview
@@ -42,7 +41,8 @@ The JavaScript modular migration is complete and the codebase is stable, perform
   - [x] For each legacy file (e.g., `accessibility.js`, `admin-config.js`, `app-compatibility.js`, `app.js`, `call-interface.js`, `config.js`, `file-management.js`, `file-optimization.js`, `file-upload-progress.js`, `group-chat.js`, `message-reactions.js`, `private-chat.js`, `realtime-features.js`, `security.js`, `user-mentions.js`, `user-preferences.js`, `virtual-scroll-messaging.js`, etc.):
     - [x] Confirm all functionality is present in the new modular structure.
     - [x] Search for and update/remove any remaining references/imports to these files in the codebase.
-    - [x] Delete the legacy file.
+    - [x] Create a script to safely remove deprecated files with backups (`scripts/remove_deprecated_js.sh`).
+    - [x] Delete the legacy files by running the script (removed on June 19, 2025).
     - [x] Run the full test suite and build after each batch of removals.
     - [x] Document each removal in the changelog and/or `/docs/DEPRECATION_TIMELINE.md`.
 
