@@ -5,6 +5,50 @@
 <script src="assets/js/security.js"></script>
 <script src="assets/js/pwa-manager.js"></script>
 
+<!-- Module Preloading -->
+<?php
+// Determine current page type for preloading
+$pageType = '';
+if (strpos($_SERVER['PHP_SELF'], 'chat.php') !== false) {
+    $pageType = 'chat';
+} elseif (strpos($_SERVER['PHP_SELF'], 'dashboard.php') !== false) {
+    $pageType = 'dashboard';
+} elseif (strpos($_SERVER['PHP_SELF'], 'profile.php') !== false) {
+    $pageType = 'profile';
+} elseif (strpos($_SERVER['PHP_SELF'], 'admin.php') !== false) {
+    $pageType = 'admin';
+}
+
+// Preload core modules for all pages
+$preloadModules = [
+    'assets/js/dist/common.bundle.js',
+    'assets/js/dist/vendors.bundle.js',
+    'assets/js/dist/app.bundle.js'
+];
+
+// Add page-specific preloads
+switch ($pageType) {
+    case 'chat':
+        $preloadModules[] = 'assets/js/dist/chat-features.bundle.js';
+        $preloadModules[] = 'assets/js/dist/ui-components.bundle.js';
+        break;
+    case 'dashboard':
+        $preloadModules[] = 'assets/js/dist/dashboard-features.bundle.js';
+        break;
+    case 'profile':
+        $preloadModules[] = 'assets/js/dist/profile-features.bundle.js';
+        break;
+    case 'admin':
+        $preloadModules[] = 'assets/js/dist/admin-features.bundle.js';
+        break;
+}
+
+// Output preload links
+foreach ($preloadModules as $module) {
+    echo '<link rel="modulepreload" href="' . htmlspecialchars($module) . '">' . PHP_EOL;
+}
+?>
+
 <!-- Module Loader (New Architecture) -->
 <script src="assets/js/module-loader.js"></script>
 
