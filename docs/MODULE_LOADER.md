@@ -32,7 +32,7 @@ The module loading system is designed with a progressive enhancement approach:
 ```javascript
 const config = {
   mainModule: '/assets/js/main.js',
-  requiredMainVersion: '2.4.x',
+  requiredMainVersion: '2.5.x',
   legacyBundle: '/assets/js/bundle.js',
   coreBundles: [
     '/assets/js/dist/vendors.bundle.js',
@@ -112,7 +112,7 @@ For debugging purposes:
 
 ## Version Compatibility
 
-The module-loader.js and main.js files must have matching versions to ensure compatibility. The current version is 2.4.0.
+The module-loader.js and main.js files must have matching versions to ensure compatibility. The current version is 2.5.0.
 
 ## Browser Support
 
