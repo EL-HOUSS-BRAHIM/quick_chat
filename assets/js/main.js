@@ -3,19 +3,20 @@
  * 
  * This file is the entry point for the modular JavaScript architecture.
  * It imports and initializes all necessary modules for the chat application.
- * Version: 2.4.0 (matches module-loader.js version)
+ * Version: 3.0.0 (matches module-loader.js version requirement)
  */
 
 // Expose runtime information for compatibility checks
 window.quickChatRuntime = {
   moduleType: 'esmodule',
-  version: '2.4.0',
+  version: '3.0.0',
   initialized: false,
   features: {},
-  loadedModules: []
+  loadedModules: [],
+  loadTimes: {}
 };
 
-// Import core modules
+// Core module imports
 import app from './core/app.js';
 import state from './core/state.js';
 import eventBus from './core/event-bus.js';
@@ -24,13 +25,17 @@ import themeManager from './core/theme-manager.js';
 import browserCompatibility from './core/browser-compatibility.js';
 import security from './core/security.js';
 import pwaManager from './core/pwa-manager.js';
+import logger from './core/logger.js';
 
-// Import UI components
+// UI component imports
 import AccessibilityManager from './ui/accessibility.js';
 import UploadProgressManager from './ui/upload-progress.js';
+import NotificationManager from './ui/notification-manager.js';
 
-// Import API client
-import apiClient from './api/api-client.js';
+// Service imports
+import apiClient from './services/api-client.js';
+import storageService from './services/storage-service.js';
+import analyticsService from './services/analytics-service.js';
 
 // Import compatibility layer
 import { initChatCompatibility } from './core/chat-compatibility.js';
@@ -232,23 +237,29 @@ async function initProfilePage() {
     if (loadingIndicator) loadingIndicator.style.display = 'flex';
     
     // Import profile modules dynamically
-    const [
-      { default: profileModule },
-      { createPreferences }
-    ] = await Promise.all([
+    const profileFeatures = await Promise.all([
       import(/* webpackChunkName: "profile-core" */ './features/profile/index.js'),
-      import(/* webpackChunkName: "profile-preferences" */ './features/profile/preferences.js')
+      import(/* webpackChunkName: "profile-settings" */ './features/profile/settings.js'),
+      import(/* webpackChunkName: "profile-avatar" */ './features/profile/avatar.js'),
+      import(/* webpackChunkName: "profile-info" */ './features/profile/info.js'),
+      import(/* webpackChunkName: "profile-privacy" */ './features/profile/privacy.js')
     ]);
     
     // Initialize profile module
+    const profileModule = profileFeatures[0].default;
     await profileModule.init();
     
-    // Initialize preferences if that section exists
-    const preferencesContainer = document.querySelector('.user-preferences');
-    if (preferencesContainer) {
-      const preferences = createPreferences();
-      preferences.init();
-    }
+    // Register the profile page initialization
+    window.quickChatRuntime.features.profilePage = true;
+    
+    // Dispatch event indicating profile page is ready
+    document.dispatchEvent(new CustomEvent('quickchat:profile:ready'));
+    
+    // Hide loading indicator
+    if (loadingIndicator) loadingIndicator.style.display = 'none';
+    
+    console.log('Profile page initialized successfully');
+    return true;
     
     // Initialize avatar upload if that feature is enabled
     if (window.quickChatConfig?.features?.avatarUpload) {
