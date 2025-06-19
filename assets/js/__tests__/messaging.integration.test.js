@@ -26,9 +26,8 @@ describe('Messaging System Integration Tests', () => {
         
         // Import app dynamically to get a fresh instance for each test
         jest.resetModules();
-        return import('../app.js').then(module => {
-            const QuickChatApp = module.default;
-            app = new QuickChatApp();
+        return import('../core/app.js').then(module => {
+            app = module.default; // App is now exported as a singleton instance
             
             // Mock user state
             mockUser = {
@@ -38,7 +37,7 @@ describe('Messaging System Integration Tests', () => {
                 avatar: 'test-avatar.png'
             };
             app.user = mockUser;
-            app.state.user = mockUser;
+            app.core.state.setState({ user: mockUser });
             
             // Mock CSRF token
             app.csrfToken = 'test-csrf-token';
