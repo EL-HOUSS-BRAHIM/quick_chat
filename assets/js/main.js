@@ -3,7 +3,17 @@
  * 
  * This file is the entry point for the modular JavaScript architecture.
  * It imports and initializes all necessary modules for the chat application.
+ * Version: 2.4.0 (matches module-loader.js version)
  */
+
+// Expose runtime information for compatibility checks
+window.quickChatRuntime = {
+  moduleType: 'esmodule',
+  version: '2.4.0',
+  initialized: false,
+  features: {},
+  loadedModules: []
+};
 
 // Import core modules
 import app from './core/app.js';
@@ -34,42 +44,54 @@ const currentPage = document.body.dataset.pageType || '';
 async function initApplication() {
   console.log('Initializing Quick Chat application');
   
-  // Initialize core modules
-  app.init();
-  errorHandler.init();
-  themeManager.init();
-  
-  // Initialize PWA features if supported
-  if ('serviceWorker' in navigator) {
-    pwaManager.init();
+  try {
+    // Check for compatibility issues
+    browserCompatibility.checkRequirements();
+    
+    // Initialize core modules
+    app.init();
+    errorHandler.init();
+    themeManager.init();
+    
+    // Initialize PWA features if supported
+    if ('serviceWorker' in navigator) {
+      pwaManager.init();
+    }
+    
+    // Determine which page we're on
+    const currentPage = getCurrentPage();
+    window.quickChatRuntime.pageType = currentPage;
+    
+    // Track module loading in runtime
+    window.quickChatRuntime.loadedModules.push('core');
+    
+    // Initialize modules based on current page
+    switch (currentPage) {
+      case 'chat':
+        await initChatPage();
+        break;
+      case 'dashboard':
+        await initDashboardPage();
+        break;
+      case 'profile':
+        await initProfilePage();
+        break;
+      case 'admin':
+        await initAdminPage();
+        break;
+      default:
+        // Default initialization
+        app.init();
+    }
+    
+    // Initialize compatibility layer for backward compatibility
+    initChatCompatibility();
+    
+    console.log('Application initialization complete');
+  } catch (error) {
+    console.error('Failed to initialize application:', error);
+    errorHandler.handleError(error);
   }
-  
-  // Determine which page we're on
-  const currentPage = getCurrentPage();
-  
-  // Initialize modules based on current page
-  switch (currentPage) {
-    case 'chat':
-      await initChatPage();
-      break;
-    case 'dashboard':
-      await initDashboardPage();
-      break;
-    case 'profile':
-      await initProfilePage();
-      break;
-    case 'admin':
-      await initAdminPage();
-      break;
-    default:
-      // Default initialization
-      app.init();
-  }
-  
-  // Initialize compatibility layer for backward compatibility
-  initChatCompatibility();
-  
-  console.log('Application initialization complete');
 }
 
 /**
@@ -88,6 +110,9 @@ async function initChatPage() {
       groupId: getUrlParam('group'),
       chatType: getUrlParam('group') ? 'group' : 'private'
     };
+    
+    // Track page initialization in runtime
+    window.quickChatRuntime.pageConfig = config;
     
     // Import chat module dynamically
     const [
@@ -347,9 +372,41 @@ function getUrlParam(name) {
 }
 
 // Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', initApplication);
+document.addEventListener('DOMContentLoaded', () => {
+  // Start initialization
+  initApplication()
+    .then(() => {
+      // Mark as initialized
+      window.quickChatRuntime.initialized = true;
+      
+      // Dispatch event for module loader to know we're fully loaded
+      document.dispatchEvent(new CustomEvent('quickchat:ready', {
+        detail: { 
+          moduleType: 'esmodule',
+          version: window.quickChatRuntime.version,
+          pageType: window.quickChatRuntime.pageType,
+          modules: window.quickChatRuntime.loadedModules
+        }
+      }));
+      
+      console.log('Quick Chat application fully initialized');
+    })
+    .catch(error => {
+      console.error('Fatal error during application initialization:', error);
+      errorHandler.handleError(error);
+      
+      // Dispatch error event that can be caught by the module-loader
+      document.dispatchEvent(new CustomEvent('quickchat:error', {
+        detail: { 
+          error: error.message || 'Unknown error',
+          moduleType: 'esmodule'
+        }
+      }));
+    });
+});
 
 // Export for potential direct imports
 export default {
-  init: initApplication
+  init: initApplication,
+  runtime: window.quickChatRuntime
 };
