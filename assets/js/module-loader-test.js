@@ -16,7 +16,8 @@
     runtimeInfoPresent: false,
     eventsWorking: false,
     correctVersion: false,
-    pageTypeDetection: false
+    pageTypeDetection: false,
+    featureModulesPresent: false
   };
   
   // Log function for test results
@@ -57,7 +58,7 @@
       // Only run version check if runtime info exists
       if (window.quickChatRuntime) {
         // Test 4: Check if versions match
-        const moduleLoaderVersion = '2.4.0'; // Should match version in module-loader.js
+        const moduleLoaderVersion = '2.5.0'; // Should match version in module-loader.js
         logTest('correctVersion', 
                 window.quickChatRuntime.version === moduleLoaderVersion,
                 `Runtime version ${window.quickChatRuntime.version} should match module loader version ${moduleLoaderVersion}`);
@@ -66,6 +67,11 @@
         logTest('pageTypeDetection', 
                 !!window.quickChatRuntime.pageType,
                 `Detected page type: ${window.quickChatRuntime.pageType || 'none'}`);
+                
+        // Test 7: Check if feature modules are registered
+        logTest('featureModulesPresent',
+                Object.keys(window.quickChatRuntime.features).length > 0,
+                `Feature modules registered: ${Object.keys(window.quickChatRuntime.features).join(', ')}`);
       }
       
       // Output overall test results
