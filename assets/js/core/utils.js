@@ -322,6 +322,53 @@ export function generateRandomId(length = 8, prefix = '') {
 }
 
 /**
+ * Format a number for display with appropriate units
+ * @param {number} num - Number to format
+ * @param {Object} options - Formatting options
+ * @returns {string} Formatted number string
+ */
+export function formatNumber(num, options = {}) {
+  const defaultOptions = {
+    compact: false,
+    decimals: 1,
+    units: 'metric'
+  };
+  
+  const config = { ...defaultOptions, ...options };
+  
+  if (isNaN(num) || num === null || num === undefined) {
+    return '0';
+  }
+  
+  const number = Number(num);
+  
+  // For compact format, use abbreviated units
+  if (config.compact) {
+    if (number >= 1e9) {
+      return (number / 1e9).toFixed(config.decimals) + 'B';
+    }
+    if (number >= 1e6) {
+      return (number / 1e6).toFixed(config.decimals) + 'M';
+    }
+    if (number >= 1e3) {
+      return (number / 1e3).toFixed(config.decimals) + 'K';
+    }
+  }
+  
+  // For large numbers, add commas
+  if (number >= 1000 && !config.compact) {
+    return number.toLocaleString();
+  }
+  
+  // For small decimals, show appropriate precision
+  if (number < 1 && number > 0) {
+    return number.toFixed(config.decimals);
+  }
+  
+  return number.toString();
+}
+
+/**
  * Storage wrapper for localStorage with JSON support
  */
 export const storage = {
@@ -381,6 +428,7 @@ export const storage = {
 // Export all utilities as default object
 export default {
   formatDate,
+  formatNumber,
   debounce,
   throttle,
   showToast,
