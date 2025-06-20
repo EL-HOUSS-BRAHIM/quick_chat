@@ -3,7 +3,7 @@
  * 
  * This file is the entry point for the modular JavaScript architecture.
  * It imports and initializes all necessary modules for the chat application.
- * Version: 3.0.0 (matches module-loader.js version requirement)
+ * Version: 3.0.0 - Enhanced with accessibility, i18n, mobile, and WebRTC improvements
  */
 
 // Expose runtime information for compatibility checks
@@ -11,31 +11,40 @@ window.quickChatRuntime = {
   moduleType: 'esmodule',
   version: '3.0.0',
   initialized: false,
-  features: {},
+  features: {
+    accessibility: true,
+    i18n: true,
+    mobileOptimization: true,
+    webrtcGroupCalls: true,
+    advancedSecurity: true
+  },
   loadedModules: [],
-  loadTimes: {}
+  loadTimes: {},
+  config: null
 };
+
+// Core configuration import
+import frontendConfig from './config/frontend-config.js';
 
 // Core module imports
 import app from './core/app.js';
-import state from './core/state.js';
+import { state } from './core/state.js';
 import eventBus from './core/event-bus.js';
 import errorHandler from './core/error-handler.js';
-import themeManager from './core/theme-manager.js';
+import themeManager from './features/theme/index.js';
 import browserCompatibility from './core/browser-compatibility.js';
 import security from './core/security.js';
 import pwaManager from './core/pwa-manager.js';
 import logger from './core/logger.js';
 
 // Enhanced core module imports  
-import accessibilityManager from './core/accessibility-manager.js';
-import i18nManager from './core/i18n-manager.js';
-import mobileExperience from './core/mobile-experience-manager.js';
+import accessibilityManager from './features/accessibility/index.js';
+import i18nManager from './features/i18n/index.js';
+import mobileExperienceManager from './features/mobile/experience-manager.js';
 
 // UI component imports
-import AccessibilityManager from './ui/accessibility.js';
-import UploadProgressManager from './ui/upload-progress.js';
-import NotificationManager from './ui/notification-manager.js';
+import uploadProgressManager from './ui/upload-progress.js';
+import notificationManager from './ui/notification-manager.js';
 
 // Service imports
 import apiClient from './services/api-client.js';
@@ -45,8 +54,11 @@ import analyticsService from './services/analytics-service.js';
 // Import compatibility layer
 import { initChatCompatibility } from './core/chat-compatibility.js';
 
+// Store config globally
+window.quickChatRuntime.config = frontendConfig;
+
 // Determine current page type for dynamic imports
-const currentPage = document.body.dataset.pageType || '';
+const currentPage = document.body.dataset.pageType || window.location.pathname.split('/').pop().replace('.php', '') || 'dashboard';
 
 /**
  * Initialize the application
@@ -59,16 +71,16 @@ async function initApplication() {
     browserCompatibility.checkRequirements();
     
     // Initialize core accessibility and internationalization first
-    accessibilityManager.init();
+    await accessibilityManager.init();
     await i18nManager.init();
     
     // Initialize mobile experience enhancements
-    mobileExperience.init();
+    await mobileExperienceManager.init();
     
     // Initialize core modules
-    app.init();
-    errorHandler.init();
-    themeManager.init();
+    await app.init();
+    await errorHandler.init();
+    await themeManager.init();
     
     // Initialize PWA features if supported
     if ('serviceWorker' in navigator) {
