@@ -52,6 +52,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "@babel/runtime": "^7.27.6",
     "core-js": "^3.33.0",
     "workbox-cacheable-response": "^7.0.0",
     "workbox-core": "^7.0.0",
