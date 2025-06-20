@@ -1,0 +1,180 @@
+/**
+ * Accessibility Base Styles
+ * Foundation styles for accessibility improvements
+ */
+
+// Screen reader only content
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.sr-only-focusable:focus {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  padding: inherit !important;
+  margin: inherit !important;
+  overflow: visible !important;
+  clip: auto !important;
+  white-space: normal !important;
+}
+
+// Skip links
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: var(--primary-color);
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  border-radius: 0 0 4px 4px;
+  z-index: 1000;
+  font-weight: 500;
+  
+  &:focus {
+    top: 0;
+  }
+}
+
+// Live regions for screen reader announcements
+.live-region {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+// Improved focus management
+.focus-trap {
+  &:focus {
+    outline: none;
+  }
+}
+
+// Better text contrast
+.high-contrast {
+  --text-color: #000000;
+  --bg-color: #ffffff;
+  --link-color: #0000ff;
+  --visited-link-color: #800080;
+  --border-color: #808080;
+}
+
+// Reduced motion preferences
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+// Improved color contrast ratios
+:root {
+  --aa-contrast-ratio: 4.5;
+  --aaa-contrast-ratio: 7;
+}
+
+// Text size adjustments
+@media (min-resolution: 144dpi) {
+  body {
+    font-size: calc(var(--base-font-size) * 1.1);
+  }
+}
+
+// Ensure sufficient color contrast
+.text-muted {
+  color: #6c757d; // Ensures AA compliance
+  
+  .high-contrast & {
+    color: #000000;
+  }
+}
+
+// Keyboard navigation indicators
+.keyboard-focused {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
+}
+
+// Better link styling for accessibility
+a {
+  &:not([class]) {
+    text-decoration: underline;
+    
+    &:hover,
+    &:focus {
+      text-decoration: none;
+      background-color: rgba(0, 0, 255, 0.1);
+    }
+  }
+}
+
+// Accessible form labels
+label {
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: block;
+  
+  &.required::after {
+    content: " *";
+    color: var(--danger-color);
+  }
+}
+
+// Error message styling
+.error-message {
+  color: var(--danger-color);
+  font-size: 0.875rem;
+  margin-top: 4px;
+  
+  &::before {
+    content: "⚠ ";
+    font-weight: bold;
+  }
+}
+
+// Success message styling
+.success-message {
+  color: var(--success-color);
+  font-size: 0.875rem;
+  margin-top: 4px;
+  
+  &::before {
+    content: "✓ ";
+    font-weight: bold;
+  }
+}
+
+// Accessible headings
+h1, h2, h3, h4, h5, h6 {
+  margin-bottom: 0.5em;
+  line-height: 1.2;
+}
+
+// Ensure proper heading hierarchy
+.heading-skip-warning {
+  @media screen and (min-width: 0) {
+    &::before {
+      content: "Warning: Heading level skipped";
+      position: absolute;
+      left: -10000px;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+    }
+  }
+}
