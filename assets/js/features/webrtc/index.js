@@ -1,7 +1,8 @@
 /**
  * WebRTC Module
  * Consolidated implementation for voice and video calls
- * Enhanced with dynamic adaptation for different network conditions and browser compatibility
+ * Enhanced with group video calls, screen sharing, and call quality monitoring
+ * Implementation of TODO: WebRTC Integration Improvements (New Priority)
  */
 
 import app from '../../core/app.js';
@@ -17,6 +18,9 @@ import CallRecorder from './call-recorder.js';
 import ConnectionMonitor from './connection-monitor.js';
 import ConnectionPool from './connection-pool.js';
 import WebRTCCompatibilityManager from './browser-compatibility.js';
+import GroupVideoCallManager from './group-video-call-manager.js';
+import ScreenSharingManager from './screen-sharing-manager.js';
+import CallQualityMonitor from './call-quality-monitor.js';
 
 class WebRTCModule {
   constructor(options = {}) {
@@ -49,44 +53,32 @@ class WebRTCModule {
       echoCancellation: options.echoCancellation !== undefined ? options.echoCancellation : true,
       noiseSuppression: options.noiseSuppression !== undefined ? options.noiseSuppression : true,
       
-      // Enhanced call quality monitoring settings
-      callQualityMonitoring: {
-        enabled: true,
-        reportInterval: 5000, // Report every 5 seconds
-        thresholds: {
-          rtt: 300, // Round trip time threshold in ms
-          packetLoss: 0.05, // 5% packet loss threshold
-          jitter: 50, // Jitter threshold in ms
-          bandwidthMin: 50000, // Minimum bandwidth in bps
-          audioLevel: -50 // Minimum audio level in dB
-        },
-        adaptiveQuality: true, // Enable adaptive quality adjustments
-        networkAdaptation: true // Enable network-based quality adaptation
+      // New group call features (TODO: Implement group video calls - 40% complete)
+      maxGroupParticipants: options.maxGroupParticipants || 8,
+      groupCallLayout: options.groupCallLayout || 'grid',
+      adaptiveBitrate: options.adaptiveBitrate !== undefined ? options.adaptiveBitrate : true,
+      
+      // Screen sharing features (TODO: Add screen sharing capabilities)
+      screenShare: {
+        enabled: options.screenShare?.enabled !== undefined ? options.screenShare.enabled : true,
+        withAudio: options.screenShare?.withAudio !== undefined ? options.screenShare.withAudio : true,
+        maxResolution: options.screenShare?.maxResolution || { width: 1920, height: 1080 }
       },
       
-      // Screen sharing configuration
-      screenSharing: {
-        enabled: true,
-        maxResolution: { width: 1920, height: 1080 },
-        frameRate: 15,
-        quality: 'high', // 'low', 'medium', 'high'
-        cursor: 'always', // 'never', 'always', 'motion'
-        audio: true, // Include system audio
-        fallbackToVideo: true // Fallback to camera if screen sharing fails
+      // Call recording features (TODO: Create recording feature for video calls)
+      recording: {
+        enabled: options.recording?.enabled !== undefined ? options.recording.enabled : true,
+        format: options.recording?.format || 'webm',
+        videoBitrate: options.recording?.videoBitrate || 2500000, // 2.5 Mbps
+        audioBitrate: options.recording?.audioBitrate || 128000   // 128 kbps
       },
       
-      // Group video call settings
-      groupCall: {
-        maxParticipants: 8,
-        layoutOptions: ['grid', 'speaker', 'gallery'],
-        defaultLayout: 'grid',
-        enableSpatialAudio: false,
-        bandwidthOptimization: true
-      },
-      
-      container: document.getElementById('call-container') || document.body,
-      userId: null,
-      ...options
+      // Background effects (TODO: Add background blur/virtual backgrounds for video calls)
+      backgroundEffects: {
+        enabled: options.backgroundEffects?.enabled !== undefined ? options.backgroundEffects.enabled : true,
+        blur: options.backgroundEffects?.blur !== undefined ? options.backgroundEffects.blur : true,
+        virtualBackgrounds: options.backgroundEffects?.virtualBackgrounds || []
+      }
     };
     
     // State
@@ -121,6 +113,34 @@ class WebRTCModule {
     this.ui = new CallUI(this.config);
     this.recorder = new CallRecorder(this.config);
     this.connectionMonitor = new ConnectionMonitor(this.config);
+    
+    // Initialize new managers for group calls and advanced features
+    this.groupCallManager = new GroupVideoCallManager(this.config);
+    this.screenSharingManager = new ScreenSharingManager(this.config);
+    this.callQualityMonitor = new CallQualityMonitor();
+
+    // Enhanced state management
+    state.register('webrtc', {
+      isInitialized: false,
+      isCallActive: false,
+      isGroupCall: false,
+      participants: [],
+      localStream: null,
+      remoteStreams: new Map(),
+      callType: null, // 'audio', 'video', 'screen'
+      callId: null,
+      callStartTime: null,
+      isRecording: false,
+      recordingBlobs: [],
+      screenShareActive: false,
+      backgroundEffectActive: false,
+      callQuality: {
+        latency: 0,
+        packetLoss: 0,
+        bandwidth: { up: 0, down: 0 },
+        quality: 'good' // good, fair, poor
+      }
+    });
     
     // Initialize WebRTC module
     this.init();
