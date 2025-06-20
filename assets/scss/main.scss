@@ -3,7 +3,7 @@
  * 
  * This is the entry point for all styles in the application.
  * It imports all other SCSS files in the correct order.
- * Version: 3.0.0
+ * Version: 3.0.0 - Enhanced with mobile and accessibility improvements
  */
 
 // Abstracts
@@ -17,6 +17,13 @@
 @import 'base/typography';
 @import 'base/animations';
 @import 'base/utilities';
+
+// Accessibility
+@import 'accessibility/base';
+@import 'accessibility/focus';
+@import 'accessibility/screen-readers';
+@import 'accessibility/high-contrast';
+@import 'accessibility/keyboard-navigation';
 
 // Layout
 @import 'layout/header';
@@ -40,6 +47,9 @@
 @import 'components/dropdown';
 @import 'components/tabs';
 @import 'components/toast';
+@import 'components/mobile-navigation';
+@import 'components/touch-controls';
+@import 'components/swipe-actions';
 
 // Pages
 @import 'pages/chat';
