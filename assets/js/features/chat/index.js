@@ -13,6 +13,12 @@ import utils from '../../core/utils.js';
 import WebSocketManager from '../../core/websocket-manager.js';
 import ChatUI from './ui.js';
 import MessageStore from './message-store.js';
+import VoiceMessages from './voice-messages.js';
+import ChatReplies from './replies.js';
+import ChatReactions from './reactions.js';
+import ThreadManager from './thread-manager.js';
+import ChatSearch from './search.js';
+import { UserMentions } from './mentions.js';
 
 class ChatModule {
   constructor(options = {}) {
@@ -54,6 +60,14 @@ class ChatModule {
       batchingEnabled: true
     });
     
+    // Feature modules
+    this.voiceMessages = new VoiceMessages();
+    this.replies = new ChatReplies();
+    this.reactions = new ChatReactions();
+    this.threadManager = new ThreadManager();
+    this.search = new ChatSearch();
+    this.mentions = new UserMentions(this);
+    
     // Initialize chat module
     this.init();
   }
@@ -71,6 +85,14 @@ class ChatModule {
       
       // Setup event listeners
       this.setupEventListeners();
+      
+      // Initialize feature modules
+      this.voiceMessages.init(this);
+      this.replies.init(this);
+      this.reactions.init(this);
+      this.threadManager.init(this);
+      this.search.init(this);
+      // Mentions module is already initialized in constructor
       
       // Connect to WebSocket if available
       this.connectWebSocket();
@@ -272,10 +294,14 @@ class ChatModule {
     try {
       this.ui.disableSendButton(true);
       
+      // Extract mentions from message content
+      const mentions = this.state.currentMessageMentions || this.mentions.getMentionsInText(data.content);
+      
       const messageData = {
         content: data.content,
         type: data.type || 'text',
         reply_to: this.state.replyingTo ? this.state.replyingTo.id : null,
+        mentions: mentions,
         ...data
       };
       
@@ -284,6 +310,11 @@ class ChatModule {
       
       // Cancel editing if active
       this.cancelEdit();
+      
+      // Clear current mentions
+      if (this.mentions) {
+        this.mentions.clearCurrentMentions();
+      }
       
       // Add optimistic message
       const optimisticId = `temp-${Date.now()}`;
@@ -296,6 +327,7 @@ class ChatModule {
         group_id: this.config.chatType === 'group' ? this.config.groupId : null,
         created_at: new Date().toISOString(),
         status: 'sending',
+        mentions: messageData.mentions,
         isOptimistic: true
       };
       
@@ -572,6 +604,27 @@ class ChatModule {
     
     // Clean up UI
     this.ui.destroy();
+    
+    // Clean up feature modules
+    if (this.voiceMessages && typeof this.voiceMessages.destroy === 'function') {
+      this.voiceMessages.destroy();
+    }
+    
+    if (this.replies && typeof this.replies.destroy === 'function') {
+      this.replies.destroy();
+    }
+    
+    if (this.reactions && typeof this.reactions.destroy === 'function') {
+      this.reactions.destroy();
+    }
+    
+    if (this.threadManager && typeof this.threadManager.destroy === 'function') {
+      this.threadManager.destroy();
+    }
+    
+    if (this.search && typeof this.search.destroy === 'function') {
+      this.search.destroy();
+    }
     
     // Clear event listeners
     eventBus.off('message:send');
