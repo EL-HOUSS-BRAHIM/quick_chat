@@ -27,6 +27,11 @@ import security from './core/security.js';
 import pwaManager from './core/pwa-manager.js';
 import logger from './core/logger.js';
 
+// Enhanced core module imports  
+import accessibilityManager from './core/accessibility-manager.js';
+import i18nManager from './core/i18n-manager.js';
+import mobileExperience from './core/mobile-experience-manager.js';
+
 // UI component imports
 import AccessibilityManager from './ui/accessibility.js';
 import UploadProgressManager from './ui/upload-progress.js';
@@ -53,6 +58,13 @@ async function initApplication() {
     // Check for compatibility issues
     browserCompatibility.checkRequirements();
     
+    // Initialize core accessibility and internationalization first
+    accessibilityManager.init();
+    await i18nManager.init();
+    
+    // Initialize mobile experience enhancements
+    mobileExperience.init();
+    
     // Initialize core modules
     app.init();
     errorHandler.init();
@@ -68,7 +80,7 @@ async function initApplication() {
     window.quickChatRuntime.pageType = currentPage;
     
     // Track module loading in runtime
-    window.quickChatRuntime.loadedModules.push('core');
+    window.quickChatRuntime.loadedModules.push('core', 'accessibility', 'i18n', 'mobile');
     
     // Initialize modules based on current page
     switch (currentPage) {
