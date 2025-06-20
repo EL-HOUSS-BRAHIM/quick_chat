@@ -310,6 +310,239 @@ class AccessibilityManager {
   }
 
   /**
+   * Setup focus management
+   */
+  setupFocusManagement() {
+    // Add focus-visible polyfill behavior
+    this.setupFocusVisible();
+    
+    // Setup focus trap management for modals
+    this.setupFocusTraps();
+    
+    // Setup roving tabindex for complex widgets
+    this.setupRovingTabindex();
+  }
+
+  /**
+   * Setup focus-visible polyfill for better focus indicators
+   */
+  setupFocusVisible() {
+    let hadKeyboardEvent = true;
+    let keyboardThrottleTimeout = 0;
+
+    const pointerEvents = ['mousedown', 'pointerdown', 'touchstart'];
+    const keyboardEvents = ['keydown', 'keyup'];
+
+    // Helper to detect keyboard usage
+    const onPointerDown = () => {
+      hadKeyboardEvent = false;
+    };
+
+    const onKeyDown = (e) => {
+      if (e.metaKey || e.altKey || e.ctrlKey) {
+        return;
+      }
+      hadKeyboardEvent = true;
+    };
+
+    // Add event listeners
+    pointerEvents.forEach(event => {
+      document.addEventListener(event, onPointerDown, true);
+    });
+
+    keyboardEvents.forEach(event => {
+      document.addEventListener(event, onKeyDown, true);
+    });
+
+    // Apply focus-visible class
+    document.addEventListener('focus', (e) => {
+      if (hadKeyboardEvent || e.target.matches(':focus-visible')) {
+        e.target.classList.add('focus-visible');
+      }
+    }, true);
+
+    document.addEventListener('blur', (e) => {
+      e.target.classList.remove('focus-visible');
+    }, true);
+  }
+
+  /**
+   * Setup focus traps for modal dialogs
+   */
+  setupFocusTraps() {
+    // Listen for modal open events
+    document.addEventListener('quickchat:modal:opened', (event) => {
+      this.trapFocus(event.detail.modal);
+    });
+
+    document.addEventListener('quickchat:modal:closed', (event) => {
+      this.releaseFocus(event.detail.modal);
+    });
+  }
+
+  /**
+   * Trap focus within an element
+   */
+  trapFocus(element) {
+    const focusableElements = element.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    
+    const firstFocusable = focusableElements[0];
+    const lastFocusable = focusableElements[focusableElements.length - 1];
+
+    // Store original focus for restoration
+    element.dataset.previousFocus = document.activeElement;
+
+    const trapHandler = (e) => {
+      if (e.key === 'Tab') {
+        if (e.shiftKey) {
+          if (document.activeElement === firstFocusable) {
+            e.preventDefault();
+            lastFocusable.focus();
+          }
+        } else {
+          if (document.activeElement === lastFocusable) {
+            e.preventDefault();
+            firstFocusable.focus();
+          }
+        }
+      }
+    };
+
+    element.addEventListener('keydown', trapHandler);
+    element.dataset.trapHandler = trapHandler;
+
+    // Focus first element
+    if (firstFocusable) {
+      firstFocusable.focus();
+    }
+  }
+
+  /**
+   * Release focus trap
+   */
+  releaseFocus(element) {
+    const trapHandler = element.dataset.trapHandler;
+    if (trapHandler) {
+      element.removeEventListener('keydown', trapHandler);
+      delete element.dataset.trapHandler;
+    }
+
+    // Restore previous focus
+    const previousFocus = element.dataset.previousFocus;
+    if (previousFocus && document.contains(previousFocus)) {
+      previousFocus.focus();
+    }
+    delete element.dataset.previousFocus;
+  }
+
+  /**
+   * Setup roving tabindex for complex widgets
+   */
+  setupRovingTabindex() {
+    // Setup for toolbar widgets
+    const toolbars = document.querySelectorAll('[role="toolbar"]');
+    toolbars.forEach(toolbar => {
+      this.setupToolbarNavigation(toolbar);
+    });
+
+    // Setup for menu widgets
+    const menus = document.querySelectorAll('[role="menu"]');
+    menus.forEach(menu => {
+      this.setupMenuNavigation(menu);
+    });
+  }
+
+  /**
+   * Setup toolbar navigation with roving tabindex
+   */
+  setupToolbarNavigation(toolbar) {
+    const items = toolbar.querySelectorAll('[role="button"], button');
+    let currentIndex = 0;
+
+    // Set initial tabindex
+    items.forEach((item, index) => {
+      item.tabIndex = index === 0 ? 0 : -1;
+    });
+
+    toolbar.addEventListener('keydown', (e) => {
+      let newIndex = currentIndex;
+
+      switch (e.key) {
+        case 'ArrowRight':
+        case 'ArrowDown':
+          e.preventDefault();
+          newIndex = (currentIndex + 1) % items.length;
+          break;
+        case 'ArrowLeft':
+        case 'ArrowUp':
+          e.preventDefault();
+          newIndex = (currentIndex - 1 + items.length) % items.length;
+          break;
+        case 'Home':
+          e.preventDefault();
+          newIndex = 0;
+          break;
+        case 'End':
+          e.preventDefault();
+          newIndex = items.length - 1;
+          break;
+        default:
+          return;
+      }
+
+      // Update tabindex and focus
+      items[currentIndex].tabIndex = -1;
+      items[newIndex].tabIndex = 0;
+      items[newIndex].focus();
+      currentIndex = newIndex;
+    });
+  }
+
+  /**
+   * Setup menu navigation
+   */
+  setupMenuNavigation(menu) {
+    const items = menu.querySelectorAll('[role="menuitem"]');
+    let currentIndex = -1;
+
+    menu.addEventListener('keydown', (e) => {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          currentIndex = Math.min(currentIndex + 1, items.length - 1);
+          items[currentIndex].focus();
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          currentIndex = Math.max(currentIndex - 1, 0);
+          items[currentIndex].focus();
+          break;
+        case 'Home':
+          e.preventDefault();
+          currentIndex = 0;
+          items[currentIndex].focus();
+          break;
+        case 'End':
+          e.preventDefault();
+          currentIndex = items.length - 1;
+          items[currentIndex].focus();
+          break;
+        case 'Escape':
+          e.preventDefault();
+          // Close menu and return focus to trigger
+          const trigger = document.querySelector(`[aria-controls="${menu.id}"]`);
+          if (trigger) {
+            trigger.focus();
+            trigger.setAttribute('aria-expanded', 'false');
+          }
+          break;
+      }
+    });
+  }
+
+  /**
    * Handle tab navigation
    */
   handleTabNavigation(event) {
