@@ -48,6 +48,42 @@ class WebRTCModule {
       autoGainControl: options.autoGainControl !== undefined ? options.autoGainControl : true,
       echoCancellation: options.echoCancellation !== undefined ? options.echoCancellation : true,
       noiseSuppression: options.noiseSuppression !== undefined ? options.noiseSuppression : true,
+      
+      // Enhanced call quality monitoring settings
+      callQualityMonitoring: {
+        enabled: true,
+        reportInterval: 5000, // Report every 5 seconds
+        thresholds: {
+          rtt: 300, // Round trip time threshold in ms
+          packetLoss: 0.05, // 5% packet loss threshold
+          jitter: 50, // Jitter threshold in ms
+          bandwidthMin: 50000, // Minimum bandwidth in bps
+          audioLevel: -50 // Minimum audio level in dB
+        },
+        adaptiveQuality: true, // Enable adaptive quality adjustments
+        networkAdaptation: true // Enable network-based quality adaptation
+      },
+      
+      // Screen sharing configuration
+      screenSharing: {
+        enabled: true,
+        maxResolution: { width: 1920, height: 1080 },
+        frameRate: 15,
+        quality: 'high', // 'low', 'medium', 'high'
+        cursor: 'always', // 'never', 'always', 'motion'
+        audio: true, // Include system audio
+        fallbackToVideo: true // Fallback to camera if screen sharing fails
+      },
+      
+      // Group video call settings
+      groupCall: {
+        maxParticipants: 8,
+        layoutOptions: ['grid', 'speaker', 'gallery'],
+        defaultLayout: 'grid',
+        enableSpatialAudio: false,
+        bandwidthOptimization: true
+      },
+      
       container: document.getElementById('call-container') || document.body,
       userId: null,
       ...options
