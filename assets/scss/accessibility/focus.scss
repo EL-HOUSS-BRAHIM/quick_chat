@@ -4,6 +4,8 @@
  * Enhanced focus styles for keyboard accessibility
  */
 
+@use '../abstracts/variables' as *;
+
 // Base focus style
 :focus {
   outline: 2px solid $primary-color;
