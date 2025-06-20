@@ -4,6 +4,9 @@
  * Styles for mobile devices (max-width: 767px)
  */
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 @media (max-width: 767px) {
   // Layout adjustments
   .container {
