@@ -1,4 +1,9 @@
 {
+  "app": {
+    "name": "Quick Chat",
+    "description": "Fast and secure messaging platform",
+    "version": "3.0.0"
+  },
   "common": {
     "loading": "Loading...",
     "error": "Error",
@@ -15,7 +20,43 @@
     "clear": "Clear",
     "confirm": "Confirm",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "ok": "OK",
+    "retry": "Retry",
+    "refresh": "Refresh"
+  },
+  "accessibility": {
+    "title": "Accessibility",
+    "screenReader": "Screen Reader Support",
+    "keyboardNavigation": "Keyboard Navigation",
+    "keyboardShortcuts": "Keyboard Shortcuts",
+    "textToSpeech": "Text-to-Speech",
+    "speechToText": "Speech-to-Text",
+    "magnification": "Magnification",
+    "announcements": "Screen Reader Announcements",
+    "shortcuts": {
+      "title": "Keyboard Shortcuts",
+      "navigation": "Navigation",
+      "chat": "Chat Actions",
+      "accessibility": "Accessibility",
+      "general": "General",
+      "focusMessages": "Focus messages",
+      "focusInput": "Focus message input",
+      "focusUsers": "Focus user list",
+      "focusSidebar": "Focus sidebar",
+      "sendMessage": "Send message",
+      "toggleEmoji": "Toggle emoji picker",
+      "toggleFiles": "Toggle file upload",
+      "toggleVoice": "Toggle voice recording",
+      "showHelp": "Show this help",
+      "toggleContrast": "Toggle high contrast",
+      "toggleTTS": "Toggle text-to-speech",
+      "toggleSTT": "Toggle speech-to-text",
+      "increaseFontSize": "Increase font size",
+      "decreaseFontSize": "Decrease font size",
+      "closeModal": "Close modal/cancel action",
+      "showShortcuts": "Show shortcuts"
+    }
   },
   "chat": {
     "title": "Quick Chat",
