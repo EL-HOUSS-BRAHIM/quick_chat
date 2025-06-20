@@ -1,0 +1,47 @@
+/**
+ * Functions
+ * 
+ * Utility functions for calculations and transformations
+ */
+
+// Color manipulation functions
+@function lighten-color($color, $amount: 10%) {
+  @return lighten($color, $amount);
+}
+
+@function darken-color($color, $amount: 10%) {
+  @return darken($color, $amount);
+}
+
+@function transparentize-color($color, $amount: 0.1) {
+  @return transparentize($color, $amount);
+}
+
+// Spacing functions
+@function rem($pixels) {
+  @return $pixels / 16px * 1rem;
+}
+
+@function em($pixels, $context: 16px) {
+  @return $pixels / $context * 1em;
+}
+
+// Responsive breakpoint functions
+@function strip-unit($number) {
+  @if type-of($number) == 'number' and not unitless($number) {
+    @return $number / ($number * 0 + 1);
+  }
+  @return $number;
+}
+
+// Z-index management
+@function z($list, $element) {
+  $z-index: index($list, $element);
+  
+  @if $z-index {
+    @return $z-index;
+  }
+  
+  @warn 'There is no item "#{$element}" in this list; choose one of: #{$list}';
+  @return null;
+}
