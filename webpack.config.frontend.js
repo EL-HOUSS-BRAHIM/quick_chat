@@ -9,9 +9,9 @@ const isAnalyze = process.env.ANALYZE === 'true';
 module.exports = {
   mode: isDevelopment ? 'development' : 'production',
   
-  // Entry points for the enhanced organized structure
+  // Enhanced entry points for the organized structure
   entry: {
-    // Main application entry point
+    // Main application entry point - Enhanced
     'frontend': './app/frontend/index.js',
     
     // Individual page bundles with optimized loading
@@ -28,7 +28,9 @@ module.exports = {
       // Core utilities that are used across multiple components
       './app/frontend/utils/logger.js',
       './app/frontend/services/EventBus.js',
-      './app/frontend/services/apiClient.js'
+      './app/frontend/services/apiClient.js',
+      'core-js/stable',
+      'regenerator-runtime/runtime'
     ]
   },
   
@@ -189,10 +191,33 @@ module.exports = {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
       'process.env.VERSION': JSON.stringify(require('./package.json').version),
       'process.env.BUILD_TIME': JSON.stringify(new Date().toISOString()),
-    })
+    }),
+    
+    // Bundle analyzer plugin (only when analyzing)
+    ...(isAnalyze ? [new BundleAnalyzerPlugin({
+      analyzerMode: 'static',
+      openAnalyzer: false,
+      reportFilename: 'bundle-report.html'
+    })] : [])
   ],
   
   optimization: {
+    minimize: !isDevelopment,
+    minimizer: [
+      new TerserPlugin({
+        terserOptions: {
+          compress: {
+            drop_console: !isDevelopment,
+          },
+          mangle: true,
+          format: {
+            comments: false,
+          },
+        },
+        extractComments: false,
+      }),
+    ],
+    
     splitChunks: {
       chunks: 'all',
       cacheGroups: {
