@@ -3,6 +3,9 @@
  * Enhanced touch interactions for mobile devices
  */
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 // Touch target size enhancement
 .touch-target-enlarged {
   min-width: 44px !important;
