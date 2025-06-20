@@ -106,56 +106,44 @@ class ChatUI {
   setupEventListeners() {
     // Message form submission
     if (this.elements.messageForm) {
-      this.elements.messageForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        this.handleMessageSubmit();
-      });
+      this.elements.messageForm.addEventListener('submit', this.handleMessageSubmit.bind(this));
     }
     
-    // Message input events
+    // Message input typing events
     if (this.elements.messageInput) {
-      // Typing event
-      this.elements.messageInput.addEventListener('input', (e) => {
-        this.updateCharCounter();
-        eventBus.emit('chat:typing');
-      });
-      
-      // Key events (e.g., for Enter to send)
-      this.elements.messageInput.addEventListener('keydown', (e) => {
-        // Enter to send (without shift for new line)
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          this.handleMessageSubmit();
-        }
-        
-        // Escape to cancel reply/edit
-        if (e.key === 'Escape') {
-          if (this.chat.state.replyingTo) {
-            this.chat.cancelReply();
-          }
-          if (this.chat.state.editingMessage) {
-            this.chat.cancelEdit();
-          }
-        }
-      });
+      this.elements.messageInput.addEventListener('input', this.handleMessageInput.bind(this));
+      this.elements.messageInput.addEventListener('keydown', this.handleMessageKeydown.bind(this));
     }
     
     // Emoji picker toggle
     if (this.elements.emojiButton) {
-      this.elements.emojiButton.addEventListener('click', () => {
-        this.toggleEmojiPicker();
-      });
+      this.elements.emojiButton.addEventListener('click', this.toggleEmojiPicker.bind(this));
     }
     
-    // File upload
+    // File input
     if (this.elements.fileButton && this.elements.fileInput) {
-      this.elements.fileButton.addEventListener('click', () => {
-        this.elements.fileInput.click();
-      });
+      this.elements.fileButton.addEventListener('click', () => this.elements.fileInput.click());
+      this.elements.fileInput.addEventListener('change', this.handleFileSelection.bind(this));
+    }
+    
+    // Message action handlers
+    if (this.elements.messagesList) {
+      this.elements.messagesList.addEventListener('click', this.handleMessageActions.bind(this));
       
-      this.elements.fileInput.addEventListener('change', () => {
-        this.handleFileUpload();
-      });
+      // Add delegate for voice message playback
+      this.elements.messagesList.addEventListener('click', this.handleVoiceMessagePlayback.bind(this));
+    }
+    
+    // Cancel reply button
+    const cancelReplyBtn = document.getElementById('cancelReplyBtn');
+    if (cancelReplyBtn) {
+      cancelReplyBtn.addEventListener('click', this.cancelReply.bind(this));
+    }
+    
+    // Cancel edit button
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    if (cancelEditBtn) {
+      cancelEditBtn.addEventListener('click', this.cancelEdit.bind(this));
     }
   }
 
@@ -1001,12 +989,60 @@ class ChatUI {
    */
   destroy() {
     // Disconnect intersection observer
-    if (this.scrollObserver) {
+    if this.scrollObserver) {
       this.scrollObserver.disconnect();
     }
     
     // Clear typing timeout
     clearTimeout(this._typingTimeout);
+  }
+  
+  /**
+   * Handle voice message playback
+   * @param {Event} event - Click event
+   */
+  handleVoiceMessagePlayback(event) {
+    // Check if the clicked element is a voice message play button
+    const playButton = event.target.closest('.voice-play-btn');
+    if (!playButton) return;
+    
+    // Get the voice message URL
+    const messageElement = playButton.closest('.message-item');
+    if (!messageElement) return;
+    
+    const messageId = messageElement.dataset.messageId;
+    if (!messageId) return;
+    
+    // Find the message in the store
+    const message = this.chat.messageStore.getMessage(messageId);
+    if (!message || message.type !== 'voice' || !message.attachment || !message.attachment.url) return;
+    
+    // Play the voice message
+    if (typeof this.chat.voiceMessages.playVoiceMessage === 'function') {
+      this.chat.voiceMessages.playVoiceMessage(message.attachment.url, playButton);
+    } else {
+      // Fallback if voiceMessages module is not available
+      let audio = playButton.querySelector('audio');
+      if (!audio) {
+        audio = new Audio(message.attachment.url);
+        playButton.appendChild(audio);
+      }
+      
+      if (audio.paused) {
+        // Stop any other playing audio
+        document.querySelectorAll('audio').forEach(a => {
+          if (a !== audio && !a.paused) a.pause();
+        });
+        
+        audio.play();
+        playButton.classList.add('playing');
+        playButton.querySelector('i').className = 'fa fa-pause';
+      } else {
+        audio.pause();
+        playButton.classList.remove('playing');
+        playButton.querySelector('i').className = 'fa fa-play';
+      }
+    }
   }
 }
 
