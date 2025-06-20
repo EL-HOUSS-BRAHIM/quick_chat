@@ -4,6 +4,8 @@
  * Classes and utilities for screen reader accessibility
  */
 
+@use '../abstracts/variables' as *;
+
 // Hide content visually but keep it accessible to screen readers
 .sr-only {
   position: absolute;
