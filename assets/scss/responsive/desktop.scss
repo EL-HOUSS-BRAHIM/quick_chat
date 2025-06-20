@@ -4,6 +4,9 @@
  * Styles for desktop devices (min-width: 1024px)
  */
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 @media (min-width: 1024px) {
   // Layout adjustments
   .container {
