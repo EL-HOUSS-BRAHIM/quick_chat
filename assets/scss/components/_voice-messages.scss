@@ -2,6 +2,9 @@
  * Voice Messages Styles
  */
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 /* Voice recording UI */
 .voice-recording-ui {
   position: fixed;
