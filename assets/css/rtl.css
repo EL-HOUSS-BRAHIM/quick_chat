@@ -1,0 +1,437 @@
+/**
+ * RTL (Right-to-Left) Language Support Styles
+ * Provides proper styling for Arabic, Hebrew, Persian, and other RTL languages
+ */
+
+/* Global RTL adjustments */
+.rtl {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Chat specific RTL adjustments */
+.rtl .chat-container {
+  direction: rtl;
+}
+
+.rtl .message {
+  text-align: right;
+  direction: rtl;
+}
+
+.rtl .message.own {
+  margin-left: 0;
+  margin-right: auto;
+  background: var(--primary-color, #007bff);
+  color: white;
+}
+
+.rtl .message.other {
+  margin-right: 0;
+  margin-left: auto;
+  background: var(--secondary-color, #f8f9fa);
+  color: var(--text-color, #333);
+}
+
+.rtl .message-bubble {
+  border-radius: 18px 18px 4px 18px;
+}
+
+.rtl .message.own .message-bubble {
+  border-radius: 18px 18px 18px 4px;
+}
+
+.rtl .message-input {
+  text-align: right;
+  direction: rtl;
+}
+
+.rtl .chat-input-container {
+  flex-direction: row-reverse;
+}
+
+.rtl .chat-input-container .input-group {
+  flex-direction: row-reverse;
+}
+
+.rtl .send-button {
+  margin-right: 0;
+  margin-left: 10px;
+}
+
+/* Sidebar and navigation */
+.rtl .sidebar {
+  right: auto;
+  left: 0;
+  border-right: none;
+  border-left: 1px solid var(--border-color, #dee2e6);
+}
+
+.rtl .main-content {
+  margin-right: 0;
+  margin-left: 300px;
+}
+
+.rtl .sidebar-toggle {
+  left: auto;
+  right: 15px;
+}
+
+/* User list and contacts */
+.rtl .user-list-item {
+  padding-left: 0;
+  padding-right: 15px;
+  text-align: right;
+}
+
+.rtl .user-avatar {
+  margin-right: 0;
+  margin-left: 10px;
+  float: right;
+}
+
+.rtl .user-status {
+  right: auto;
+  left: -2px;
+}
+
+/* Modals and dropdowns */
+.rtl .modal {
+  direction: rtl;
+}
+
+.rtl .modal-header {
+  text-align: right;
+}
+
+.rtl .modal-body {
+  text-align: right;
+}
+
+.rtl .dropdown-menu {
+  right: 0;
+  left: auto;
+  text-align: right;
+}
+
+.rtl .dropdown-item {
+  text-align: right;
+}
+
+/* Forms */
+.rtl .form-group {
+  text-align: right;
+}
+
+.rtl .form-label {
+  text-align: right;
+}
+
+.rtl .form-control {
+  text-align: right;
+  direction: rtl;
+}
+
+.rtl .form-check {
+  text-align: right;
+}
+
+.rtl .form-check-input {
+  margin-right: 0;
+  margin-left: 0.25rem;
+  float: right;
+}
+
+.rtl .form-check-label {
+  padding-right: 0;
+  padding-left: 1.25rem;
+}
+
+/* Buttons and icons */
+.rtl .btn-group {
+  flex-direction: row-reverse;
+}
+
+.rtl .btn .icon {
+  margin-right: 0;
+  margin-left: 5px;
+}
+
+.rtl .icon-left {
+  margin-right: 0;
+  margin-left: 8px;
+}
+
+.rtl .icon-right {
+  margin-left: 0;
+  margin-right: 8px;
+}
+
+/* Notifications and alerts */
+.rtl .notification {
+  right: auto;
+  left: 20px;
+  text-align: right;
+}
+
+.rtl .alert {
+  text-align: right;
+}
+
+.rtl .alert-dismissible .btn-close {
+  left: 0;
+  right: auto;
+}
+
+/* File upload and attachments */
+.rtl .file-upload-area {
+  text-align: right;
+}
+
+.rtl .file-list {
+  text-align: right;
+}
+
+.rtl .file-item {
+  text-align: right;
+}
+
+.rtl .file-icon {
+  margin-right: 0;
+  margin-left: 8px;
+  float: right;
+}
+
+.rtl .file-info {
+  text-align: right;
+}
+
+.rtl .file-actions {
+  left: 0;
+  right: auto;
+}
+
+/* Emoji picker */
+.rtl .emoji-picker {
+  right: auto;
+  left: 0;
+}
+
+.rtl .emoji-categories {
+  flex-direction: row-reverse;
+}
+
+.rtl .emoji-search {
+  text-align: right;
+  direction: rtl;
+}
+
+/* Group chat specific */
+.rtl .group-info-sidebar {
+  right: auto;
+  left: 0;
+  border-right: none;
+  border-left: 1px solid var(--border-color, #dee2e6);
+}
+
+.rtl .group-member-list {
+  text-align: right;
+}
+
+.rtl .group-member-item {
+  text-align: right;
+}
+
+/* Voice/video call UI */
+.rtl .call-controls {
+  flex-direction: row-reverse;
+}
+
+.rtl .participant-video {
+  text-align: right;
+}
+
+.rtl .participant-name {
+  right: auto;
+  left: 10px;
+}
+
+/* Admin panel */
+.rtl .admin-sidebar {
+  right: auto;
+  left: 0;
+  border-right: none;
+  border-left: 1px solid var(--border-color, #dee2e6);
+}
+
+.rtl .admin-content {
+  margin-right: 0;
+  margin-left: 250px;
+}
+
+.rtl .stat-card {
+  text-align: right;
+}
+
+.rtl .data-table {
+  direction: rtl;
+}
+
+.rtl .data-table th,
+.rtl .data-table td {
+  text-align: right;
+}
+
+/* Search and filters */
+.rtl .search-container {
+  flex-direction: row-reverse;
+}
+
+.rtl .search-input {
+  text-align: right;
+  direction: rtl;
+}
+
+.rtl .search-results {
+  text-align: right;
+}
+
+.rtl .filter-options {
+  text-align: right;
+}
+
+/* Accessibility improvements for RTL */
+.rtl [role="button"],
+.rtl [role="link"] {
+  direction: rtl;
+}
+
+.rtl .sr-only {
+  text-align: right;
+}
+
+/* Mobile responsive adjustments for RTL */
+@media (max-width: 768px) {
+  .rtl .sidebar {
+    right: -300px;
+    left: auto;
+  }
+  
+  .rtl .sidebar.active {
+    right: 0;
+  }
+  
+  .rtl .main-content {
+    margin-left: 0;
+  }
+  
+  .rtl .mobile-menu-toggle {
+    left: auto;
+    right: 15px;
+  }
+  
+  .rtl .notification {
+    left: 10px;
+    right: auto;
+  }
+}
+
+/* Animation adjustments for RTL */
+.rtl .slide-in-right {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.rtl .slide-in-left {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.rtl .fade-in-right {
+  animation: fadeInLeft 0.3s ease-out;
+}
+
+.rtl .fade-in-left {
+  animation: fadeInRight 0.3s ease-out;
+}
+
+/* Custom animations for RTL */
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Typography adjustments for RTL languages */
+.rtl {
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+}
+
+/* Arabic font support */
+.rtl.lang-ar {
+  font-family: 'Arabic UI Text', 'SF Arabic', 'Segoe UI Arabic', 'Tahoma', sans-serif;
+}
+
+/* Hebrew font support */
+.rtl.lang-he {
+  font-family: 'Hebrew UI Text', 'SF Hebrew', 'Segoe UI Hebrew', 'Tahoma', sans-serif;
+}
+
+/* Persian/Farsi font support */
+.rtl.lang-fa {
+  font-family: 'Persian UI Text', 'SF Persian', 'Segoe UI Persian', 'Tahoma', sans-serif;
+}
+
+/* Ensure proper text rendering for RTL languages */
+.rtl * {
+  text-rendering: optimizeLegibility;
+  -webkit-font-feature-settings: "kern" 1;
+  font-feature-settings: "kern" 1;
+}
+
+/* Fix for mixed content (RTL text with LTR elements like URLs, numbers) */
+.rtl .mixed-content {
+  unicode-bidi: plaintext;
+}
+
+.rtl .ltr-override {
+  unicode-bidi: bidi-override;
+  direction: ltr;
+  display: inline-block;
+}
