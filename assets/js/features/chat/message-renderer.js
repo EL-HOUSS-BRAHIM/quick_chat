@@ -8,7 +8,7 @@ import utils from '../../core/utils.js';
 class MessageRenderer {
   constructor() {
     // Supported message types
-    this.supportedTypes = ['text', 'image', 'video', 'audio', 'file'];
+    this.supportedTypes = ['text', 'image', 'video', 'audio', 'file', 'voice'];
     
     // Custom renderers for special content
     this.contentRenderers = {
@@ -43,6 +43,8 @@ class MessageRenderer {
         return this.renderAudioMessage(message);
       case 'file':
         return this.renderFileMessage(message);
+      case 'voice':
+        return this.renderVoiceMessage(message);
       default:
         return this.renderUnsupported(message);
     }
@@ -203,6 +205,70 @@ class MessageRenderer {
     content = content.replace(/`(.*?)`/g, '<code>$1</code>');
     
     return content;
+  }
+  
+  /**
+   * Render markdown code blocks
+   * @param {string} content - Message content
+   * @returns {string} Rendered content
+   */
+  renderCodeBlocks(content) {
+    // Code blocks
+    return content.replace(/```(.*?)\n([\s\S]*?)```/g, (match, language, code) => {
+      return `<pre class="code-block ${language}"><code>${utils.escapeHtml(code.trim())}</code></pre>`;
+    });
+  }
+  
+  /**
+   * Render a voice message
+   * @param {Object} message - Message to render
+   * @returns {string} HTML content
+   */
+  renderVoiceMessage(message) {
+    if (!message.attachment || !message.attachment.url) {
+      return this.renderUnsupported(message);
+    }
+    
+    // Format the duration
+    const formatDuration = (seconds) => {
+      if (!seconds) return '00:00';
+      const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+      const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+      return `${mins}:${secs}`;
+    };
+    
+    // Format the file size
+    const fileSize = message.attachment.size 
+      ? utils.formatFileSize(message.attachment.size)
+      : '';
+    
+    // Transcription if available
+    const transcription = message.attachment.transcription
+      ? `<div class="voice-transcription">${utils.escapeHtml(message.attachment.transcription)}</div>`
+      : '';
+    
+    return `
+      <div class="message-voice">
+        <div class="voice-player">
+          <button class="voice-play-btn" aria-label="Play voice message">
+            <i class="fa fa-play"></i>
+          </button>
+          <div class="voice-waveform">
+            <div class="voice-waveform-placeholder"></div>
+          </div>
+          <div class="voice-duration">${formatDuration(message.attachment.duration)}</div>
+        </div>
+        ${transcription}
+        <div class="voice-info">
+          <span class="voice-file-size">${fileSize}</span>
+          <a href="${utils.escapeHtml(message.attachment.url)}" 
+             download="voice_message.webm" 
+             class="voice-download-link">
+            <i class="fa fa-download"></i>
+          </a>
+        </div>
+      </div>
+    `;
   }
 }
 
