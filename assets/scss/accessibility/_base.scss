@@ -3,6 +3,8 @@
  * Foundation styles for accessibility improvements
  */
 
+@use '../abstracts/variables' as *;
+
 // Screen reader only content
 .sr-only {
   position: absolute !important;
