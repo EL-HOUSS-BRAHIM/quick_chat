@@ -989,7 +989,7 @@ class ChatUI {
    */
   destroy() {
     // Disconnect intersection observer
-    if this.scrollObserver) {
+    if (this.scrollObserver) {
       this.scrollObserver.disconnect();
     }
     
