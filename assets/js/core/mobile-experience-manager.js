@@ -19,6 +19,21 @@ class MobileExperienceManager {
     this.lastTap = 0;
     this.networkStatus = 'online';
     
+    // Image optimization features (NEW - from TODO)
+    this.imageOptimization = {
+      maxWidth: 800,
+      maxHeight: 600,
+      quality: 0.8,
+      lazyLoading: true
+    };
+    this.imageObserver = null;
+    
+    // Offline capabilities (NEW - from TODO)
+    this.offlineDB = null;
+    this.syncQueue = [];
+    this.dataMode = 'normal'; // 'normal', 'lite', 'offline'
+    this.connectionSpeed = 'unknown';
+    
     // Bind methods
     this.handleTouchStart = this.handleTouchStart.bind(this);
     this.handleTouchMove = this.handleTouchMove.bind(this);
@@ -49,6 +64,7 @@ class MobileExperienceManager {
       this.setupMobileOptimizations();
       this.setupNetworkMonitoring();
       this.setupOfflineCapabilities();
+      this.setupImageOptimization();
       
       // Add mobile CSS class
       document.body.classList.add('mobile-device');
@@ -525,150 +541,484 @@ class MobileExperienceManager {
   }
 
   /**
-   * Setup offline capabilities
+   * Setup image optimization for mobile networks
+   * Addresses TODO: Optimize image loading for mobile networks
+   */
+  setupImageOptimization() {
+    // Setup Intersection Observer for lazy loading
+    if ('IntersectionObserver' in window && this.imageOptimization.lazyLoading) {
+      this.imageObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            this.loadOptimizedImage(entry.target);
+            this.imageObserver.unobserve(entry.target);
+          }
+        });
+      }, {
+        rootMargin: '50px'
+      });
+      
+      // Process existing images
+      this.processExistingImages();
+    }
+  }
+
+  /**
+   * Process all existing images on the page
+   */
+  processExistingImages() {
+    const images = document.querySelectorAll('img[data-src], img:not([data-optimized])');
+    images.forEach(img => this.optimizeImageForMobile(img));
+  }
+
+  /**
+   * Optimize individual image for mobile viewing
+   */
+  optimizeImageForMobile(img) {
+    if (img.dataset.optimized) return;
+    
+    // Mark as processed
+    img.dataset.optimized = 'true';
+    
+    // Determine optimal image size based on network and device
+    const optimalSrc = this.getOptimalImageSrc(img);
+    
+    if (this.imageObserver && optimalSrc !== img.src) {
+      img.dataset.originalSrc = img.src || img.dataset.src;
+      img.dataset.optimizedSrc = optimalSrc;
+      
+      // Use lazy loading
+      this.imageObserver.observe(img);
+    }
+  }
+
+  /**
+   * Get optimal image source based on network conditions
+   */
+  getOptimalImageSrc(img) {
+    const originalSrc = img.src || img.dataset.src;
+    if (!originalSrc) return '';
+    
+    let maxWidth = this.imageOptimization.maxWidth;
+    let quality = this.imageOptimization.quality;
+    
+    // Adjust based on data mode
+    if (this.dataMode === 'lite') {
+      maxWidth = Math.min(maxWidth / 2, 400);
+      quality = 0.6;
+    } else if (this.dataMode === 'offline') {
+      // Return cached version if available
+      return this.getCachedImageSrc(originalSrc) || originalSrc;
+    }
+    
+    // For mobile, limit based on screen width
+    if (this.isMobile) {
+      const screenWidth = window.innerWidth * (window.devicePixelRatio || 1);
+      maxWidth = Math.min(screenWidth, maxWidth);
+    }
+    
+    return this.generateOptimizedImageUrl(originalSrc, {
+      width: maxWidth,
+      height: this.imageOptimization.maxHeight,
+      quality: quality
+    });
+  }
+
+  /**
+   * Generate optimized image URL with parameters
+   */
+  generateOptimizedImageUrl(src, options) {
+    // This would integrate with an image optimization service
+    const params = new URLSearchParams();
+    params.append('w', options.width);
+    params.append('h', options.height);
+    params.append('q', Math.round(options.quality * 100));
+    
+    const separator = src.includes('?') ? '&' : '?';
+    return `${src}${separator}${params.toString()}`;
+  }
+
+  /**
+   * Load optimized image with fallback
+   */
+  loadOptimizedImage(img) {
+    const optimizedSrc = img.dataset.optimizedSrc;
+    if (!optimizedSrc) return;
+    
+    const newImg = new Image();
+    newImg.onload = () => {
+      img.src = optimizedSrc;
+      img.classList.add('loaded');
+    };
+    newImg.onerror = () => {
+      // Fallback to original
+      const originalSrc = img.dataset.originalSrc;
+      if (originalSrc) {
+        img.src = originalSrc;
+      }
+    };
+    newImg.src = optimizedSrc;
+  }
+
+  /**
+   * Setup offline capabilities for mobile users
+   * Addresses TODO: Improve offline capabilities for mobile users
    */
   setupOfflineCapabilities() {
-    // Cache important resources
-    this.cacheEssentialResources();
+    // Initialize IndexedDB for offline storage
+    this.initOfflineStorage();
     
-    // Setup offline message queue
-    this.setupOfflineMessageQueue();
+    // Setup sync queue
+    this.initSyncQueue();
     
-    // Setup offline UI
+    // Monitor network status
+    this.monitorNetworkStatus();
+    
+    // Setup offline UI indicators
     this.setupOfflineUI();
   }
 
   /**
-   * Handle resize events
+   * Initialize offline storage using IndexedDB
    */
-  handleResize() {
-    // Re-detect device type on resize
-    this.detectDevice();
+  initOfflineStorage() {
+    if (!('indexedDB' in window)) {
+      console.warn('IndexedDB not supported for offline storage');
+      return;
+    }
     
-    // Adjust UI for new size
-    this.adjustUIForSize();
+    const request = indexedDB.open('QuickChatMobileOffline', 1);
     
-    // Dispatch resize event
-    document.dispatchEvent(new CustomEvent('quickchat:mobile:resize', {
-      detail: { 
-        width: window.innerWidth, 
-        height: window.innerHeight 
+    request.onerror = () => {
+      console.error('Failed to open offline database');
+    };
+    
+    request.onsuccess = (event) => {
+      this.offlineDB = event.target.result;
+      console.log('Mobile offline database ready');
+    };
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      
+      // Create stores for offline data
+      if (!db.objectStoreNames.contains('messages')) {
+        const messageStore = db.createObjectStore('messages', { keyPath: 'id' });
+        messageStore.createIndex('timestamp', 'timestamp');
+        messageStore.createIndex('chatId', 'chatId');
       }
-    }));
+      
+      if (!db.objectStoreNames.contains('drafts')) {
+        db.createObjectStore('drafts', { keyPath: 'chatId' });
+      }
+      
+      if (!db.objectStoreNames.contains('images')) {
+        const imageStore = db.createObjectStore('images', { keyPath: 'url' });
+        imageStore.createIndex('timestamp', 'timestamp');
+      }
+      
+      if (!db.objectStoreNames.contains('syncQueue')) {
+        const syncStore = db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
+        syncStore.createIndex('timestamp', 'timestamp');
+      }
+    };
   }
 
   /**
-   * Handle orientation change
+   * Initialize sync queue for offline actions
    */
-  handleOrientationChange() {
-    // Add orientation class
-    const orientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
-    document.body.classList.remove('portrait', 'landscape');
-    document.body.classList.add(orientation);
-    
-    // Adjust UI for orientation
-    setTimeout(() => {
-      this.adjustUIForOrientation(orientation);
-    }, 100); // Small delay to ensure new dimensions are available
+  initSyncQueue() {
+    // Process queue when coming back online
+    window.addEventListener('online', () => {
+      if (this.syncQueue.length > 0) {
+        this.processSyncQueue();
+      }
+    });
   }
 
   /**
-   * Adjust UI for orientation
+   * Add action to sync queue
    */
-  adjustUIForOrientation(orientation) {
-    if (orientation === 'landscape' && this.isMobile) {
-      // Hide bottom navigation in landscape mode to save space
-      const bottomNav = document.querySelector('.bottom-navigation');
-      if (bottomNav) {
-        bottomNav.style.display = 'none';
-      }
+  addToSyncQueue(action) {
+    this.syncQueue.push({
+      id: Date.now(),
+      action: action,
+      timestamp: new Date(),
+      retries: 0
+    });
+    
+    // Also store in IndexedDB if available
+    if (this.offlineDB) {
+      const transaction = this.offlineDB.transaction(['syncQueue'], 'readwrite');
+      const store = transaction.objectStore('syncQueue');
+      store.add({
+        action: action,
+        timestamp: Date.now(),
+        retries: 0
+      });
+    }
+  }
+
+  /**
+   * Process sync queue when back online
+   */
+  async processSyncQueue() {
+    console.log('Processing sync queue...');
+    
+    for (let i = this.syncQueue.length - 1; i >= 0; i--) {
+      const item = this.syncQueue[i];
       
-      // Adjust chat input position
-      const chatInput = document.querySelector('.message-input-container');
-      if (chatInput) {
-        chatInput.classList.add('landscape-mode');
-      }
-    } else {
-      // Show bottom navigation in portrait mode
-      const bottomNav = document.querySelector('.bottom-navigation');
-      if (bottomNav) {
-        bottomNav.style.display = 'flex';
-      }
-      
-      // Remove landscape adjustments
-      const chatInput = document.querySelector('.message-input-container');
-      if (chatInput) {
-        chatInput.classList.remove('landscape-mode');
+      try {
+        await this.processQueuedAction(item.action);
+        this.syncQueue.splice(i, 1); // Remove on success
+      } catch (error) {
+        console.warn('Failed to sync action:', error);
+        item.retries++;
+        
+        // Remove after 3 failed attempts
+        if (item.retries >= 3) {
+          this.syncQueue.splice(i, 1);
+        }
       }
     }
   }
 
   /**
-   * Public methods
+   * Process individual queued action
    */
-  isMobileDevice() {
-    return this.isMobile;
+  async processQueuedAction(action) {
+    switch (action.type) {
+      case 'send_message':
+        // Send queued message
+        return await this.sendQueuedMessage(action.data);
+      case 'upload_image':
+        // Upload queued image
+        return await this.uploadQueuedImage(action.data);
+      case 'update_status':
+        // Update queued status
+        return await this.updateQueuedStatus(action.data);
+      default:
+        console.warn('Unknown action type:', action.type);
+    }
   }
 
-  isTabletDevice() {
-    return this.isTablet;
+  /**
+   * Monitor network status and adjust data mode
+   */
+  monitorNetworkStatus() {
+    // Network Information API
+    if ('connection' in navigator) {
+      const connection = navigator.connection;
+      
+      this.updateDataMode(connection);
+      
+      connection.addEventListener('change', () => {
+        this.updateDataMode(connection);
+      });
+    }
+    
+    // Basic online/offline detection
+    window.addEventListener('online', () => {
+      this.networkStatus = 'online';
+      this.updateDataMode();
+      this.showNetworkStatus('back online');
+    });
+    
+    window.addEventListener('offline', () => {
+      this.networkStatus = 'offline';
+      this.dataMode = 'offline';
+      this.showNetworkStatus('offline');
+    });
   }
 
-  getNetworkStatus() {
-    return this.networkStatus;
+  /**
+   * Update data mode based on network conditions
+   */
+  updateDataMode(connection = null) {
+    if (this.networkStatus === 'offline') {
+      this.dataMode = 'offline';
+    } else if (connection) {
+      const effectiveType = connection.effectiveType;
+      const downlink = connection.downlink;
+      
+      if (effectiveType === 'slow-2g' || effectiveType === '2g') {
+        this.dataMode = 'lite';
+      } else if (effectiveType === '3g' && downlink < 1.5) {
+        this.dataMode = 'lite';
+      } else {
+        this.dataMode = 'normal';
+      }
+      
+      this.connectionSpeed = downlink;
+    }
+    
+    // Apply data mode optimizations
+    this.applyDataModeOptimizations();
   }
 
-  // Placeholder methods for features to be implemented
-  replyToMessage(messageId) {
-    console.log('Reply to message:', messageId);
+  /**
+   * Apply optimizations based on data mode
+   */
+  applyDataModeOptimizations() {
+    const body = document.body;
+    
+    // Remove existing classes
+    body.classList.remove('data-normal', 'data-lite', 'data-offline');
+    
+    // Add current mode class
+    body.classList.add(`data-${this.dataMode}`);
+    
+    switch (this.dataMode) {
+      case 'lite':
+        this.imageOptimization.quality = 0.6;
+        this.enableDataSavingMode();
+        break;
+      case 'offline':
+        this.enableOfflineMode();
+        break;
+      default:
+        this.imageOptimization.quality = 0.8;
+        this.disableDataSavingMode();
+    }
   }
 
-  showReactionPicker(messageId) {
-    console.log('Show reaction picker for message:', messageId);
+  /**
+   * Enable data saving mode
+   */
+  enableDataSavingMode() {
+    // Reduce image quality and size
+    this.processExistingImages();
+    
+    // Disable auto-loading of media
+    const mediaElements = document.querySelectorAll('video, audio');
+    mediaElements.forEach(el => {
+      el.preload = 'none';
+    });
   }
 
-  shareMessage(messageId) {
-    console.log('Share message:', messageId);
+  /**
+   * Disable data saving mode
+   */
+  disableDataSavingMode() {
+    // Restore normal image quality
+    this.processExistingImages();
   }
 
-  setupCollapsibleSections() {
-    // Implementation for collapsible UI sections
+  /**
+   * Enable offline mode features
+   */
+  enableOfflineMode() {
+    // Show offline indicator
+    this.showOfflineIndicator();
+    
+    // Enable draft auto-save
+    this.enableDraftAutoSave();
   }
 
-  optimizeScrolling() {
-    // Implementation for smooth scrolling optimizations
+  /**
+   * Show network status notification
+   */
+  showNetworkStatus(status) {
+    // Create or update status indicator
+    let indicator = document.querySelector('.network-status-indicator');
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.className = 'network-status-indicator';
+      document.body.appendChild(indicator);
+    }
+    
+    indicator.textContent = `You are ${status}`;
+    indicator.classList.add('visible');
+    
+    // Auto-hide after 3 seconds for online status
+    if (status === 'back online') {
+      setTimeout(() => {
+        indicator.classList.remove('visible');
+      }, 3000);
+    }
   }
 
-  setupMobileBreadcrumbs() {
-    // Implementation for mobile breadcrumb navigation
+  /**
+   * Show offline indicator
+   */
+  showOfflineIndicator() {
+    let indicator = document.querySelector('.offline-mode-indicator');
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.className = 'offline-mode-indicator';
+      indicator.innerHTML = '<span>📱 Offline Mode</span>';
+      document.body.appendChild(indicator);
+    }
+    indicator.classList.add('visible');
   }
 
-  setupSidebarSwipe() {
-    // Implementation for sidebar swipe gestures
+  /**
+   * Enable draft auto-save for offline use
+   */
+  enableDraftAutoSave() {
+    const messageInputs = document.querySelectorAll('input[type="text"], textarea');
+    
+    messageInputs.forEach(input => {
+      const chatId = input.dataset.chatId || 'default';
+      
+      // Load saved draft
+      this.loadDraft(chatId).then(draft => {
+        if (draft && !input.value) {
+          input.value = draft.content;
+        }
+      });
+      
+      // Auto-save draft
+      input.addEventListener('input', () => {
+        this.saveDraft(chatId, input.value);
+      });
+    });
   }
 
-  setupTabSwipe() {
-    // Implementation for tab swipe navigation
+  /**
+   * Save draft to offline storage
+   */
+  async saveDraft(chatId, content) {
+    if (!this.offlineDB || !content.trim()) return;
+    
+    const transaction = this.offlineDB.transaction(['drafts'], 'readwrite');
+    const store = transaction.objectStore('drafts');
+    
+    store.put({
+      chatId: chatId,
+      content: content,
+      timestamp: Date.now()
+    });
   }
 
-  adjustUIForSize() {
-    // Implementation for dynamic UI adjustments
+  /**
+   * Load draft from offline storage
+   */
+  async loadDraft(chatId) {
+    if (!this.offlineDB) return null;
+    
+    return new Promise((resolve) => {
+      const transaction = this.offlineDB.transaction(['drafts'], 'readonly');
+      const store = transaction.objectStore('drafts');
+      const request = store.get(chatId);
+      
+      request.onsuccess = () => {
+        resolve(request.result);
+      };
+      
+      request.onerror = () => {
+        resolve(null);
+      };
+    });
   }
 
-  cacheEssentialResources() {
-    // Implementation for offline resource caching
-  }
-
-  setupOfflineMessageQueue() {
-    // Implementation for offline message queueing
-  }
-
-  setupOfflineUI() {
-    // Implementation for offline UI indicators
-  }
-
-  updateUIForConnection(connection) {
-    // Implementation for connection-aware UI updates
+  /**
+   * Get cached image source
+   */
+  getCachedImageSrc(url) {
+    // This would check if image is cached in IndexedDB
+    // Return cached version if available
+    return null; // Placeholder
   }
 
   /**
