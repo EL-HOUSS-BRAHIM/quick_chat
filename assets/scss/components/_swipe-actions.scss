@@ -3,6 +3,9 @@
  * Touch gesture-based actions for mobile interaction
  */
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 // Swipe actions container
 .swipe-actions {
   position: absolute;
