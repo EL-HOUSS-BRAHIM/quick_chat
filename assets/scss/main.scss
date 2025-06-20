@@ -6,75 +6,31 @@
  * Version: 3.0.0 - Enhanced with mobile and accessibility improvements
  */
 
-// Abstracts
-@import 'abstracts/variables';
-@import 'abstracts/functions';
-@import 'abstracts/mixins';
-@import 'abstracts/placeholders';
-
-// Base styles
-@import 'base/reset';
-@import 'base/typography';
-@import 'base/animations';
-@import 'base/utilities';
+// Abstracts (must be first)
+@use 'abstracts/variables' as *;
+@use 'abstracts/functions' as *;
+@use 'abstracts/mixins' as *;
+@use 'abstracts/placeholders' as *;
 
 // Accessibility
-@import 'accessibility/base';
-@import 'accessibility/focus';
-@import 'accessibility/screen-readers';
-@import 'accessibility/high-contrast';
-@import 'accessibility/keyboard-navigation';
-
-// Layout
-@import 'layout/header';
-@import 'layout/footer';
-@import 'layout/grid';
-@import 'layout/sidebar';
-@import 'layout/forms';
+@use 'accessibility/base';
+@use 'accessibility/focus';
+@use 'accessibility/keyboard-navigation';
+@use 'accessibility/high-contrast' as a11y-high-contrast;
+@use 'accessibility/screen-readers';
+@use 'accessibility/reduced-motion';
 
 // Components
-@import 'components/buttons';
-@import 'components/cards';
-@import 'components/modals';
-@import 'components/emoji-picker';
-@import 'components/notifications';
-@import 'components/loaders';
-@import 'components/chat-bubbles';
-@import 'components/user-avatar';
-@import 'components/message-reactions';
-@import 'components/search-bar';
-@import 'components/file-preview';
-@import 'components/dropdown';
-@import 'components/tabs';
-@import 'components/toast';
-@import 'components/mobile-navigation';
-@import 'components/touch-controls';
-@import 'components/swipe-actions';
+@use 'components/emoji-picker';
+@use 'components/voice-messages';
+@use 'components/mobile-navigation';
+@use 'components/touch-controls';
+@use 'components/swipe-actions';
 
-// Pages
-@import 'pages/chat';
-@import 'pages/dashboard';
-@import 'pages/profile';
-@import 'pages/auth';
-@import 'pages/admin';
-@import 'pages/group-chat';
-@import 'pages/private-chat';
-@import 'pages/webrtc-call';
+// Responsive design
+@use 'responsive/mobile';
+@use 'responsive/tablet';
+@use 'responsive/desktop';
 
 // Theme
-@import 'themes/dark-theme';
-@import 'themes/light-theme';
-@import 'themes/high-contrast';
-
-// Accessibility
-@import 'accessibility/screen-readers';
-@import 'accessibility/reduced-motion';
-@import 'accessibility/focus';
-
-// Responsive styles (should be last to override as needed)
-@import 'responsive/mobile';
-@import 'responsive/tablet';
-@import 'responsive/desktop';
-
-// Vendor styles (if needed)
-// @import 'vendor/some-library';
+@use 'themes/high-contrast' as theme-high-contrast;
