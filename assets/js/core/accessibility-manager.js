@@ -12,6 +12,15 @@ class AccessibilityManager {
     this.screenReaderEnabled = false;
     this.initialized = false;
     
+    // Text-to-Speech features (NEW - from TODO)
+    this.speech = null;
+    this.textToSpeechEnabled = false;
+    
+    // Speech-to-Text features (NEW - from TODO)
+    this.recognition = null;
+    this.speechToTextEnabled = false;
+    this.isListening = false;
+    
     // Detect screen reader
     this.detectScreenReader();
     
@@ -43,6 +52,15 @@ class AccessibilityManager {
     
     // Setup high contrast mode detection
     this.setupHighContrastMode();
+    
+    // Initialize text-to-speech (NEW - from TODO)
+    this.initTextToSpeech();
+    
+    // Initialize speech-to-text (NEW - from TODO)
+    this.initSpeechToText();
+    
+    // Setup message reading events
+    this.setupMessageReading();
     
     this.initialized = true;
     
@@ -720,6 +738,212 @@ class AccessibilityManager {
 
   isScreenReaderActive() {
     return this.screenReaderEnabled;
+  }
+
+  /**
+   * Initialize text-to-speech functionality
+   * Addresses TODO: Add text-to-speech for messages
+   */
+  initTextToSpeech() {
+    if ('speechSynthesis' in window) {
+      this.speech = window.speechSynthesis;
+      this.textToSpeechEnabled = true;
+      
+      // Get available voices
+      this.updateVoices();
+      
+      // Update voices when they change
+      if (this.speech.onvoiceschanged !== undefined) {
+        this.speech.onvoiceschanged = () => this.updateVoices();
+      }
+      
+      console.log('Text-to-speech initialized');
+    } else {
+      console.warn('Text-to-speech not supported in this browser');
+    }
+  }
+
+  /**
+   * Initialize speech-to-text functionality
+   * Addresses TODO: Implement speech-to-text for message input
+   */
+  initSpeechToText() {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      this.recognition = new SpeechRecognition();
+      
+      this.recognition.continuous = false;
+      this.recognition.interimResults = true;
+      this.recognition.lang = 'en-US';
+      
+      this.recognition.onstart = () => {
+        this.isListening = true;
+        this.announce('Voice input started', 'assertive');
+        document.dispatchEvent(new CustomEvent('quickchat:speech-recognition-start'));
+      };
+      
+      this.recognition.onresult = (event) => {
+        const result = event.results[event.results.length - 1];
+        if (result.isFinal) {
+          const text = result[0].transcript;
+          document.dispatchEvent(new CustomEvent('quickchat:speech-recognized', {
+            detail: { text, confidence: result[0].confidence }
+          }));
+        }
+      };
+      
+      this.recognition.onend = () => {
+        this.isListening = false;
+        this.announce('Voice input ended', 'polite');
+        document.dispatchEvent(new CustomEvent('quickchat:speech-recognition-end'));
+      };
+      
+      this.recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        this.isListening = false;
+        this.announce('Voice input error', 'assertive');
+      };
+      
+      this.speechToTextEnabled = true;
+      console.log('Speech-to-text initialized');
+    } else {
+      console.warn('Speech-to-text not supported in this browser');
+    }
+  }
+
+  /**
+   * Update available voices for text-to-speech
+   */
+  updateVoices() {
+    if (this.speech) {
+      const voices = this.speech.getVoices();
+      this.availableVoices = voices;
+    }
+  }
+
+  /**
+   * Speak text aloud
+   * @param {string} text - Text to speak
+   * @param {Object} options - Speech options
+   */
+  speak(text, options = {}) {
+    if (!this.speech || !this.textToSpeechEnabled) return;
+    
+    // Cancel any ongoing speech
+    this.speech.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = options.rate || 1;
+    utterance.pitch = options.pitch || 1; 
+    utterance.volume = options.volume || 0.8;
+    
+    // Set voice if specified
+    if (options.voice && this.availableVoices) {
+      const selectedVoice = this.availableVoices.find(voice => voice.name === options.voice);
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+    }
+    
+    this.speech.speak(utterance);
+  }
+
+  /**
+   * Start speech recognition for message input
+   */
+  startListening() {
+    if (this.recognition && !this.isListening && this.speechToTextEnabled) {
+      this.recognition.start();
+    }
+  }
+
+  /**
+   * Stop speech recognition
+   */
+  stopListening() {
+    if (this.recognition && this.isListening) {
+      this.recognition.stop();
+    }
+  }
+
+  /**
+   * Setup message reading events
+   * Automatically read new messages aloud
+   */
+  setupMessageReading() {
+    // Listen for new chat messages
+    document.addEventListener('quickchat:message-received', (event) => {
+      if (this.textToSpeechEnabled && event.detail) {
+        const { username, message } = event.detail;
+        this.speak(`New message from ${username}: ${message}`);
+      }
+    });
+    
+    // Listen for speech recognition results and insert into input
+    document.addEventListener('quickchat:speech-recognized', (event) => {
+      if (event.detail && event.detail.text) {
+        const messageInput = document.querySelector('#messageInput, .message-input, [data-message-input]');
+        if (messageInput) {
+          messageInput.value = event.detail.text;
+          messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+          messageInput.focus();
+        }
+      }
+    });
+  }
+
+  /**
+   * Toggle text-to-speech on/off
+   */
+  toggleTextToSpeech() {
+    this.textToSpeechEnabled = !this.textToSpeechEnabled;
+    this.announce(
+      `Text to speech ${this.textToSpeechEnabled ? 'enabled' : 'disabled'}`, 
+      'assertive'
+    );
+    
+    // Save preference
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('quickchat_tts_enabled', this.textToSpeechEnabled);
+    }
+    
+    return this.textToSpeechEnabled;
+  }
+
+  /**
+   * Toggle speech-to-text on/off
+   */
+  toggleSpeechToText() {
+    this.speechToTextEnabled = !this.speechToTextEnabled;
+    this.announce(
+      `Speech to text ${this.speechToTextEnabled ? 'enabled' : 'disabled'}`,
+      'assertive'
+    );
+    
+    // Save preference
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('quickchat_stt_enabled', this.speechToTextEnabled);
+    }
+    
+    return this.speechToTextEnabled;
+  }
+
+  /**
+   * Load saved accessibility preferences
+   */
+  loadPreferences() {
+    if (typeof localStorage !== 'undefined') {
+      const ttsEnabled = localStorage.getItem('quickchat_tts_enabled');
+      const sttEnabled = localStorage.getItem('quickchat_stt_enabled');
+      
+      if (ttsEnabled !== null) {
+        this.textToSpeechEnabled = ttsEnabled === 'true';
+      }
+      
+      if (sttEnabled !== null) {
+        this.speechToTextEnabled = sttEnabled === 'true';
+      }
+    }
   }
 
   /**
