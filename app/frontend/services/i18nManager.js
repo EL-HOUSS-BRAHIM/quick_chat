@@ -510,6 +510,322 @@ export class I18nManager {
     this.loadedLanguages.clear();
     this.initialized = false;
   }
+
+  /**
+   * Auto-translation service integration
+   */
+  async enableAutoTranslation(config = {}) {
+    this.autoTranslation = {
+      enabled: true,
+      service: config.service || 'browser', // 'browser', 'google', 'deepl'
+      apiKey: config.apiKey,
+      cache: new Map(),
+      maxCacheSize: config.maxCacheSize || 1000,
+      supportedLanguages: config.supportedLanguages || [
+        'en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'ko', 'zh', 'ar', 'hi'
+      ],
+      ...config
+    };
+
+    logger.debug('Auto-translation enabled with service:', this.autoTranslation.service);
+  }
+
+  /**
+   * Translate text using configured service
+   */
+  async translateText(text, targetLanguage, sourceLanguage = 'auto') {
+    if (!this.autoTranslation?.enabled) {
+      return text;
+    }
+
+    const cacheKey = `${sourceLanguage}:${targetLanguage}:${text}`;
+    
+    // Check cache first
+    if (this.autoTranslation.cache.has(cacheKey)) {
+      return this.autoTranslation.cache.get(cacheKey);
+    }
+
+    try {
+      let translatedText = text;
+
+      switch (this.autoTranslation.service) {
+        case 'browser':
+          translatedText = await this.translateWithBrowser(text, targetLanguage, sourceLanguage);
+          break;
+        case 'google':
+          translatedText = await this.translateWithGoogle(text, targetLanguage, sourceLanguage);
+          break;
+        case 'deepl':
+          translatedText = await this.translateWithDeepL(text, targetLanguage, sourceLanguage);
+          break;
+        default:
+          logger.warn('Unknown translation service:', this.autoTranslation.service);
+          return text;
+      }
+
+      // Cache the result
+      this.cacheTranslation(cacheKey, translatedText);
+      
+      return translatedText;
+    } catch (error) {
+      logger.error('Translation failed:', error);
+      return text; // Return original text on error
+    }
+  }
+
+  /**
+   * Translate using browser's built-in translation API
+   */
+  async translateWithBrowser(text, targetLanguage, sourceLanguage) {
+    if (!('translation' in window) || !window.translation) {
+      throw new Error('Browser translation API not available');
+    }
+
+    try {
+      const translator = await window.translation.createTranslator({
+        sourceLanguage,
+        targetLanguage
+      });
+
+      const result = await translator.translate(text);
+      return result;
+    } catch (error) {
+      logger.error('Browser translation error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Translate using Google Translate API
+   */
+  async translateWithGoogle(text, targetLanguage, sourceLanguage) {
+    if (!this.autoTranslation.apiKey) {
+      throw new Error('Google Translate API key not configured');
+    }
+
+    const url = 'https://translation.googleapis.com/language/translate/v2';
+    const params = new URLSearchParams({
+      key: this.autoTranslation.apiKey,
+      q: text,
+      target: targetLanguage,
+      format: 'text'
+    });
+
+    if (sourceLanguage !== 'auto') {
+      params.append('source', sourceLanguage);
+    }
+
+    const response = await fetch(`${url}?${params}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Google Translate API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.data.translations[0].translatedText;
+  }
+
+  /**
+   * Translate using DeepL API
+   */
+  async translateWithDeepL(text, targetLanguage, sourceLanguage) {
+    if (!this.autoTranslation.apiKey) {
+      throw new Error('DeepL API key not configured');
+    }
+
+    const url = 'https://api-free.deepl.com/v2/translate';
+    const params = new URLSearchParams({
+      auth_key: this.autoTranslation.apiKey,
+      text: text,
+      target_lang: targetLanguage.toUpperCase()
+    });
+
+    if (sourceLanguage !== 'auto') {
+      params.append('source_lang', sourceLanguage.toUpperCase());
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params
+    });
+
+    if (!response.ok) {
+      throw new Error(`DeepL API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.translations[0].text;
+  }
+
+  /**
+   * Cache translation result
+   */
+  cacheTranslation(key, value) {
+    if (this.autoTranslation.cache.size >= this.autoTranslation.maxCacheSize) {
+      // Remove oldest entry
+      const firstKey = this.autoTranslation.cache.keys().next().value;
+      this.autoTranslation.cache.delete(firstKey);
+    }
+    
+    this.autoTranslation.cache.set(key, value);
+  }
+
+  /**
+   * Auto-translate message content
+   */
+  async autoTranslateMessage(message, targetLanguage = this.currentLanguage) {
+    if (!this.autoTranslation?.enabled || !message.content) {
+      return message;
+    }
+
+    try {
+      const translatedContent = await this.translateText(
+        message.content, 
+        targetLanguage,
+        message.language || 'auto'
+      );
+
+      return {
+        ...message,
+        content: translatedContent,
+        originalContent: message.content,
+        translatedFrom: message.language || 'auto',
+        translatedTo: targetLanguage,
+        isTranslated: true
+      };
+    } catch (error) {
+      logger.error('Auto-translation failed for message:', error);
+      return message;
+    }
+  }
+
+  /**
+   * Enhanced RTL support with dynamic text detection
+   */
+  detectTextDirection(text) {
+    // Simple RTL character detection
+    const rtlChars = /[\u0590-\u083F]|[\u08A0-\u08FF]|[\uFB1D-\uFDFF]|[\uFE70-\uFEFF]/;
+    const ltrChars = /[A-Za-z]/;
+
+    const rtlCount = (text.match(rtlChars) || []).length;
+    const ltrCount = (text.match(ltrChars) || []).length;
+
+    if (rtlCount > ltrCount) {
+      return 'rtl';
+    } else if (ltrCount > rtlCount) {
+      return 'ltr';
+    }
+
+    // Default to current language direction
+    return this.isRTL() ? 'rtl' : 'ltr';
+  }
+
+  /**
+   * Apply text direction to specific element
+   */
+  applyTextDirection(element, text) {
+    if (!element || !text) return;
+
+    const direction = this.detectTextDirection(text);
+    element.dir = direction;
+    element.classList.toggle('rtl-content', direction === 'rtl');
+    element.classList.toggle('ltr-content', direction === 'ltr');
+  }
+
+  /**
+   * Enhanced language detection
+   */
+  async detectLanguage(text) {
+    if (!text || text.length < 10) {
+      return this.currentLanguage;
+    }
+
+    try {
+      // Use browser language detection if available
+      if ('detectLanguage' in navigator && navigator.detectLanguage) {
+        const detected = await navigator.detectLanguage(text);
+        if (detected && detected.confidence > 0.7) {
+          return detected.language;
+        }
+      }
+
+      // Fallback to simple character-based detection
+      return this.detectLanguageByCharacters(text);
+    } catch (error) {
+      logger.error('Language detection failed:', error);
+      return this.currentLanguage;
+    }
+  }
+
+  /**
+   * Simple character-based language detection
+   */
+  detectLanguageByCharacters(text) {
+    const patterns = {
+      'ar': /[\u0600-\u06FF]/,
+      'he': /[\u0590-\u05FF]/,
+      'ru': /[\u0400-\u04FF]/,
+      'ja': /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/,
+      'ko': /[\uAC00-\uD7AF]/,
+      'zh': /[\u4E00-\u9FFF]/,
+      'th': /[\u0E00-\u0E7F]/,
+      'hi': /[\u0900-\u097F]/
+    };
+
+    for (const [lang, pattern] of Object.entries(patterns)) {
+      if (pattern.test(text)) {
+        return lang;
+      }
+    }
+
+    return 'en'; // Default to English
+  }
+
+  /**
+   * Real-time translation for chat messages
+   */
+  setupRealTimeTranslation() {
+    if (!this.autoTranslation?.enabled) return;
+
+    // Listen for new messages
+    this.eventBus.on('message:received', async (message) => {
+      if (message.language && message.language !== this.currentLanguage) {
+        const translatedMessage = await this.autoTranslateMessage(message);
+        this.eventBus.emit('message:translated', translatedMessage);
+      }
+    });
+
+    // Listen for language changes
+    this.eventBus.on('language:changed', (newLanguage) => {
+      // Re-translate visible messages if needed
+      this.eventBus.emit('messages:retranslate', newLanguage);
+    });
+  }
+
+  /**
+   * Get translation statistics
+   */
+  getTranslationStats() {
+    if (!this.autoTranslation) {
+      return { enabled: false };
+    }
+
+    return {
+      enabled: this.autoTranslation.enabled,
+      service: this.autoTranslation.service,
+      cacheSize: this.autoTranslation.cache.size,
+      maxCacheSize: this.autoTranslation.maxCacheSize,
+      supportedLanguages: this.autoTranslation.supportedLanguages.length
+    };
+  }
 }
 
 // Create singleton instance
