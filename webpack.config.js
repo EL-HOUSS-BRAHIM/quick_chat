@@ -135,7 +135,7 @@ module.exports = {
         },
         ui: {
           test: /[\\/]ui[\\/]/,
-          name: 'ui-components',
+          name: 'ui-components-bundle',
           chunks: 'all',
           priority: 3
         },
