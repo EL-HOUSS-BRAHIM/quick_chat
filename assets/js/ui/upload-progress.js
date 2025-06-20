@@ -3,7 +3,7 @@
  * Handles file upload progress indicators, queue management, and controls
  */
 
-import eventBus from '../../core/event-bus.js';
+import eventBus from '../core/event-bus.js';
 
 class UploadProgressManager {
     constructor() {
