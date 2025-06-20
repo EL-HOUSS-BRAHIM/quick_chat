@@ -1,29 +1,54 @@
 const path = require('path');
 const webpack = require('webpack');
+const TerserPlugin = require('terser-webpack-plugin');
+const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
+const isAnalyze = process.env.ANALYZE === 'true';
 
 module.exports = {
   mode: isDevelopment ? 'development' : 'production',
   
-  // Entry points for the new organized structure
+  // Entry points for the enhanced organized structure
   entry: {
     // Main application entry point
     'frontend': './app/frontend/index.js',
     
-    // Individual page bundles
+    // Individual page bundles with optimized loading
     'chat': './app/frontend/pages/chat.js',
     'dashboard': './app/frontend/pages/dashboard.js',
     'profile': './app/frontend/pages/profile.js',
-    'admin': './app/frontend/pages/admin.js'
+    'admin': './app/frontend/pages/admin.js',
+    
+    // Service worker entry
+    'sw': './app/frontend/sw.js',
+    
+    // Vendor chunk for common dependencies
+    'vendor': [
+      // Core utilities that are used across multiple components
+      './app/frontend/utils/logger.js',
+      './app/frontend/services/EventBus.js',
+      './app/frontend/services/apiClient.js'
+    ]
   },
   
   output: {
-    filename: isDevelopment ? '[name].js' : '[name].[contenthash].js',
-    chunkFilename: isDevelopment ? '[name].chunk.js' : '[name].[contenthash].chunk.js',
+    filename: isDevelopment ? '[name].js' : '[name].[contenthash:8].js',
+    chunkFilename: isDevelopment ? '[name].chunk.js' : '[name].[contenthash:8].chunk.js',
     path: path.resolve(__dirname, 'assets/js/dist/frontend'),
     clean: true,
-    publicPath: '/assets/js/dist/frontend/'
+    publicPath: '/assets/js/dist/frontend/',
+    
+    // Optimized output for modern browsers
+    environment: {
+      arrowFunction: true,
+      bigIntLiteral: false,
+      const: true,
+      destructuring: true,
+      dynamicImport: true,
+      forOf: true,
+      module: true
+    }
   },
   
   resolve: {
@@ -35,7 +60,15 @@ module.exports = {
       '@state': path.resolve(__dirname, 'app/frontend/state'),
       '@utils': path.resolve(__dirname, 'app/frontend/utils'),
       '@assets': path.resolve(__dirname, 'app/frontend/assets'),
+      '@tests': path.resolve(__dirname, 'app/frontend/tests'),
     },
+    
+    // Fallback for Node.js core modules
+    fallback: {
+      "crypto": false,
+      "stream": false,
+      "buffer": false
+    }
   },
   
   module: {
@@ -59,8 +92,11 @@ module.exports = {
             plugins: [
               '@babel/plugin-transform-runtime',
               '@babel/plugin-syntax-dynamic-import',
-              '@babel/plugin-proposal-class-properties'
-            ]
+              '@babel/plugin-proposal-class-properties',
+              ['@babel/plugin-proposal-decorators', { legacy: true }]
+            ],
+            cacheDirectory: true,
+            cacheCompression: false
           }
         }
       },
@@ -68,29 +104,81 @@ module.exports = {
         test: /\.css$/,
         use: [
           isDevelopment ? 'style-loader' : 'style-loader',
-          'css-loader'
+          {
+            loader: 'css-loader',
+            options: {
+              modules: {
+                auto: true,
+                localIdentName: isDevelopment ? '[local]--[hash:base64:5]' : '[hash:base64:8]'
+              },
+              importLoaders: 1
+            }
+          },
+          {
+            loader: 'postcss-loader',
+            options: {
+              postcssOptions: {
+                plugins: [
+                  'autoprefixer',
+                  'cssnano'
+                ]
+              }
+            }
+          }
         ]
       },
       {
         test: /\.s[ac]ss$/,
         use: [
           isDevelopment ? 'style-loader' : 'style-loader',
-          'css-loader',
+          {
+            loader: 'css-loader',
+            options: {
+              modules: {
+                auto: true,
+                localIdentName: isDevelopment ? '[local]--[hash:base64:5]' : '[hash:base64:8]'
+              },
+              importLoaders: 2
+            }
+          },
+          {
+            loader: 'postcss-loader',
+            options: {
+              postcssOptions: {
+                plugins: [
+                  'autoprefixer',
+                  'cssnano'
+                ]
+              }
+            }
+          },
           'sass-loader'
         ]
       },
       {
         test: /\.(png|jpg|jpeg|gif|svg|ico)$/,
-        type: 'asset/resource',
+        type: 'asset',
         generator: {
-          filename: 'images/[hash][ext][query]'
+          filename: 'images/[name].[contenthash:8][ext]'
+        },
+        parser: {
+          dataUrlCondition: {
+            maxSize: 8 * 1024 // 8kb
+          }
         }
       },
       {
         test: /\.(woff|woff2|eot|ttf|otf)$/,
         type: 'asset/resource',
         generator: {
-          filename: 'fonts/[hash][ext][query]'
+          filename: 'fonts/[name].[contenthash:8][ext]'
+        }
+      },
+      {
+        test: /\.(mp4|webm|ogg|mp3|wav|flac|aac)$/,
+        type: 'asset/resource',
+        generator: {
+          filename: 'media/[name].[contenthash:8][ext]'
         }
       }
     ]
