@@ -3,6 +3,9 @@
  * Responsive navigation for mobile devices
  */
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 .mobile-nav-toggle {
   display: none;
   background: none;
