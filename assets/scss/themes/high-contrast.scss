@@ -4,6 +4,8 @@
  * Theme for users who need high contrast for better readability
  */
 
+@use '../abstracts/variables' as *;
+
 .high-contrast {
   // Color overrides
   --primary-color: #0074D9;
