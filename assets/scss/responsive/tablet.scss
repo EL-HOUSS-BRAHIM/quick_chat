@@ -4,6 +4,9 @@
  * Styles for tablet devices (min-width: 768px) and (max-width: 1023px)
  */
 
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
 @media (min-width: 768px) and (max-width: 1023px) {
   // Layout adjustments
   .container {
