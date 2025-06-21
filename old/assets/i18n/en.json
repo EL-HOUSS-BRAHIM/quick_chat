@@ -1,0 +1,200 @@
+{
+  "app": {
+    "name": "Quick Chat",
+    "description": "Fast and secure messaging platform",
+    "version": "3.0.0"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "clear": "Clear",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "ok": "OK",
+    "retry": "Retry",
+    "refresh": "Refresh"
+  },
+  "accessibility": {
+    "title": "Accessibility",
+    "screenReader": "Screen Reader Support",
+    "keyboardNavigation": "Keyboard Navigation",
+    "keyboardShortcuts": "Keyboard Shortcuts",
+    "textToSpeech": "Text-to-Speech",
+    "speechToText": "Speech-to-Text",
+    "magnification": "Magnification",
+    "announcements": "Screen Reader Announcements",
+    "shortcuts": {
+      "title": "Keyboard Shortcuts",
+      "navigation": "Navigation",
+      "chat": "Chat Actions",
+      "accessibility": "Accessibility",
+      "general": "General",
+      "focusMessages": "Focus messages",
+      "focusInput": "Focus message input",
+      "focusUsers": "Focus user list",
+      "focusSidebar": "Focus sidebar",
+      "sendMessage": "Send message",
+      "toggleEmoji": "Toggle emoji picker",
+      "toggleFiles": "Toggle file upload",
+      "toggleVoice": "Toggle voice recording",
+      "showHelp": "Show this help",
+      "toggleContrast": "Toggle high contrast",
+      "toggleTTS": "Toggle text-to-speech",
+      "toggleSTT": "Toggle speech-to-text",
+      "increaseFontSize": "Increase font size",
+      "decreaseFontSize": "Decrease font size",
+      "closeModal": "Close modal/cancel action",
+      "showShortcuts": "Show shortcuts"
+    }
+  },
+  "chat": {
+    "title": "Quick Chat",
+    "messageInput": "Type your message...",
+    "send": "Send",
+    "newMessage": "New message from {{author}}",
+    "userJoined": "{{username}} joined the chat",
+    "userLeft": "{{username}} left the chat",
+    "typing": "is typing...",
+    "online": "Online",
+    "offline": "Offline",
+    "connecting": "Connecting...",
+    "reconnecting": "Reconnecting...",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "messages": {
+      "singular": "{{count}} message",
+      "plural": "{{count}} messages"
+    },
+    "users": {
+      "singular": "{{count}} user online",
+      "plural": "{{count}} users online"
+    },
+    "reactions": {
+      "like": "Like",
+      "love": "Love",
+      "laugh": "Laugh",
+      "wow": "Wow",
+      "sad": "Sad",
+      "angry": "Angry"
+    }
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Logout",
+    "admin": "Administration",
+    "chat": "Chat",
+    "groups": "Groups",
+    "contacts": "Contacts",
+    "notifications": "Notifications"
+  },
+  "webrtc": {
+    "call": "Call",
+    "videoCall": "Video Call",
+    "endCall": "End Call",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "videoOn": "Turn Video On",
+    "videoOff": "Turn Video Off",
+    "shareScreen": "Share Screen",
+    "stopSharing": "Stop Sharing",
+    "incomingCall": "Incoming call from {{caller}}",
+    "accept": "Accept",
+    "decline": "Decline",
+    "callEnded": "Call ended",
+    "callFailed": "Call failed",
+    "callQuality": {
+      "excellent": "Excellent",
+      "good": "Good",
+      "fair": "Fair",
+      "poor": "Poor",
+      "veryPoor": "Very Poor"
+    },
+    "screenSharing": {
+      "selectSource": "Select what to share",
+      "entireScreen": "Entire Screen",
+      "applicationWindow": "Application Window",
+      "chromeTab": "Chrome Tab",
+      "sharingScreen": "You are sharing your screen",
+      "sharingWindow": "You are sharing a window",
+      "sharingTab": "You are sharing a tab"
+    }
+  },
+  "accessibility": {
+    "skipToContent": "Skip to main content",
+    "mainNavigation": "Main navigation",
+    "chatMessages": "Chat messages",
+    "messageInput": "Message input field",
+    "sendMessage": "Send message",
+    "userOnline": "User is online",
+    "userOffline": "User is offline",
+    "newMessageAnnouncement": "New message from {{author}}: {{message}}",
+    "keyboardShortcuts": "Keyboard shortcuts",
+    "screenReaderMode": "Screen reader mode enabled"
+  },
+  "mobile": {
+    "tapToCall": "Tap to call",
+    "swipeActions": "Swipe for actions",
+    "pullToRefresh": "Pull to refresh",
+    "backToTop": "Back to top",
+    "networkStatus": {
+      "online": "Back online",
+      "offline": "No internet connection",
+      "slowConnection": "Slow connection detected"
+    },
+    "gestures": {
+      "swipeLeft": "Swipe left",
+      "swipeRight": "Swipe right",
+      "doubleTap": "Double tap",
+      "longPress": "Long press"
+    }
+  },
+  "errors": {
+    "networkError": "Network error occurred",
+    "serverError": "Server error occurred",
+    "permissionDenied": "Permission denied",
+    "fileTooBig": "File is too large",
+    "invalidFileType": "Invalid file type",
+    "uploadFailed": "Upload failed",
+    "callFailed": "Call failed to connect",
+    "screenShareFailed": "Screen sharing failed",
+    "microphoneError": "Microphone access error",
+    "cameraError": "Camera access error"
+  },
+  "profile": {
+    "title": "Profile",
+    "avatar": "Avatar",
+    "displayName": "Display Name",
+    "username": "Username",
+    "email": "Email",
+    "status": "Status",
+    "language": "Language",
+    "theme": "Theme",
+    "notifications": "Notifications",
+    "privacy": "Privacy",
+    "changePassword": "Change Password",
+    "twoFactorAuth": "Two-Factor Authentication"
+  },
+  "admin": {
+    "title": "Administration",
+    "users": "Users",
+    "groups": "Groups",
+    "settings": "Settings",
+    "analytics": "Analytics",
+    "logs": "Logs",
+    "moderation": "Moderation",
+    "reports": "Reports"
+  }
+}
