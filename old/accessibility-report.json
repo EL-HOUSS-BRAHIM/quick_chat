@@ -1,0 +1,1364 @@
+{
+  "timestamp": "2025-06-21T00:25:20.293Z",
+  "summary": {
+    "issues": 13,
+    "warnings": 113,
+    "suggestions": 92
+  },
+  "issues": [
+    {
+      "type": "Missing alt attribute",
+      "file": "admin.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($user['avatar'] ?? 'assets/images/default-avatar.png'); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "chat.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/default-avatar.svg'); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "chat.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($targetUser['avatar'] ?? 'assets/images/default-avatar.svg'); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "dashboard.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/default-avatar.svg'); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "group-chat.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/default-avatar.svg'); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "group-chat.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($group['avatar'] ?? 'assets/images/default-group.svg'); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "group-chat.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($group['avatar'] ?? 'assets/images/default-group.svg'); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "includes/header.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/default-avatar.png'); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "join-group.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($invite['avatar']); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "private-chat.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/default-avatar.svg'); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "private-chat.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/default-avatar.svg'); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "private-chat.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($targetUser['avatar'] ?? 'assets/images/default-avatar.svg'); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "profile.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/default-avatar.png'); ?>",
+      "severity": "high"
+    }
+  ],
+  "warnings": [
+    {
+      "type": "Input without label",
+      "file": "admin.php",
+      "element": "<input type=\"text\" placeholder=\"Search users...\" id=\"userSearch\" class=\"search-input\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "admin.php",
+      "element": "<input type=\"text\" placeholder=\"Search messages...\" id=\"messageSearch\" class=\"search-input\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "admin.php",
+      "element": "<input type=\"text\" name=\"app_name\" value=\"Quick Chat\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "admin.php",
+      "element": "<input type=\"number\" name=\"max_users\" value=\"1000\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "admin.php",
+      "element": "<input type=\"number\" name=\"max_message_length\" value=\"2000\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "admin.php",
+      "element": "<input type=\"number\" name=\"max_file_size\" value=\"10\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "admin.php",
+      "element": "<input type=\"number\" name=\"max_login_attempts\" value=\"5\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "admin.php",
+      "element": "<input type=\"number\" name=\"session_timeout\" value=\"60\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "admin.php",
+      "element": "<input type=\"text\" name=\"username\" required minlength=\"3\" maxlength=\"20\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "admin.php",
+      "element": "<input type=\"email\" name=\"email\" required>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "admin.php",
+      "element": "<input type=\"text\" name=\"display_name\" required>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "admin.php",
+      "element": "<input type=\"password\" name=\"password\" required minlength=\"8\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "admin.php",
+      "element": "<h3>",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "admin.php",
+      "element": "<h4>",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "admin.php",
+      "element": "<h4>",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "admin.php",
+      "element": "<h4>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "auth.php",
+      "element": "<input type=\"hidden\" name=\"action\" value=\"login\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "auth.php",
+      "element": "<input type=\"hidden\" name=\"csrf_token\" value=\"<?php echo htmlspecialchars($csrfToken); ?>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "auth.php",
+      "element": "<input type=\"checkbox\" name=\"remember_me\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "auth.php",
+      "element": "<input type=\"hidden\" name=\"action\" value=\"register\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "auth.php",
+      "element": "<input type=\"hidden\" name=\"csrf_token\" value=\"<?php echo htmlspecialchars($csrfToken); ?>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "auth.php",
+      "element": "<input type=\"checkbox\" name=\"terms\" required>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "auth.php",
+      "element": "<input type=\"hidden\" name=\"action\" value=\"reset_password\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "auth.php",
+      "element": "<input type=\"hidden\" name=\"csrf_token\" value=\"<?php echo htmlspecialchars($csrfToken); ?>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "chat.php",
+      "element": "<input type=\"text\" id=\"searchInput\" placeholder=\"Search conversations...\" autocomplete=\"off\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "chat.php",
+      "element": "<input type=\"checkbox\" id=\"notificationsEnabled\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "chat.php",
+      "element": "<input type=\"checkbox\" id=\"soundEnabled\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "chat.php",
+      "element": "<input type=\"file\" id=\"fileInput\" style=\"display: none;\" multiple>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "chat.php",
+      "element": "<input type=\"text\" id=\"userSearchInput\" placeholder=\"Search users...\" autocomplete=\"off\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "chat.php",
+      "element": "<input type=\"file\" id=\"groupAvatarInput\" accept=\"image/*\" style=\"display: none;\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "chat.php",
+      "element": "<input type=\"text\" id=\"memberSearch\" placeholder=\"Search users...\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "chat.php",
+      "element": "<input type=\"text\" id=\"inviteLinkInput\" readonly>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "chat.php",
+      "element": "<input type=\"text\" id=\"inviteUserSearch\" placeholder=\"Search users...\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "chat.php",
+      "element": "<h3>",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "chat.php",
+      "element": "<h4 class=\"group-info-section-title\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "dashboard.php",
+      "element": "<input type=\"text\" placeholder=\"Search...\" id=\"globalSearch\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "dashboard.php",
+      "element": "<input type=\"text\" placeholder=\"Search contacts...\" id=\"contactsSearch\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "dashboard.php",
+      "element": "<input type=\"checkbox\" id=\"emailNotifications\" checked>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "dashboard.php",
+      "element": "<input type=\"text\" id=\"groupName\" required>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "dashboard.php",
+      "element": "<input type=\"text\" id=\"memberSearch\" placeholder=\"Search users...\" oninput=\"searchMembers()\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "group-chat.php",
+      "element": "<input type=\"text\" id=\"searchInput\" placeholder=\"Search groups...\" autocomplete=\"off\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "group-chat.php",
+      "element": "<input type=\"checkbox\" id=\"notificationToggle\" checked>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "group-chat.php",
+      "element": "<input type=\"checkbox\" id=\"soundToggle\" checked>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "group-chat.php",
+      "element": "<input type=\"file\" id=\"fileInput\" style=\"display: none;\" multiple>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "group-chat.php",
+      "element": "<input type=\"text\" id=\"memberSearchInput\" placeholder=\"Search users to add...\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "group-chat.php",
+      "element": "<input type=\"text\" id=\"inviteLink\" readonly>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "group-chat.php",
+      "element": "<input type=\"text\" id=\"inviteSearchInput\" placeholder=\"Search users to invite...\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "group-chat.php",
+      "element": "<h3>",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "group-chat.php",
+      "element": "<h4 class=\"group-info-section-title\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "join-group.php",
+      "element": "<input type=\"hidden\" name=\"csrf_token\" value=\"<?php echo $security->",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "join-group.php",
+      "element": "<h4 class=\"mb-0\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "landing.php",
+      "element": "<h3 class=\"feature-title\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "private-chat.php",
+      "element": "<input type=\"text\" id=\"searchInput\" placeholder=\"Search conversations...\" autocomplete=\"off\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "private-chat.php",
+      "element": "<input type=\"checkbox\" id=\"notificationToggle\" checked>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "private-chat.php",
+      "element": "<input type=\"checkbox\" id=\"soundToggle\" checked>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "private-chat.php",
+      "element": "<input type=\"file\" id=\"fileInput\" style=\"display: none;\" multiple>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "private-chat.php",
+      "element": "<input type=\"text\" id=\"userSearchInput\" placeholder=\"Search users...\" autocomplete=\"off\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "private-chat.php",
+      "element": "<h3>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "profile.php",
+      "element": "<input type=\"hidden\" name=\"action\" value=\"update_profile\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "profile.php",
+      "element": "<input type=\"hidden\" name=\"csrf_token\" value=\"<?php echo htmlspecialchars($csrfToken); ?>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "profile.php",
+      "element": "<input type=\"text\" value=\"<?php echo date('F j, Y', strtotime($currentUser['created_at'])); ?>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "profile.php",
+      "element": "<input type=\"hidden\" name=\"action\" value=\"change_password\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "profile.php",
+      "element": "<input type=\"hidden\" name=\"csrf_token\" value=\"<?php echo htmlspecialchars($csrfToken); ?>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "profile.php",
+      "element": "<input type=\"hidden\" name=\"action\" value=\"update_settings\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "profile.php",
+      "element": "<input type=\"hidden\" name=\"csrf_token\" value=\"<?php echo htmlspecialchars($csrfToken); ?>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "profile.php",
+      "element": "<input type=\"checkbox\" name=\"notifications_sound\" \n                                       <?php echo (!empty($userSettings['notifications_sound'])) ? 'checked' : ''; ?>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "profile.php",
+      "element": "<input type=\"checkbox\" name=\"notifications_desktop\" \n                                       <?php echo (!empty($userSettings['notifications_desktop'])) ? 'checked' : ''; ?>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "profile.php",
+      "element": "<input type=\"checkbox\" name=\"notifications_email\" \n                                       <?php echo (!empty($userSettings['notifications_email'])) ? 'checked' : ''; ?>",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "profile.php",
+      "element": "<input type=\"hidden\" name=\"action\" value=\"update_settings\">",
+      "severity": "medium"
+    },
+    {
+      "type": "Input without label",
+      "file": "profile.php",
+      "element": "<input type=\"hidden\" name=\"csrf_token\" value=\"<?php echo htmlspecialchars($csrfToken); ?>",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "profile.php",
+      "element": "<h4>",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "profile.php",
+      "element": "<h4>",
+      "severity": "medium"
+    },
+    {
+      "type": "Heading hierarchy skip",
+      "file": "profile.php",
+      "element": "<h4>",
+      "severity": "medium"
+    },
+    {
+      "type": "Missing focus styles",
+      "file": "assets/scss/abstracts/_functions.scss",
+      "severity": "medium",
+      "message": "Consider adding focus styles for keyboard navigation"
+    },
+    {
+      "type": "Missing focus styles",
+      "file": "assets/scss/abstracts/_variables.scss",
+      "severity": "medium",
+      "message": "Consider adding focus styles for keyboard navigation"
+    },
+    {
+      "type": "Missing focus styles",
+      "file": "assets/scss/accessibility/reduced-motion.scss",
+      "severity": "medium",
+      "message": "Consider adding focus styles for keyboard navigation"
+    },
+    {
+      "type": "Missing focus styles",
+      "file": "assets/scss/components/_voice-messages.scss",
+      "severity": "medium",
+      "message": "Consider adding focus styles for keyboard navigation"
+    },
+    {
+      "type": "Missing focus styles",
+      "file": "assets/scss/main.scss",
+      "severity": "medium",
+      "message": "Consider adding focus styles for keyboard navigation"
+    },
+    {
+      "type": "Missing focus styles",
+      "file": "assets/scss/responsive/desktop.scss",
+      "severity": "medium",
+      "message": "Consider adding focus styles for keyboard navigation"
+    },
+    {
+      "type": "Missing focus styles",
+      "file": "assets/scss/responsive/mobile.scss",
+      "severity": "medium",
+      "message": "Consider adding focus styles for keyboard navigation"
+    },
+    {
+      "type": "Missing focus styles",
+      "file": "assets/scss/responsive/tablet.scss",
+      "severity": "medium",
+      "message": "Consider adding focus styles for keyboard navigation"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/core/mobile-experience-manager.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/core/pwa-manager.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing focus management",
+      "file": "assets/js/core/state.js",
+      "severity": "medium",
+      "message": "Modals and dialogs should manage focus properly"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/core/utils.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/admin/config-manager.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/admin/index.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/admin/log-viewer.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/admin/moderation-manager.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/admin/user-manager.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing focus management",
+      "file": "assets/js/features/admin/user-manager.js",
+      "severity": "medium",
+      "message": "Modals and dialogs should manage focus properly"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/chat/emoji-picker.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/chat/group-chat.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/chat/group-info.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/chat/reactions.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/chat/recording.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/chat/replies.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/chat/settings.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing focus management",
+      "file": "assets/js/features/chat/settings.js",
+      "severity": "medium",
+      "message": "Modals and dialogs should manage focus properly"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/dashboard/index.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/emoji/emoji-picker.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing focus management",
+      "file": "assets/js/features/i18n/index.js",
+      "severity": "medium",
+      "message": "Modals and dialogs should manage focus properly"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/profile/avatar.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/profile/preferences.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing focus management",
+      "file": "assets/js/features/profile/preferences.js",
+      "severity": "medium",
+      "message": "Modals and dialogs should manage focus properly"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/theme/index.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/webrtc/browser-compatibility.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing focus management",
+      "file": "assets/js/features/webrtc/index.js",
+      "severity": "medium",
+      "message": "Modals and dialogs should manage focus properly"
+    },
+    {
+      "type": "Missing focus management",
+      "file": "assets/js/features/webrtc/screen-sharing-manager.js",
+      "severity": "medium",
+      "message": "Modals and dialogs should manage focus properly"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/features/webrtc/ui.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/ui/notification-manager.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/ui/upload-progress.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    },
+    {
+      "type": "Missing keyboard handlers",
+      "file": "assets/js/ui/virtual-scroll.js",
+      "severity": "medium",
+      "message": "Interactive elements should be keyboard accessible"
+    }
+  ],
+  "suggestions": [
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/abstracts/_functions.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/abstracts/_mixins.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/abstracts/_placeholders.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/abstracts/_variables.scss",
+      "element": "color: #667eea",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/abstracts/_variables.scss",
+      "element": "color: #38b2ac",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/abstracts/_variables.scss",
+      "element": "color: #f6ad55",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/abstracts/_variables.scss",
+      "element": "color: #48bb78",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/abstracts/_variables.scss",
+      "element": "color: #4299e1",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/abstracts/_variables.scss",
+      "element": "color: #ecc94b",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/abstracts/_variables.scss",
+      "element": "color: #f56565",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/abstracts/_variables.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_base.scss",
+      "element": "color: #000000",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_base.scss",
+      "element": "color: #ffffff",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_base.scss",
+      "element": "color: #0000ff",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_base.scss",
+      "element": "color: #800080",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_base.scss",
+      "element": "color: #808080",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_base.scss",
+      "element": "color: #6c757d",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_base.scss",
+      "element": "color: #000000",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #000000",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #ffffff",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #0000ff",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #800080",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #008000",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #ff8c00",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #ff0000",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #000000",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #ff0000",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #0000ff",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #800080",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #000000",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #ffffff",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #0000ff",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #800080",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #008000",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #ff8c00",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #ff0000",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #000000",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #ff0000",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #0000ff",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "element": "color: #800080",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/accessibility/_high-contrast.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_keyboard-navigation.scss",
+      "element": "color: #66b3ff",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/accessibility/_keyboard-navigation.scss",
+      "element": "color: #66b3ff",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/accessibility/focus.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/accessibility/screen-readers.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/components/_emoji-picker.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/components/_mobile-navigation.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/components/_touch-controls.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/components/_voice-messages.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/main.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/responsive/desktop.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/responsive/mobile.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/responsive/tablet.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/themes/high-contrast.scss",
+      "element": "color: #0074D9",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/themes/high-contrast.scss",
+      "element": "color: #FF4136",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/themes/high-contrast.scss",
+      "element": "color: #FFDC00",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Color contrast check needed",
+      "file": "assets/scss/themes/high-contrast.scss",
+      "element": "color: #FFFFFF",
+      "severity": "low",
+      "message": "Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)"
+    },
+    {
+      "type": "Missing reduced motion support",
+      "file": "assets/scss/themes/high-contrast.scss",
+      "severity": "low",
+      "message": "Consider adding support for users who prefer reduced motion"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/__tests__/messaging.integration.test.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/api/api-client.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/core/browser-compatibility.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/core/error-handler.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/core/i18n-manager.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/core/logger.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/core/notification-service.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/core/performance-monitor.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider ARIA attributes",
+      "file": "assets/js/features/admin/log-viewer.js",
+      "severity": "low",
+      "message": "When dynamically changing content, consider updating ARIA attributes"
+    },
+    {
+      "type": "Consider ARIA attributes",
+      "file": "assets/js/features/chat/emoji-picker.js",
+      "severity": "low",
+      "message": "When dynamically changing content, consider updating ARIA attributes"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/chat/file-uploader.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/dashboard/index.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/emoji/emoji-picker.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/i18n/index.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider ARIA attributes",
+      "file": "assets/js/features/mobile/experience-manager.js",
+      "severity": "low",
+      "message": "When dynamically changing content, consider updating ARIA attributes"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/mobile/experience-manager.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/profile/avatar.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/profile/index.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider ARIA attributes",
+      "file": "assets/js/features/profile/info.js",
+      "severity": "low",
+      "message": "When dynamically changing content, consider updating ARIA attributes"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/profile/info.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider ARIA attributes",
+      "file": "assets/js/features/profile/preferences.js",
+      "severity": "low",
+      "message": "When dynamically changing content, consider updating ARIA attributes"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/profile/preferences.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/profile/privacy.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/profile/settings.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/webrtc/browser-compatibility.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/features/webrtc/index.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/main.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/module-loader.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/services/api-client.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider ARIA attributes",
+      "file": "assets/js/services/i18n-manager.js",
+      "severity": "low",
+      "message": "When dynamically changing content, consider updating ARIA attributes"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/services/i18n-manager.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/test-utils/jest-setup.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/test-utils/setup.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    },
+    {
+      "type": "Consider screen reader announcements",
+      "file": "assets/js/ui/virtual-scroll.js",
+      "severity": "low",
+      "message": "Dynamic content changes should be announced to screen readers"
+    }
+  ]
+}
