@@ -1,7 +1,7 @@
 {
-  "timestamp": "2025-06-20T23:44:48.487Z",
+  "timestamp": "2025-06-21T00:25:20.293Z",
   "summary": {
-    "issues": 12,
+    "issues": 13,
     "warnings": 113,
     "suggestions": 92
   },
@@ -58,6 +58,12 @@
       "type": "Missing alt attribute",
       "file": "join-group.php",
       "element": "<img src=\"<?php echo htmlspecialchars($invite['avatar']); ?>",
+      "severity": "high"
+    },
+    {
+      "type": "Missing alt attribute",
+      "file": "private-chat.php",
+      "element": "<img src=\"<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/default-avatar.svg'); ?>",
       "severity": "high"
     },
     {
