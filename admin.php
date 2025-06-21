@@ -158,7 +158,7 @@ include __DIR__ . '/includes/header.php';
                                 <td>
                                     <div class="user-info">
                                         <div class="user-avatar-small">
-                                            <img src="<?php echo htmlspecialchars($user['avatar'] ?? 'assets/images/default-avatar.png'); ?>" 
+                                            <img src="<?php echo htmlspecialchars($user['avatar'] ?? 'assets/images/default-avatar.png'); ? alt="Image">" 
                                                  alt="<?php echo htmlspecialchars($user['display_name'] ?? $user['username']); ?>">
                                         </div>
                                         <div>
@@ -277,7 +277,7 @@ include __DIR__ . '/includes/header.php';
             <div class="section-header">
                 <h2>User Management</h2>
                 <div class="header-actions">
-                    <input type="text" placeholder="Search users..." id="userSearch" class="search-input">
+                    <input type="text" placeholder="Search users..." id="userSearch" class="search-input" aria-label="Search users...">
                     <button class="btn btn-primary" onclick="showAddUserModal()">
                         <i class="fas fa-user-plus"></i>
                         Add User
@@ -296,7 +296,7 @@ include __DIR__ . '/includes/header.php';
             <div class="section-header">
                 <h2>Message Management</h2>
                 <div class="header-actions">
-                    <input type="text" placeholder="Search messages..." id="messageSearch" class="search-input">
+                    <input type="text" placeholder="Search messages..." id="messageSearch" class="search-input" aria-label="Search messages...">
                     <button class="btn btn-secondary" onclick="exportMessages()">
                         <i class="fas fa-download"></i>
                         Export
@@ -452,11 +452,11 @@ include __DIR__ . '/includes/header.php';
                         <h3>General Settings</h3>
                         <div class="form-group">
                             <label>Application Name</label>
-                            <input type="text" name="app_name" value="Quick Chat">
+                            <input type="text" name="app_name" value="Quick Chat" aria-label="app name">
                         </div>
                         <div class="form-group">
                             <label>Max Users</label>
-                            <input type="number" name="max_users" value="1000">
+                            <input type="number" name="max_users" value="1000" aria-label="max users">
                         </div>
                         <div class="form-group">
                             <label>Registration</label>
@@ -471,7 +471,7 @@ include __DIR__ . '/includes/header.php';
                         <h3>Chat Settings</h3>
                         <div class="form-group">
                             <label>Max Message Length</label>
-                            <input type="number" name="max_message_length" value="2000">
+                            <input type="number" name="max_message_length" value="2000" aria-label="max message length">
                         </div>
                         <div class="form-group">
                             <label>File Upload</label>
@@ -482,7 +482,7 @@ include __DIR__ . '/includes/header.php';
                         </div>
                         <div class="form-group">
                             <label>Max File Size (MB)</label>
-                            <input type="number" name="max_file_size" value="10">
+                            <input type="number" name="max_file_size" value="10" aria-label="max file size">
                         </div>
                     </div>
                     
@@ -490,11 +490,11 @@ include __DIR__ . '/includes/header.php';
                         <h3>Security Settings</h3>
                         <div class="form-group">
                             <label>Max Login Attempts</label>
-                            <input type="number" name="max_login_attempts" value="5">
+                            <input type="number" name="max_login_attempts" value="5" aria-label="max login attempts">
                         </div>
                         <div class="form-group">
                             <label>Session Timeout (minutes)</label>
-                            <input type="number" name="session_timeout" value="60">
+                            <input type="number" name="session_timeout" value="60" aria-label="session timeout">
                         </div>
                         <div class="form-group">
                             <label>Password Strength</label>
@@ -535,19 +535,19 @@ include __DIR__ . '/includes/header.php';
             <form id="addUserForm" onsubmit="addUser(event)">
                 <div class="form-group">
                     <label>Username</label>
-                    <input type="text" name="username" required minlength="3" maxlength="20">
+                    <input type="text" name="username" required minlength="3" maxlength="20" aria-label="username">
                 </div>
                 <div class="form-group">
                     <label>Email</label>
-                    <input type="email" name="email" required>
+                    <input type="email" name="email" required aria-label="email">
                 </div>
                 <div class="form-group">
                     <label>Display Name</label>
-                    <input type="text" name="display_name" required>
+                    <input type="text" name="display_name" required aria-label="display name">
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" name="password" required minlength="8">
+                    <input type="password" name="password" required minlength="8" aria-label="password">
                 </div>
                 <div class="form-group">
                     <label>Role</label>
