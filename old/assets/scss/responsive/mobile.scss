@@ -1,0 +1,135 @@
+/**
+ * Mobile Styles
+ * 
+ * Styles for mobile devices (max-width: 767px)
+ */
+
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
+@media (max-width: 767px) {
+  // Layout adjustments
+  .container {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  
+  // Header adjustments
+  .header {
+    padding: 10px;
+    
+    &__logo {
+      max-width: 120px;
+    }
+    
+    &__nav {
+      display: none; // Hide regular nav on mobile
+    }
+    
+    &__mobile-menu {
+      display: block; // Show mobile menu toggle
+    }
+  }
+  
+  // Chat interface adjustments
+  .chat {
+    &__sidebar {
+      position: fixed;
+      top: 0;
+      left: -100%;
+      width: 80%;
+      height: 100%;
+      z-index: 1000;
+      transition: left 0.3s ease;
+      
+      &--open {
+        left: 0;
+      }
+    }
+    
+    &__messages {
+      margin-left: 0;
+    }
+    
+    &__input {
+      padding: 10px;
+      
+      &-controls {
+        flex-wrap: wrap;
+      }
+    }
+  }
+  
+  // Message bubbles
+  .chat-bubble {
+    max-width: 85%;
+    
+    &__content {
+      padding: 8px;
+    }
+    
+    &__attachments {
+      .attachment {
+        max-width: 200px;
+      }
+    }
+  }
+  
+  // Modals
+  .modal {
+    &__content {
+      width: 95%;
+      max-width: 100%;
+      margin: 20px auto;
+      padding: 15px;
+    }
+  }
+  
+  // Forms
+  .form {
+    &__group {
+      margin-bottom: 15px;
+    }
+    
+    &__control {
+      padding: 8px;
+    }
+  }
+  
+  // WebRTC call interface
+  .call-interface {
+    &__controls {
+      padding: 10px;
+      
+      .btn {
+        padding: 8px;
+        margin: 0 5px;
+      }
+    }
+    
+    &__video {
+      height: auto;
+      
+      &--remote {
+        height: 60vh;
+      }
+      
+      &--local {
+        width: 100px;
+        height: 100px;
+      }
+    }
+  }
+  
+  // Emoji picker
+  .emoji-picker {
+    width: 100%;
+    height: 300px;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    position: fixed;
+    border-radius: 15px 15px 0 0;
+  }
+}
