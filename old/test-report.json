@@ -1,0 +1,41 @@
+{
+  "timestamp": "2025-06-20T23:44:48.843Z",
+  "summary": {
+    "passed": 141,
+    "failed": 2,
+    "total": 143,
+    "successRate": 99
+  },
+  "results": {
+    "unit": {
+      "passed": 111,
+      "failed": 0,
+      "total": 111
+    },
+    "integration": {
+      "passed": 25,
+      "failed": 1,
+      "total": 26
+    },
+    "e2e": {
+      "passed": 0,
+      "failed": 0,
+      "total": 0
+    },
+    "performance": {
+      "passed": 5,
+      "failed": 1,
+      "total": 6
+    },
+    "accessibility": {
+      "passed": 0,
+      "failed": 0,
+      "total": 0
+    }
+  },
+  "environment": {
+    "node": "v20.19.2",
+    "platform": "linux",
+    "ci": false
+  }
+}
