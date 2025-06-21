@@ -1,0 +1,107 @@
+/**
+ * Desktop Styles
+ * 
+ * Styles for desktop devices (min-width: 1024px)
+ */
+
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
+@media (min-width: 1024px) {
+  // Layout adjustments
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  // Sidebar adjustments
+  .chat__sidebar {
+    width: 280px;
+  }
+  
+  // Messages area
+  .chat__messages {
+    margin-left: 280px;
+  }
+  
+  // Group info panel
+  .group-info-panel {
+    width: 320px;
+  }
+  
+  // Split view for chat
+  .chat-split-view {
+    display: flex;
+    
+    &__sidebar {
+      width: 280px;
+      flex-shrink: 0;
+    }
+    
+    &__content {
+      flex-grow: 1;
+    }
+    
+    &__details {
+      width: 320px;
+      flex-shrink: 0;
+    }
+  }
+  
+  // Dashboard layout
+  .dashboard {
+    &__grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    
+    &__sidebar {
+      width: 250px;
+    }
+    
+    &__main {
+      margin-left: 250px;
+    }
+  }
+  
+  // Enhanced UI for desktop
+  .search-bar {
+    max-width: 400px;
+  }
+  
+  // WebRTC call interface
+  .call-interface {
+    &__videos {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      
+      .video-container {
+        margin: 10px;
+      }
+    }
+    
+    &__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+  }
+  
+  // Multi-column layout for settings
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+  }
+  
+  // Keyboard shortcuts overlay
+  .keyboard-shortcuts {
+    display: block;
+    
+    &__grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+  }
+}
