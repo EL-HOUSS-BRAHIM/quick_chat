@@ -1,0 +1,246 @@
+/**
+ * Touch Controls
+ * Enhanced touch interactions for mobile devices
+ */
+
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
+// Touch target size enhancement
+.touch-target-enlarged {
+  min-width: 44px !important;
+  min-height: 44px !important;
+  padding: 8px !important;
+}
+
+// Touch active states
+.touch-active {
+  background-color: var(--touch-active-color, rgba(0, 0, 0, 0.1)) !important;
+  transform: scale(0.98);
+  transition: all 0.1s ease;
+}
+
+// Better touch scrolling
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+// Touch-friendly form controls
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  textarea,
+  select {
+    min-height: 44px;
+    padding: 12px 16px;
+    font-size: 16px; // Prevents zoom on iOS
+    border-radius: 8px;
+  }
+  
+  button,
+  .btn {
+    min-height: 44px;
+    padding: 12px 20px;
+    font-size: 16px;
+    border-radius: 8px;
+    touch-action: manipulation;
+  }
+}
+
+// Landscape mode adjustments
+@media (max-width: 768px) and (orientation: landscape) {
+  .landscape-mode {
+    .message-input-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: var(--bg-color);
+      border-top: 1px solid var(--border-color);
+      padding: 8px 16px;
+    }
+    
+    .chat-messages {
+      padding-bottom: 60px;
+    }
+  }
+}
+
+// Portrait mode optimizations
+@media (max-width: 768px) and (orientation: portrait) {
+  .portrait-mode {
+    .chat-input-toolbar {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  }
+}
+
+// Touch gesture indicators
+.gesture-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1000;
+  
+  &.show {
+    opacity: 1;
+    animation: gestureHint 0.5s ease;
+  }
+}
+
+@keyframes gestureHint {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+// High DPI touch devices
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .touch-icon {
+    // Use high-resolution icons
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+// Hover states for touch devices
+@media (hover: none) and (pointer: coarse) {
+  // Remove hover effects on touch devices
+  .hover-effect:hover {
+    background: initial;
+    transform: initial;
+  }
+  
+  // Use focus states instead
+  .hover-effect:focus,
+  .hover-effect:active {
+    background: var(--focus-color);
+    transform: scale(0.98);
+  }
+}
+
+// Pull-to-refresh indication
+.pull-to-refresh {
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--primary-color);
+    border-top: 3px solid transparent;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  &.pulling::before {
+    opacity: 1;
+    animation: spin 1s linear infinite;
+  }
+}
+
+@keyframes spin {
+  0% { transform: translateX(-50%) rotate(0deg); }
+  100% { transform: translateX(-50%) rotate(360deg); }
+}
+
+// Touch-friendly chat bubbles
+.message {
+  @media (max-width: 768px) {
+    margin: 8px 0;
+    padding: 12px 16px;
+    
+    // Larger touch targets for reactions
+    .message-reactions {
+      .reaction {
+        min-width: 40px;
+        min-height: 32px;
+        padding: 4px 8px;
+        margin: 2px;
+      }
+    }
+    
+    // Better spacing for avatars
+    .message-avatar {
+      width: 36px;
+      height: 36px;
+      margin-right: 12px;
+    }
+    
+    // Improved timestamp positioning
+    .message-time {
+      font-size: 12px;
+      margin-top: 4px;
+    }
+  }
+}
+
+// Mobile-specific animations
+@media (max-width: 768px) {
+  .slide-in-mobile {
+    animation: slideInMobile 0.3s ease-out;
+  }
+  
+  .slide-out-mobile {
+    animation: slideOutMobile 0.3s ease-in;
+  }
+}
+
+@keyframes slideInMobile {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutMobile {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+// Safe area handling for notched devices
+@supports (padding: max(0px)) {
+  .safe-area-inset {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+  
+  .bottom-navigation {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  
+  .header {
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+}
