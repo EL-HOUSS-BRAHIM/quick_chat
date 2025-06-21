@@ -1,0 +1,80 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Quick Chat Test Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .summary { background: #f5f5f5; padding: 20px; border-radius: 8px; }
+        .test-type { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .passed { color: #28a745; }
+        .failed { color: #dc3545; }
+        .total { color: #6c757d; }
+        .progress { width: 100%; height: 20px; background: #f0f0f0; border-radius: 10px; overflow: hidden; }
+        .progress-bar { height: 100%; background: #28a745; transition: width 0.3s; }
+    </style>
+</head>
+<body>
+    <h1>Quick Chat Test Report</h1>
+    <div class="summary">
+        <h2>Summary</h2>
+        <p><strong>Total Tests:</strong> 143</p>
+        <p><strong>Passed:</strong> <span class="passed">141</span></p>
+        <p><strong>Failed:</strong> <span class="failed">2</span></p>
+        <p><strong>Success Rate:</strong> 99%</p>
+        <div class="progress">
+            <div class="progress-bar" style="width: 99%"></div>
+        </div>
+    </div>
+    
+    
+        <div class="test-type">
+            <h3>Unit Tests</h3>
+            <p>Passed: <span class="passed">111</span> | Failed: <span class="failed">0</span> | Total: <span class="total">111</span></p>
+            <div class="progress">
+                <div class="progress-bar" style="width: 100%"></div>
+            </div>
+        </div>
+    
+        <div class="test-type">
+            <h3>Integration Tests</h3>
+            <p>Passed: <span class="passed">25</span> | Failed: <span class="failed">1</span> | Total: <span class="total">26</span></p>
+            <div class="progress">
+                <div class="progress-bar" style="width: 96.15384615384616%"></div>
+            </div>
+        </div>
+    
+        <div class="test-type">
+            <h3>E2e Tests</h3>
+            <p>Passed: <span class="passed">0</span> | Failed: <span class="failed">0</span> | Total: <span class="total">0</span></p>
+            <div class="progress">
+                <div class="progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+    
+        <div class="test-type">
+            <h3>Performance Tests</h3>
+            <p>Passed: <span class="passed">5</span> | Failed: <span class="failed">1</span> | Total: <span class="total">6</span></p>
+            <div class="progress">
+                <div class="progress-bar" style="width: 83.33333333333334%"></div>
+            </div>
+        </div>
+    
+        <div class="test-type">
+            <h3>Accessibility Tests</h3>
+            <p>Passed: <span class="passed">0</span> | Failed: <span class="failed">0</span> | Total: <span class="total">0</span></p>
+            <div class="progress">
+                <div class="progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+    
+    
+    <div class="summary">
+        <h3>Environment</h3>
+        <p><strong>Node.js:</strong> v20.19.2</p>
+        <p><strong>Platform:</strong> linux</p>
+        <p><strong>CI:</strong> No</p>
+        <p><strong>Generated:</strong> 2025-06-20T23:44:48.843Z</p>
+    </div>
+</body>
+</html>
