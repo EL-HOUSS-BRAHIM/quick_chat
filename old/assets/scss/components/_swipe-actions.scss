@@ -1,0 +1,355 @@
+/**
+ * Swipe Actions Component
+ * Touch gesture-based actions for mobile interaction
+ */
+
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
+// Swipe actions container
+.swipe-actions {
+  position: absolute;
+  top: 0;
+  right: -120px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  background: var(--bg-secondary);
+  border-radius: 0 8px 8px 0;
+  transition: right 0.3s ease;
+  z-index: 10;
+  
+  &.show {
+    right: 0;
+  }
+  
+  &.fade-out {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+}
+
+// Swipe action buttons
+.swipe-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary-color);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover,
+  &:focus {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  i {
+    font-size: 16px;
+    margin-bottom: 2px;
+  }
+  
+  // Specific button styles
+  &.reply-btn {
+    background: var(--success-color);
+  }
+  
+  &.react-btn {
+    background: var(--warning-color);
+  }
+  
+  &.share-btn {
+    background: var(--info-color);
+  }
+  
+  &.delete-btn {
+    background: var(--danger-color);
+  }
+}
+
+// Swipeable message container
+.message {
+  position: relative;
+  transition: transform 0.2s ease;
+  
+  &.swiping {
+    transform: translateX(-60px);
+  }
+  
+  &.swipe-threshold {
+    transform: translateX(-120px);
+    
+    .swipe-actions {
+      right: 0;
+    }
+  }
+}
+
+// Swipe gesture indicators
+.swipe-indicator {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: var(--text-muted);
+  font-size: 14px;
+  pointer-events: none;
+  
+  &.show {
+    opacity: 1;
+  }
+  
+  i {
+    animation: swipeHint 2s infinite;
+  }
+}
+
+@keyframes swipeHint {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-10px);
+  }
+}
+
+// Swipe feedback
+.swipe-feedback {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-color);
+  border: 2px solid var(--primary-color);
+  border-radius: 8px;
+  padding: 16px 24px;
+  color: var(--text-color);
+  font-weight: 500;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  
+  &.show {
+    opacity: 1;
+  }
+  
+  &.success {
+    border-color: var(--success-color);
+    color: var(--success-color);
+  }
+  
+  &.error {
+    border-color: var(--danger-color);
+    color: var(--danger-color);
+  }
+}
+
+// Swipe tutorial overlay
+.swipe-tutorial {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  
+  &.show {
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  .tutorial-content {
+    background: var(--bg-color);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 300px;
+    text-align: center;
+    
+    h3 {
+      margin-bottom: 16px;
+      color: var(--text-color);
+    }
+    
+    p {
+      margin-bottom: 24px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    
+    .tutorial-animation {
+      width: 100px;
+      height: 60px;
+      margin: 0 auto 24px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      
+      &::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 20px;
+        width: 60px;
+        height: 2px;
+        background: var(--primary-color);
+        transform: translateY(-50%);
+        animation: swipeDemo 2s infinite;
+      }
+    }
+    
+    .tutorial-close {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-weight: 500;
+      cursor: pointer;
+      
+      &:hover {
+        opacity: 0.9;
+      }
+    }
+  }
+}
+
+@keyframes swipeDemo {
+  0%, 100% {
+    transform: translateY(-50%) translateX(0);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-50%) translateX(-40px);
+    opacity: 0.7;
+  }
+}
+
+// Swipe progress indicator
+.swipe-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--primary-color);
+  transition: width 0.1s ease;
+  opacity: 0;
+  
+  &.show {
+    opacity: 1;
+  }
+}
+
+// Contextual swipe actions based on message type
+.message {
+  &.own-message {
+    .swipe-actions {
+      .reply-btn {
+        display: none;
+      }
+    }
+  }
+  
+  &.system-message {
+    .swipe-actions {
+      .reply-btn,
+      .react-btn {
+        display: none;
+      }
+    }
+  }
+  
+  &.file-message {
+    .swipe-actions {
+      .share-btn {
+        background: var(--success-color);
+      }
+    }
+  }
+}
+
+// Accessibility improvements for swipe actions
+@media (prefers-reduced-motion: reduce) {
+  .swipe-actions,
+  .message,
+  .swipe-indicator i {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+// High contrast support
+@media (prefers-contrast: high) {
+  .swipe-action-btn {
+    border: 2px solid currentColor;
+    
+    &:focus {
+      outline: 3px solid var(--focus-color);
+      outline-offset: 2px;
+    }
+  }
+}
+
+// Right-to-left language support
+[dir="rtl"] {
+  .swipe-actions {
+    right: auto;
+    left: -120px;
+    border-radius: 8px 0 0 8px;
+    
+    &.show {
+      left: 0;
+    }
+  }
+  
+  .message {
+    &.swiping {
+      transform: translateX(60px);
+    }
+    
+    &.swipe-threshold {
+      transform: translateX(120px);
+    }
+  }
+  
+  .swipe-indicator {
+    right: auto;
+    left: 16px;
+    
+    i {
+      animation: swipeHintRTL 2s infinite;
+    }
+  }
+}
+
+@keyframes swipeHintRTL {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(10px);
+  }
+}
