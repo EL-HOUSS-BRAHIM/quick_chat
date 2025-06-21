@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Chat - Test Frontend</title>
+    <link rel="stylesheet" href="/app/frontend/assets/css/main.css">
+    <style>
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .component-test {
+            margin-bottom: 40px;
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .component-test h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Quick Chat Frontend Components Test</h1>
+        
+        <div class="component-test">
+            <h2>Dashboard Component</h2>
+            <div id="dashboard-container"></div>
+        </div>
+        
+        <div class="component-test">
+            <h2>Chat Window Component</h2>
+            <div id="chat-container"></div>
+        </div>
+        
+        <div class="component-test">
+            <h2>Profile Component</h2>
+            <div id="profile-container"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { Dashboard } from '/app/frontend/components/Dashboard.js';
+        import { ChatWindow } from '/app/frontend/components/ChatWindow.js';
+        import { Profile } from '/app/frontend/components/Profile.js';
+        import { logger } from '/app/frontend/utils/logger.js';
+
+        async function testComponents() {
+            try {
+                logger.info('Testing frontend components...');
+
+                // Test Dashboard
+                const dashboardContainer = document.getElementById('dashboard-container');
+                const dashboard = new Dashboard(dashboardContainer);
+                await dashboard.init();
+
+                // Test Profile
+                const profileContainer = document.getElementById('profile-container');
+                const profile = new Profile(profileContainer);
+                await profile.init();
+
+                // Test Chat Window (with mock data)
+                const chatContainer = document.getElementById('chat-container');
+                const chatWindow = new ChatWindow(chatContainer, {
+                    groupId: 'test-group',
+                    groupName: 'Test Group'
+                });
+                await chatWindow.init();
+
+                logger.info('All components initialized successfully!');
+                
+            } catch (error) {
+                logger.error('Component test failed:', error);
+                alert('Component test failed. Check console for details.');
+            }
+        }
+
+        // Run tests when page loads
+        testComponents();
+    </script>
+</body>
+</html>
