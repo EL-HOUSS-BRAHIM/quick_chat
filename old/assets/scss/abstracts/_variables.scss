@@ -1,0 +1,187 @@
+/**
+ * Variables
+ * 
+ * Global variables for the design system
+ */
+
+// Colors
+$primary-color: #667eea;
+$primary-light: #764ba2;
+$primary-dark: #5a67d8;
+
+$secondary-color: #38b2ac;
+$secondary-light: #4fd1c5;
+$secondary-dark: #2c7a7b;
+
+$accent-color: #f6ad55;
+$accent-light: #fbd38d;
+$accent-dark: #dd6b20;
+
+$success-color: #48bb78;
+$info-color: #4299e1;
+$warning-color: #ecc94b;
+$danger-color: #f56565;
+
+// Grayscale
+$white: #ffffff;
+$gray-100: #f7fafc;
+$gray-200: #edf2f7;
+$gray-300: #e2e8f0;
+$gray-400: #cbd5e0;
+$gray-500: #a0aec0;
+$gray-600: #718096;
+$gray-700: #4a5568;
+$gray-800: #2d3748;
+$gray-900: #1a202c;
+$black: #000000;
+
+// Text
+$text-primary: $gray-900;
+$text-secondary: $gray-700;
+$text-tertiary: $gray-600;
+$text-light: $white;
+$text-dark: $black;
+
+// Background
+$bg-primary: $white;
+$bg-secondary: $gray-100;
+$bg-tertiary: $gray-200;
+$bg-dark: $gray-900;
+
+// UI Element colors
+$border-color: $gray-300;
+$shadow-color: rgba(0, 0, 0, 0.1);
+$overlay-color: rgba(0, 0, 0, 0.4);
+
+// Status colors
+$online-color: $success-color;
+$offline-color: $gray-500;
+$busy-color: $danger-color;
+$away-color: $warning-color;
+
+// Typography
+$font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+$font-family-heading: $font-family-base;
+$font-family-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+
+$font-size-base: 1rem;
+$font-size-xs: 0.75rem;
+$font-size-sm: 0.875rem;
+$font-size-md: 1rem;
+$font-size-lg: 1.125rem;
+$font-size-xl: 1.25rem;
+$font-size-2xl: 1.5rem;
+$font-size-3xl: 1.875rem;
+$font-size-4xl: 2.25rem;
+
+$font-weight-light: 300;
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+$line-height-tight: 1.25;
+$line-height-snug: 1.375;
+$line-height-normal: 1.5;
+$line-height-relaxed: 1.625;
+$line-height-loose: 2;
+
+// Spacing
+$spacing-0: 0;
+$spacing-1: 0.25rem;
+$spacing-2: 0.5rem;
+$spacing-3: 0.75rem;
+$spacing-4: 1rem;
+$spacing-5: 1.25rem;
+$spacing-6: 1.5rem;
+$spacing-8: 2rem;
+$spacing-10: 2.5rem;
+$spacing-12: 3rem;
+$spacing-16: 4rem;
+$spacing-20: 5rem;
+$spacing-24: 6rem;
+$spacing-32: 8rem;
+$spacing-40: 10rem;
+$spacing-48: 12rem;
+$spacing-56: 14rem;
+$spacing-64: 16rem;
+
+// Borders
+$border-radius-none: 0;
+$border-radius-sm: 0.125rem;
+$border-radius-md: 0.25rem;
+$border-radius-lg: 0.5rem;
+$border-radius-xl: 0.75rem;
+$border-radius-2xl: 1rem;
+$border-radius-full: 9999px;
+
+$border-width-none: 0;
+$border-width-thin: 1px;
+$border-width-thick: 2px;
+$border-width-thicker: 4px;
+
+// Shadows
+$shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+$shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+$shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+$shadow-outline: 0 0 0 3px rgba(66, 153, 225, 0.5);
+$shadow-none: none;
+
+// Z-index
+$z-index-0: 0;
+$z-index-10: 10;
+$z-index-20: 20;
+$z-index-30: 30;
+$z-index-40: 40;
+$z-index-50: 50;
+$z-index-auto: auto;
+
+// Z-index specific elements
+$z-index-navbar: 1000;
+$z-index-dropdown: 1000;
+$z-index-sidebar: 1100;
+$z-index-modal: 1200;
+$z-index-popup: 1300;
+$z-index-tooltip: 1400;
+
+// Transitions
+$transition-fast: 150ms;
+$transition-normal: 300ms;
+$transition-slow: 500ms;
+$transition-ease: cubic-bezier(0.4, 0, 0.2, 1);
+$transition-ease-in: cubic-bezier(0.4, 0, 1, 1);
+$transition-ease-out: cubic-bezier(0, 0, 0.2, 1);
+$transition-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+// Breakpoints
+$breakpoint-sm: 640px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;
+$breakpoint-xl: 1280px;
+$breakpoint-2xl: 1536px;
+
+// Container max widths
+$container-sm: 640px;
+$container-md: 768px;
+$container-lg: 1024px;
+$container-xl: 1280px;
+$container-2xl: 1536px;
+
+// App-specific variables
+$navbar-height: 4rem;
+$sidebar-width: 280px;
+$sidebar-collapsed-width: 80px;
+$chat-header-height: 60px;
+$chat-footer-height: 70px;
+$message-max-width: 70%;
+
+// Dark theme variables
+$dark-bg-primary: $gray-900;
+$dark-bg-secondary: $gray-800;
+$dark-bg-tertiary: $gray-700;
+$dark-text-primary: $gray-100;
+$dark-text-secondary: $gray-300;
+$dark-border-color: $gray-600;
