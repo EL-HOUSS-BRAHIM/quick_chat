@@ -1,0 +1,53 @@
+/**
+ * Focus Styles
+ * 
+ * Enhanced focus styles for keyboard accessibility
+ */
+
+@use '../abstracts/variables' as *;
+
+// Base focus style
+:focus {
+  outline: 2px solid $primary-color;
+  outline-offset: 2px;
+}
+
+// Focus style for buttons and interactive elements
+button:focus,
+a:focus,
+input:focus,
+select:focus,
+textarea:focus,
+[role="button"]:focus,
+[tabindex]:focus {
+  outline: 2px solid $accent-color;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba($accent-color, 0.2);
+}
+
+// Focus-visible polyfill - only show focus styles for keyboard navigation
+.js-focus-visible :focus:not(.focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.js-focus-visible .focus-visible {
+  outline: 2px solid $accent-color;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba($accent-color, 0.2);
+}
+
+// Skip links for keyboard navigation
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: $primary-color;
+  color: white;
+  padding: 8px;
+  z-index: 100;
+  
+  &:focus {
+    top: 0;
+  }
+}
