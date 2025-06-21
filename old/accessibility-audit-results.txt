@@ -1,0 +1,552 @@
+🔍 Running accessibility audit...
+
+📄 Auditing HTML files...
+🎨 Auditing CSS files...
+📜 Auditing JavaScript files...
+
+📊 ACCESSIBILITY AUDIT REPORT
+==================================================
+
+📈 SUMMARY:
+   🔴 Issues: 12
+   🟡 Warnings: 113
+   💡 Suggestions: 92
+
+🔴 ISSUES (12):
+   1. Missing alt attribute
+      📁 File: admin.php
+      🔍 Element: <img src="<?php echo htmlspecialchars($user['avatar'] ?? 'assets/images/default-...
+
+   2. Missing alt attribute
+      📁 File: chat.php
+      🔍 Element: <img src="<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/d...
+
+   3. Missing alt attribute
+      📁 File: chat.php
+      🔍 Element: <img src="<?php echo htmlspecialchars($targetUser['avatar'] ?? 'assets/images/de...
+
+   4. Missing alt attribute
+      📁 File: dashboard.php
+      🔍 Element: <img src="<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/d...
+
+   5. Missing alt attribute
+      📁 File: group-chat.php
+      🔍 Element: <img src="<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/d...
+
+   6. Missing alt attribute
+      📁 File: group-chat.php
+      🔍 Element: <img src="<?php echo htmlspecialchars($group['avatar'] ?? 'assets/images/default...
+
+   7. Missing alt attribute
+      📁 File: group-chat.php
+      🔍 Element: <img src="<?php echo htmlspecialchars($group['avatar'] ?? 'assets/images/default...
+
+   8. Missing alt attribute
+      📁 File: includes/header.php
+      🔍 Element: <img src="<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/d...
+
+   9. Missing alt attribute
+      📁 File: join-group.php
+      🔍 Element: <img src="<?php echo htmlspecialchars($invite['avatar']); ?>...
+
+   10. Missing alt attribute
+      📁 File: private-chat.php
+      🔍 Element: <img src="<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/d...
+
+   11. Missing alt attribute
+      📁 File: private-chat.php
+      🔍 Element: <img src="<?php echo htmlspecialchars($targetUser['avatar'] ?? 'assets/images/de...
+
+   12. Missing alt attribute
+      📁 File: profile.php
+      🔍 Element: <img src="<?php echo htmlspecialchars($currentUser['avatar'] ?? 'assets/images/d...
+
+
+🟡 WARNINGS (113):
+   1. Input without label
+      📁 File: admin.php
+      🔍 Element: <input type="text" placeholder="Search users..." id="userSearch" class="search-i...
+
+   2. Input without label
+      📁 File: admin.php
+      🔍 Element: <input type="text" placeholder="Search messages..." id="messageSearch" class="se...
+
+   3. Input without label
+      📁 File: admin.php
+      🔍 Element: <input type="text" name="app_name" value="Quick Chat">...
+
+   4. Input without label
+      📁 File: admin.php
+      🔍 Element: <input type="number" name="max_users" value="1000">...
+
+   5. Input without label
+      📁 File: admin.php
+      🔍 Element: <input type="number" name="max_message_length" value="2000">...
+
+   6. Input without label
+      📁 File: admin.php
+      🔍 Element: <input type="number" name="max_file_size" value="10">...
+
+   7. Input without label
+      📁 File: admin.php
+      🔍 Element: <input type="number" name="max_login_attempts" value="5">...
+
+   8. Input without label
+      📁 File: admin.php
+      🔍 Element: <input type="number" name="session_timeout" value="60">...
+
+   9. Input without label
+      📁 File: admin.php
+      🔍 Element: <input type="text" name="username" required minlength="3" maxlength="20">...
+
+   10. Input without label
+      📁 File: admin.php
+      🔍 Element: <input type="email" name="email" required>...
+
+   11. Input without label
+      📁 File: admin.php
+      🔍 Element: <input type="text" name="display_name" required>...
+
+   12. Input without label
+      📁 File: admin.php
+      🔍 Element: <input type="password" name="password" required minlength="8">...
+
+   13. Heading hierarchy skip
+      📁 File: admin.php
+      🔍 Element: <h3>...
+
+   14. Heading hierarchy skip
+      📁 File: admin.php
+      🔍 Element: <h4>...
+
+   15. Heading hierarchy skip
+      📁 File: admin.php
+      🔍 Element: <h4>...
+
+   16. Heading hierarchy skip
+      📁 File: admin.php
+      🔍 Element: <h4>...
+
+   17. Input without label
+      📁 File: auth.php
+      🔍 Element: <input type="hidden" name="action" value="login">...
+
+   18. Input without label
+      📁 File: auth.php
+      🔍 Element: <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfT...
+
+   19. Input without label
+      📁 File: auth.php
+      🔍 Element: <input type="checkbox" name="remember_me">...
+
+   20. Input without label
+      📁 File: auth.php
+      🔍 Element: <input type="hidden" name="action" value="register">...
+
+   21. Input without label
+      📁 File: auth.php
+      🔍 Element: <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfT...
+
+   22. Input without label
+      📁 File: auth.php
+      🔍 Element: <input type="checkbox" name="terms" required>...
+
+   23. Input without label
+      📁 File: auth.php
+      🔍 Element: <input type="hidden" name="action" value="reset_password">...
+
+   24. Input without label
+      📁 File: auth.php
+      🔍 Element: <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfT...
+
+   25. Input without label
+      📁 File: chat.php
+      🔍 Element: <input type="text" id="searchInput" placeholder="Search conversations..." autoco...
+
+   26. Input without label
+      📁 File: chat.php
+      🔍 Element: <input type="checkbox" id="notificationsEnabled">...
+
+   27. Input without label
+      📁 File: chat.php
+      🔍 Element: <input type="checkbox" id="soundEnabled">...
+
+   28. Input without label
+      📁 File: chat.php
+      🔍 Element: <input type="file" id="fileInput" style="display: none;" multiple>...
+
+   29. Input without label
+      📁 File: chat.php
+      🔍 Element: <input type="text" id="userSearchInput" placeholder="Search users..." autocomple...
+
+   30. Input without label
+      📁 File: chat.php
+      🔍 Element: <input type="file" id="groupAvatarInput" accept="image/*" style="display: none;"...
+
+   31. Input without label
+      📁 File: chat.php
+      🔍 Element: <input type="text" id="memberSearch" placeholder="Search users...">...
+
+   32. Input without label
+      📁 File: chat.php
+      🔍 Element: <input type="text" id="inviteLinkInput" readonly>...
+
+   33. Input without label
+      📁 File: chat.php
+      🔍 Element: <input type="text" id="inviteUserSearch" placeholder="Search users...">...
+
+   34. Heading hierarchy skip
+      📁 File: chat.php
+      🔍 Element: <h3>...
+
+   35. Heading hierarchy skip
+      📁 File: chat.php
+      🔍 Element: <h4 class="group-info-section-title">...
+
+   36. Input without label
+      📁 File: dashboard.php
+      🔍 Element: <input type="text" placeholder="Search..." id="globalSearch">...
+
+   37. Input without label
+      📁 File: dashboard.php
+      🔍 Element: <input type="text" placeholder="Search contacts..." id="contactsSearch">...
+
+   38. Input without label
+      📁 File: dashboard.php
+      🔍 Element: <input type="checkbox" id="emailNotifications" checked>...
+
+   39. Input without label
+      📁 File: dashboard.php
+      🔍 Element: <input type="text" id="groupName" required>...
+
+   40. Input without label
+      📁 File: dashboard.php
+      🔍 Element: <input type="text" id="memberSearch" placeholder="Search users..." oninput="sear...
+
+   41. Input without label
+      📁 File: group-chat.php
+      🔍 Element: <input type="text" id="searchInput" placeholder="Search groups..." autocomplete=...
+
+   42. Input without label
+      📁 File: group-chat.php
+      🔍 Element: <input type="checkbox" id="notificationToggle" checked>...
+
+   43. Input without label
+      📁 File: group-chat.php
+      🔍 Element: <input type="checkbox" id="soundToggle" checked>...
+
+   44. Input without label
+      📁 File: group-chat.php
+      🔍 Element: <input type="file" id="fileInput" style="display: none;" multiple>...
+
+   45. Input without label
+      📁 File: group-chat.php
+      🔍 Element: <input type="text" id="memberSearchInput" placeholder="Search users to add...">...
+
+   46. Input without label
+      📁 File: group-chat.php
+      🔍 Element: <input type="text" id="inviteLink" readonly>...
+
+   47. Input without label
+      📁 File: group-chat.php
+      🔍 Element: <input type="text" id="inviteSearchInput" placeholder="Search users to invite......
+
+   48. Heading hierarchy skip
+      📁 File: group-chat.php
+      🔍 Element: <h3>...
+
+   49. Heading hierarchy skip
+      📁 File: group-chat.php
+      🔍 Element: <h4 class="group-info-section-title">...
+
+   50. Input without label
+      📁 File: join-group.php
+      🔍 Element: <input type="hidden" name="csrf_token" value="<?php echo $security->...
+
+   51. Heading hierarchy skip
+      📁 File: join-group.php
+      🔍 Element: <h4 class="mb-0">...
+
+   52. Heading hierarchy skip
+      📁 File: landing.php
+      🔍 Element: <h3 class="feature-title">...
+
+   53. Input without label
+      📁 File: private-chat.php
+      🔍 Element: <input type="text" id="searchInput" placeholder="Search conversations..." autoco...
+
+   54. Input without label
+      📁 File: private-chat.php
+      🔍 Element: <input type="checkbox" id="notificationToggle" checked>...
+
+   55. Input without label
+      📁 File: private-chat.php
+      🔍 Element: <input type="checkbox" id="soundToggle" checked>...
+
+   56. Input without label
+      📁 File: private-chat.php
+      🔍 Element: <input type="file" id="fileInput" style="display: none;" multiple>...
+
+   57. Input without label
+      📁 File: private-chat.php
+      🔍 Element: <input type="text" id="userSearchInput" placeholder="Search users..." autocomple...
+
+   58. Heading hierarchy skip
+      📁 File: private-chat.php
+      🔍 Element: <h3>...
+
+   59. Input without label
+      📁 File: profile.php
+      🔍 Element: <input type="hidden" name="action" value="update_profile">...
+
+   60. Input without label
+      📁 File: profile.php
+      🔍 Element: <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfT...
+
+   61. Input without label
+      📁 File: profile.php
+      🔍 Element: <input type="text" value="<?php echo date('F j, Y', strtotime($currentUser['crea...
+
+   62. Input without label
+      📁 File: profile.php
+      🔍 Element: <input type="hidden" name="action" value="change_password">...
+
+   63. Input without label
+      📁 File: profile.php
+      🔍 Element: <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfT...
+
+   64. Input without label
+      📁 File: profile.php
+      🔍 Element: <input type="hidden" name="action" value="update_settings">...
+
+   65. Input without label
+      📁 File: profile.php
+      🔍 Element: <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfT...
+
+   66. Input without label
+      📁 File: profile.php
+      🔍 Element: <input type="checkbox" name="notifications_sound" 
+                             ...
+
+   67. Input without label
+      📁 File: profile.php
+      🔍 Element: <input type="checkbox" name="notifications_desktop" 
+                           ...
+
+   68. Input without label
+      📁 File: profile.php
+      🔍 Element: <input type="checkbox" name="notifications_email" 
+                             ...
+
+   69. Input without label
+      📁 File: profile.php
+      🔍 Element: <input type="hidden" name="action" value="update_settings">...
+
+   70. Input without label
+      📁 File: profile.php
+      🔍 Element: <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfT...
+
+   71. Heading hierarchy skip
+      📁 File: profile.php
+      🔍 Element: <h4>...
+
+   72. Heading hierarchy skip
+      📁 File: profile.php
+      🔍 Element: <h4>...
+
+   73. Heading hierarchy skip
+      📁 File: profile.php
+      🔍 Element: <h4>...
+
+   74. Missing focus styles
+      📁 File: assets/scss/abstracts/_functions.scss
+      💬 Consider adding focus styles for keyboard navigation
+
+   75. Missing focus styles
+      📁 File: assets/scss/abstracts/_variables.scss
+      💬 Consider adding focus styles for keyboard navigation
+
+   76. Missing focus styles
+      📁 File: assets/scss/accessibility/reduced-motion.scss
+      💬 Consider adding focus styles for keyboard navigation
+
+   77. Missing focus styles
+      📁 File: assets/scss/components/_voice-messages.scss
+      💬 Consider adding focus styles for keyboard navigation
+
+   78. Missing focus styles
+      📁 File: assets/scss/main.scss
+      💬 Consider adding focus styles for keyboard navigation
+
+   79. Missing focus styles
+      📁 File: assets/scss/responsive/desktop.scss
+      💬 Consider adding focus styles for keyboard navigation
+
+   80. Missing focus styles
+      📁 File: assets/scss/responsive/mobile.scss
+      💬 Consider adding focus styles for keyboard navigation
+
+   81. Missing focus styles
+      📁 File: assets/scss/responsive/tablet.scss
+      💬 Consider adding focus styles for keyboard navigation
+
+   82. Missing keyboard handlers
+      📁 File: assets/js/core/mobile-experience-manager.js
+      💬 Interactive elements should be keyboard accessible
+
+   83. Missing keyboard handlers
+      📁 File: assets/js/core/pwa-manager.js
+      💬 Interactive elements should be keyboard accessible
+
+   84. Missing focus management
+      📁 File: assets/js/core/state.js
+      💬 Modals and dialogs should manage focus properly
+
+   85. Missing keyboard handlers
+      📁 File: assets/js/core/utils.js
+      💬 Interactive elements should be keyboard accessible
+
+   86. Missing keyboard handlers
+      📁 File: assets/js/features/admin/config-manager.js
+      💬 Interactive elements should be keyboard accessible
+
+   87. Missing keyboard handlers
+      📁 File: assets/js/features/admin/index.js
+      💬 Interactive elements should be keyboard accessible
+
+   88. Missing keyboard handlers
+      📁 File: assets/js/features/admin/log-viewer.js
+      💬 Interactive elements should be keyboard accessible
+
+   89. Missing keyboard handlers
+      📁 File: assets/js/features/admin/moderation-manager.js
+      💬 Interactive elements should be keyboard accessible
+
+   90. Missing keyboard handlers
+      📁 File: assets/js/features/admin/user-manager.js
+      💬 Interactive elements should be keyboard accessible
+
+   91. Missing focus management
+      📁 File: assets/js/features/admin/user-manager.js
+      💬 Modals and dialogs should manage focus properly
+
+   92. Missing keyboard handlers
+      📁 File: assets/js/features/chat/emoji-picker.js
+      💬 Interactive elements should be keyboard accessible
+
+   93. Missing keyboard handlers
+      📁 File: assets/js/features/chat/group-chat.js
+      💬 Interactive elements should be keyboard accessible
+
+   94. Missing keyboard handlers
+      📁 File: assets/js/features/chat/group-info.js
+      💬 Interactive elements should be keyboard accessible
+
+   95. Missing keyboard handlers
+      📁 File: assets/js/features/chat/reactions.js
+      💬 Interactive elements should be keyboard accessible
+
+   96. Missing keyboard handlers
+      📁 File: assets/js/features/chat/recording.js
+      💬 Interactive elements should be keyboard accessible
+
+   97. Missing keyboard handlers
+      📁 File: assets/js/features/chat/replies.js
+      💬 Interactive elements should be keyboard accessible
+
+   98. Missing keyboard handlers
+      📁 File: assets/js/features/chat/settings.js
+      💬 Interactive elements should be keyboard accessible
+
+   99. Missing focus management
+      📁 File: assets/js/features/chat/settings.js
+      💬 Modals and dialogs should manage focus properly
+
+   100. Missing keyboard handlers
+      📁 File: assets/js/features/dashboard/index.js
+      💬 Interactive elements should be keyboard accessible
+
+   101. Missing keyboard handlers
+      📁 File: assets/js/features/emoji/emoji-picker.js
+      💬 Interactive elements should be keyboard accessible
+
+   102. Missing focus management
+      📁 File: assets/js/features/i18n/index.js
+      💬 Modals and dialogs should manage focus properly
+
+   103. Missing keyboard handlers
+      📁 File: assets/js/features/profile/avatar.js
+      💬 Interactive elements should be keyboard accessible
+
+   104. Missing keyboard handlers
+      📁 File: assets/js/features/profile/preferences.js
+      💬 Interactive elements should be keyboard accessible
+
+   105. Missing focus management
+      📁 File: assets/js/features/profile/preferences.js
+      💬 Modals and dialogs should manage focus properly
+
+   106. Missing keyboard handlers
+      📁 File: assets/js/features/theme/index.js
+      💬 Interactive elements should be keyboard accessible
+
+   107. Missing keyboard handlers
+      📁 File: assets/js/features/webrtc/browser-compatibility.js
+      💬 Interactive elements should be keyboard accessible
+
+   108. Missing focus management
+      📁 File: assets/js/features/webrtc/index.js
+      💬 Modals and dialogs should manage focus properly
+
+   109. Missing focus management
+      📁 File: assets/js/features/webrtc/screen-sharing-manager.js
+      💬 Modals and dialogs should manage focus properly
+
+   110. Missing keyboard handlers
+      📁 File: assets/js/features/webrtc/ui.js
+      💬 Interactive elements should be keyboard accessible
+
+   111. Missing keyboard handlers
+      📁 File: assets/js/ui/notification-manager.js
+      💬 Interactive elements should be keyboard accessible
+
+   112. Missing keyboard handlers
+      📁 File: assets/js/ui/upload-progress.js
+      💬 Interactive elements should be keyboard accessible
+
+   113. Missing keyboard handlers
+      📁 File: assets/js/ui/virtual-scroll.js
+      💬 Interactive elements should be keyboard accessible
+
+
+💡 SUGGESTIONS (92):
+   1. Missing reduced motion support
+      📁 File: assets/scss/abstracts/_functions.scss
+      💬 Consider adding support for users who prefer reduced motion
+
+   2. Missing reduced motion support
+      📁 File: assets/scss/abstracts/_mixins.scss
+      💬 Consider adding support for users who prefer reduced motion
+
+   3. Missing reduced motion support
+      📁 File: assets/scss/abstracts/_placeholders.scss
+      💬 Consider adding support for users who prefer reduced motion
+
+   4. Color contrast check needed
+      📁 File: assets/scss/abstracts/_variables.scss
+      💬 Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)
+
+   5. Color contrast check needed
+      📁 File: assets/scss/abstracts/_variables.scss
+      💬 Verify color contrast meets WCAG guidelines (4.5:1 for normal text, 3:1 for large text)
+
+   ... and 87 more suggestions
+
+🎯 RECOMMENDATIONS:
+   1. Fix all high-severity issues immediately
+   2. Address warnings to improve accessibility
+   3. Consider implementing suggestions for better UX
+   4. Test with actual screen readers and keyboard navigation
+   5. Run automated accessibility testing tools like axe-core
+
+📄 Report saved to accessibility-report.json
